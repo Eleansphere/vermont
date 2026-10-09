@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { InstancedMesh } from 'three';
 import { hexKey, mapHexes, rectangleHex } from '@vermont/core';
 import { TERRAIN_STYLES } from './palette';
 import { createTerrainLayer } from './terrain';
@@ -34,6 +35,29 @@ describe('terrain layer', () => {
     expect(terrain.surfaceHeight(rectangleHex(4, 3))).toBeGreaterThan(plain);
     expect(terrain.surfaceHeight(rectangleHex(0, 5))).toBeLessThan(plain);
     expect(terrain.surfaceHeight(rectangleHex(-5, -5))).toBe(0);
+  });
+
+  it('darkens the hexes in the fog, with the trees on them, and lights them again', () => {
+    const fogged = createTerrainLayer(defs);
+    const lit = rectangleHex(0, 0);
+    const wood = rectangleHex(11, 3);
+    const brightness = () =>
+      fogged.object.children.map((mesh) => {
+        const colors = (mesh as InstancedMesh).instanceColor!.array;
+        return Array.from(colors).reduce((sum, channel) => sum + channel, 0);
+      });
+    const clear = brightness();
+
+    fogged.setFog(new Set([hexKey(lit)]));
+
+    expect(fogged.isFogged(lit)).toBe(false);
+    expect(fogged.isFogged(wood)).toBe(true);
+    brightness().forEach((sum, index) => expect(sum).toBeLessThan(clear[index]!));
+
+    fogged.setFog(null);
+
+    expect(fogged.isFogged(wood)).toBe(false);
+    expect(brightness()).toEqual(clear);
   });
 
   it('has a style for every terrain in the data', () => {

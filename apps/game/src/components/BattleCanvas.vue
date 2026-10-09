@@ -15,14 +15,14 @@ let resizeObserver: ResizeObserver | null = null;
 function buildScene(): void {
   scene?.dispose();
   scene = null;
-  if (!canvas.value || !store.defs || !store.state) return;
+  if (!canvas.value || !store.defs || !store.shown) return;
 
   scene = createBattleScene(canvas.value, {
     defs: store.defs,
     onPick: (pick) => store.pick(pick),
     onHover: (pick) => store.hover(pick?.hex ?? null),
   });
-  scene.sync(store.state);
+  scene.sync(store.shown.state, store.shown.visible);
   scene.setHighlights(store.highlights);
 }
 
@@ -37,7 +37,9 @@ watch(() => store.defs, buildScene);
 watch(
   () => store.played,
   (played) => {
-    if (played) scene?.play(played.events, played.state);
+    if (!played) return;
+    if (played.from) scene?.sync(played.from.state, played.from.visible);
+    scene?.play(played.events, played.state, played.visible);
   }
 );
 watch(

@@ -11,9 +11,9 @@ type Screen = 'menu' | 'scenarios' | 'battle';
 const store = useBattleStore();
 const screen = ref<Screen>('menu');
 
-function startBattle(scenarioId: string, deployment: DeploymentMode): void {
+function startBattle(scenarioId: string, deployment: DeploymentMode, fog: boolean): void {
   // The clock is the seed: every battle rolls differently, a saved seed replays it.
-  store.start(Date.now(), scenarioId, { deployment });
+  store.start(Date.now(), scenarioId, { deployment, fog });
   screen.value = 'battle';
 }
 </script>

@@ -36,6 +36,7 @@ const view = computed(() => {
     terrain: terrainName(terrain.id),
     facts,
     camp: info.campOf === null ? null : t('tip.camp', { side: sideName(scenario, info.campOf) }),
+    fogged: info.fogged,
     unit: unit && {
       label: unitLabel(state, defs, unit),
       color: sideColor(unit.owner),
@@ -68,6 +69,7 @@ const position = computed(() => ({
       <span class="muted">{{ view.facts.join(' · ') }}</span>
     </div>
     <div v-if="view.camp" class="tip__camp">{{ view.camp }}</div>
+    <div v-if="view.fogged" class="muted" data-test="tooltip-fog">{{ t('tip.fogged') }}</div>
 
     <div v-if="view.unit" class="tip__unit" :style="{ borderColor: view.unit.color }">
       <strong>{{ view.unit.label }}</strong>

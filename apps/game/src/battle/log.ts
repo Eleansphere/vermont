@@ -22,9 +22,9 @@ export interface LogEntry {
 export interface LogContext {
   readonly scenario: ScenarioDef;
   readonly defs: BattleDefs;
-  /** The state the events started from. */
+  /** The whole state the events started from; a player's view has no names for hidden units. */
   readonly before: BattleState;
-  /** The state after the events. */
+  /** The whole state after the events. */
   readonly after: BattleState;
 }
 
@@ -70,6 +70,8 @@ export function describeEvents(events: readonly GameEvent[], context: LogContext
         break;
       case 'UnitMoved': {
         const count = event.path.length - 1;
+        // An enemy seen on a single hex of its march: there is no stretch to speak of.
+        if (count === 0) break;
         entries.push(
           aboutUnit(
             'move',
@@ -79,6 +81,11 @@ export function describeEvents(events: readonly GameEvent[], context: LogContext
         );
         break;
       }
+      case 'UnitAmbushed':
+        entries.push(
+          aboutUnit('move', event.unitId, t('log.ambushed', { unit: label(event.unitId) }))
+        );
+        break;
       case 'AttackResolved': {
         const attack = t(event.kind === 'ranged' ? 'log.attack.ranged' : 'log.attack.melee', {
           unit: label(event.attackerId),

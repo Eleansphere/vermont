@@ -6,11 +6,15 @@ import { sideColor, sideName } from '../battle/labels';
 import { plural, scenarioName, t } from '../i18n';
 import type { DeploymentMode } from '../stores/battle';
 
-const emit = defineEmits<{ start: [scenarioId: string, deployment: DeploymentMode]; back: [] }>();
+const emit = defineEmits<{
+  start: [scenarioId: string, deployment: DeploymentMode, fog: boolean];
+  back: [];
+}>();
 
 const scenarios: readonly ScenarioDef[] = Object.values(SCENARIOS);
 const chosenId = ref(scenarios[0]?.id ?? '');
 const autoDeploy = ref(false);
+const fog = ref(true);
 
 function armyText(scenario: ScenarioDef, player: 0 | 1): string {
   const count = armySize(scenario.sides[player]);
@@ -48,6 +52,10 @@ function armyText(scenario: ScenarioDef, player: 0 | 1): string {
         <input v-model="autoDeploy" type="checkbox" name="autoDeploy" />
         {{ t('scenarios.autoDeploy') }}
       </label>
+      <label class="scenarios__option">
+        <input v-model="fog" type="checkbox" name="fog" />
+        {{ t('scenarios.fog') }}
+      </label>
 
       <div class="scenarios__actions">
         <button class="button" type="button" data-test="back" @click="emit('back')">
@@ -58,7 +66,7 @@ function armyText(scenario: ScenarioDef, player: 0 | 1): string {
           type="button"
           data-test="start"
           :disabled="!chosenId"
-          @click="emit('start', chosenId, autoDeploy ? 'auto' : 'manual')"
+          @click="emit('start', chosenId, autoDeploy ? 'auto' : 'manual', fog)"
         >
           {{ t('scenarios.start') }}
         </button>

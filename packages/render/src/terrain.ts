@@ -33,6 +33,9 @@ const PEAK_SIDES = 5;
 const TENT_RADIUS = 0.5;
 const TENT_HEIGHT = 0.7;
 const TENT_SIDES = 4;
+/** How much of its colour a hex keeps while it lies in the fog of war. */
+const FOG_SHADE = 0.42;
+const UNSHADED = 0xffffff;
 
 /** The drawn map. Built once: terrain does not change during a battle. */
 export interface TerrainLayer {
@@ -43,6 +46,10 @@ export interface TerrainLayer {
   hexOfInstance(mesh: InstancedMesh, instanceId: number): Hex | undefined;
   /** Height of the hex's top, where units and highlights are put; 0 off the map. */
   surfaceHeight(target: Hex): number;
+  /** Darkens the hexes outside `visible`, with all that stands on them; `null` lifts the fog. */
+  setFog(visible: ReadonlySet<HexKey> | null): void;
+  /** Whether the hex is drawn darkened by the fog. */
+  isFogged(target: Hex): boolean;
   dispose(): void;
 }
 
@@ -52,6 +59,8 @@ export function createTerrainLayer(defs: BattleDefs): TerrainLayer {
   const disposables: (BufferGeometry | Material)[] = [];
   const hexesByMesh = new Map<InstancedMesh, Hex[]>();
   const heights = new Map<HexKey, number>();
+  const shaded: Shaded[] = [];
+  let fogged: ReadonlySet<HexKey> | null = null;
 
   // A prism one unit tall standing on the ground; instances are stretched to their height.
   const prism = new CylinderGeometry(
@@ -76,10 +85,16 @@ export function createTerrainLayer(defs: BattleDefs): TerrainLayer {
     const mesh = instanced(
       prism,
       material,
-      hexes.map((mapHex) => ({ ...hexToWorld(mapHex), y: 0, scale: [1, style.height, 1] }))
+      hexes.map((mapHex) => ({
+        ...hexToWorld(mapHex),
+        y: 0,
+        scale: [1, style.height, 1],
+        hex: mapHex,
+      }))
     );
     mesh.receiveShadow = true;
     hexesByMesh.set(mesh, hexes);
+    shaded.push({ mesh, hexes });
     object.add(mesh);
   }
 
@@ -91,21 +106,24 @@ export function createTerrainLayer(defs: BattleDefs): TerrainLayer {
       y: surfaceHeight(mapHex),
       z: center.z + offsetZ,
       scale: [scale, scale, scale],
+      hex: mapHex,
     };
   };
+  /** `colors` gives each instance its own colour; without it they all have `color`. */
   const decorate = (
     geometry: BufferGeometry,
-    color: number | null,
-    placements: readonly Placement[]
-  ): InstancedMesh | null => {
+    color: number,
+    placements: readonly Placement[],
+    colors?: readonly number[]
+  ): void => {
     disposables.push(geometry);
-    if (placements.length === 0) return null;
-    const material = new MeshStandardMaterial({ color: color ?? 0xffffff, flatShading: true });
+    if (placements.length === 0) return;
+    const material = new MeshStandardMaterial({ color, flatShading: true });
     disposables.push(material);
     const mesh = instanced(geometry, material, placements);
     mesh.castShadow = true;
     object.add(mesh);
-    return mesh;
+    shaded.push({ mesh, hexes: placements.map((placement) => placement.hex), colors });
   };
 
   decorate(
@@ -126,22 +144,35 @@ export function createTerrainLayer(defs: BattleDefs): TerrainLayer {
     const camp = defs.camps[player];
     return camp ? [{ player, camp }] : [];
   });
-  const tents = decorate(
+  decorate(
     new ConeGeometry(TENT_RADIUS, TENT_HEIGHT, TENT_SIDES).translate(0, TENT_HEIGHT / 2, 0),
-    null,
-    camps.map(({ player, camp }) => standingOn(camp, 0, campBackOffset(player), 0.7))
+    UNSHADED,
+    camps.map(({ player, camp }) => standingOn(camp, 0, campBackOffset(player), 0.7)),
+    camps.map(({ player }) => PLAYER_COLORS[player])
   );
-  if (tents) {
+
+  const isFogged = (target: Hex) => fogged !== null && !fogged.has(hexKey(target));
+  const setFog = (visible: ReadonlySet<HexKey> | null): void => {
+    fogged = visible;
     const color = new Color();
-    camps.forEach(({ player }, index) => tents.setColorAt(index, color.set(PLAYER_COLORS[player])));
-    if (tents.instanceColor) tents.instanceColor.needsUpdate = true;
-  }
+    for (const { mesh, hexes, colors } of shaded) {
+      hexes.forEach((mapHex, index) => {
+        color.set(colors?.[index] ?? UNSHADED);
+        if (isFogged(mapHex)) color.multiplyScalar(FOG_SHADE);
+        mesh.setColorAt(index, color);
+      });
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    }
+  };
+  setFog(null);
 
   return {
     object,
     pickTargets: [...hexesByMesh.keys()],
     hexOfInstance: (mesh, instanceId) => hexesByMesh.get(mesh)?.[instanceId],
     surfaceHeight,
+    setFog,
+    isFogged,
     dispose() {
       for (const disposable of disposables) disposable.dispose();
       object.clear();
@@ -160,6 +191,16 @@ interface Placement {
   readonly y: number;
   readonly z: number;
   readonly scale: readonly [number, number, number];
+  /** The hex the instance belongs to; it goes dark with it. */
+  readonly hex: Hex;
+}
+
+/** A mesh whose instances are darkened with the hexes they stand on. */
+interface Shaded {
+  readonly mesh: InstancedMesh;
+  readonly hexes: readonly Hex[];
+  /** Colour of each instance in full light; white when left out. */
+  readonly colors?: readonly number[];
 }
 
 function instanced(

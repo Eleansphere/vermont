@@ -7,7 +7,7 @@ import {
   Scene,
   WebGLRenderer,
 } from 'three';
-import type { BattleDefs, BattleState, GameEvent, Hex } from '@vermont/core';
+import type { BattleDefs, BattleState, GameEvent, Hex, HexKey } from '@vermont/core';
 import { hexEquals, mapHexes } from '@vermont/core';
 import type { CameraView } from './camera';
 import {
@@ -61,11 +61,18 @@ export interface BattleSceneOptions {
   readonly unitModel?: UnitModelFactory;
 }
 
+/** Hexes the player looking at the scene sees; `null` when nothing lies in the fog of war. */
+export type VisibleHexes = ReadonlySet<HexKey> | null;
+
 export interface BattleScene {
-  /** Shows the state as it is, dropping any animation still playing. */
-  sync(state: BattleState): void;
+  /**
+   * Shows the state as it is, dropping any animation still playing. The scene draws every unit
+   * of the state it is given, so with the fog on that is a player's view; hexes outside
+   * `visible` are darkened.
+   */
+  sync(state: BattleState, visible?: VisibleHexes): void;
   /** Animates what happened and ends up showing `state`, the state after the events. */
-  play(events: readonly GameEvent[], state: BattleState): void;
+  play(events: readonly GameEvent[], state: BattleState, visible?: VisibleHexes): void;
   setHighlights(highlights: Highlights): void;
   /** True while events are still being animated; clicks are ignored meanwhile. */
   readonly animating: boolean;
@@ -183,6 +190,11 @@ export function createBattleScene(
     },
   });
 
+  function show(state: BattleState, visible: VisibleHexes): void {
+    units.sync(state);
+    terrain.setFog(visible);
+  }
+
   let lastTime: number | null = null;
   function frame(time: number): void {
     const seconds = Math.min(lastTime === null ? 0 : (time - lastTime) / 1000, MAX_FRAME_SECONDS);
@@ -198,16 +210,17 @@ export function createBattleScene(
   renderer.setAnimationLoop(frame);
 
   return {
-    sync(state) {
+    sync(state, visible = null) {
       timeline.finish();
-      units.sync(state);
+      show(state, visible);
     },
-    play(events, state) {
+    play(events, state, visible = null) {
       const context = { units, state, effects };
       timeline.enqueue(
         ...events.flatMap((event) => eventSteps(event, context)),
-        // Whatever the animation left slightly off is put right at its end.
-        { duration: 0, end: () => units.sync(state) }
+        // Whatever the animation left slightly off is put right at its end, and what the
+        // units came to see on the way shows up.
+        { duration: 0, end: () => show(state, visible) }
       );
     },
     setHighlights: (marks) => highlights.set(marks),

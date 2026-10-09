@@ -41,6 +41,19 @@ const showResult = computed(
   () => winner.value !== null && !resultDismissed.value && !overlay.value
 );
 
+/** The player asked to the screen; until they sit down the battle is covered and takes no orders. */
+const handover = computed(() => {
+  const { handover: player, scenario, state } = store;
+  if (player === null || !scenario || !state) return null;
+  return {
+    side: sideName(scenario, player),
+    color: sideColor(player),
+    task: t(state.phase === 'deployment' ? 'handover.deploy' : 'handover.turn', {
+      turn: state.turn,
+    }),
+  };
+});
+
 watch(
   () => store.state?.winner,
   () => (resultDismissed.value = false)
@@ -88,7 +101,10 @@ const ACTIONS: Readonly<Record<ShortcutAction, () => void>> = {
 function onKeyDown(event: KeyboardEvent): void {
   const action = shortcutFor(event);
   if (!action) return;
-  if (overlay.value) {
+  if (handover.value) {
+    if (action !== 'endTurn') return;
+    store.takeSeat();
+  } else if (overlay.value) {
     // A dialog only knows how to be confirmed or closed.
     if (action === 'escape') escape();
     else if (action === 'endTurn' && overlay.value === 'confirmEndTurn') confirmEndTurn();
@@ -125,13 +141,33 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
     <DeploymentPanel v-if="store.state?.phase === 'deployment'" />
     <UnitPanel />
     <EventLog v-if="settings.showLog" />
-    <HexTooltip v-if="!overlay" :x="pointer.x" :y="pointer.y" />
+    <HexTooltip v-if="!overlay && !handover" :x="pointer.x" :y="pointer.y" />
 
     <p v-if="store.rejection" class="battle__rejection panel" role="alert" data-test="rejection">
       {{ rejectionText(store.rejection.code) }}
     </p>
 
-    <GameDialog v-if="overlay === 'confirmEndTurn'" :title="t('hud.endTurn')">
+    <GameDialog
+      v-if="handover"
+      class="battle__handover"
+      :title="t('handover.title', { side: handover.side })"
+      data-test="handover"
+    >
+      <p class="battle__text battle__side" :style="{ borderColor: handover.color }">
+        {{ handover.task }}
+      </p>
+      <p class="battle__text muted">{{ t('handover.hint') }}</p>
+      <button
+        class="button button--primary button--wide"
+        type="button"
+        data-test="take-seat"
+        @click="store.takeSeat()"
+      >
+        {{ t('handover.ready') }} <kbd>Enter</kbd>
+      </button>
+    </GameDialog>
+
+    <GameDialog v-else-if="overlay === 'confirmEndTurn'" :title="t('hud.endTurn')">
       <p class="battle__text">
         {{ t('hud.confirmEndTurn', { count: store.readyUnits.length }) }}
       </p>
@@ -228,6 +264,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
 
 .battle__text {
   margin: 0;
+}
+
+.battle__side {
+  padding-left: 8px;
+  border-left: 3px solid;
+}
+
+/* Nothing of the battle may show through while the players change seats. */
+.battle__handover {
+  background: var(--bg);
 }
 
 .battle__row {

@@ -51,6 +51,24 @@ describe('describeEvents', () => {
     ]);
   });
 
+  it('tells of a unit stopped by an enemy in the fog', () => {
+    expect(
+      texts([
+        { type: 'UnitMoved', unitId: 'p0-equites-1', path: [ORIGIN, { q: 1, r: 0 }], cost: 1 },
+        { type: 'UnitAmbushed', unitId: 'p0-equites-1', hex: { q: 1, r: 0 } },
+      ])
+    ).toEqual([
+      'Equites 1: přesun o 1 hex.',
+      'Equites 1: narazila na skrytého nepřítele a zastavila.',
+    ]);
+  });
+
+  it('says nothing of an enemy march seen on a single hex', () => {
+    expect(
+      texts([{ type: 'UnitMoved', unitId: 'p1-war-elephants-1', path: [ORIGIN], cost: 2 }])
+    ).toEqual([]);
+  });
+
   it('tells an attack with its answer from shooting', () => {
     expect(
       texts([

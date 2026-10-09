@@ -12,6 +12,7 @@ import {
   reserveUnits,
   unitReach,
 } from '@vermont/core';
+import type { StartOptions } from './battle';
 import { useBattleStore } from './battle';
 
 const SEED = 7;
@@ -20,10 +21,15 @@ const MAX_TURNS_TO_CONTACT = 40;
 type BattleStore = ReturnType<typeof useBattleStore>;
 
 /** A battle with both armies already on the field. */
-function startedStore(): BattleStore {
+function startedStore(options: StartOptions = {}): BattleStore {
   const store = useBattleStore();
-  store.start(SEED, 'trebia', { deployment: 'auto' });
+  store.start(SEED, 'trebia', { deployment: 'auto', ...options });
   return store;
+}
+
+/** Enemy units the player at the screen knows about. */
+function sighted(store: BattleStore): FieldedUnit[] {
+  return fieldedUnits(store.known!, opponentOf(store.viewer));
 }
 
 /** A battle the players still have to deploy for. */
@@ -192,7 +198,7 @@ describe('battle store', () => {
 
       expect(store.state!.units[unitId]!.status).toBe('reserve');
       expect(store.selectedUnitId).toBe(unitId);
-      expect(store.played).toEqual({ events: [], state: store.state });
+      expect(store.played).toMatchObject({ events: [], state: store.known });
       expect(store.canUndo).toBe(false);
     });
 
@@ -300,7 +306,7 @@ describe('battle store', () => {
 
       expect(store.state!.units[unit.id]!.pos).toEqual(goal);
       expect(store.played?.events.map((event) => event.type)).toContain('UnitMoved');
-      expect(store.played?.state).toBe(store.state);
+      expect(store.played?.state).toEqual(store.known);
       expect(store.selectedUnitId).toBe(unit.id);
       expect(store.highlights.selected).toEqual(goal);
     });
@@ -355,7 +361,7 @@ describe('battle store', () => {
     });
 
     it('describes the hex under the pointer', () => {
-      const store = startedStore();
+      const store = startedStore({ fog: false });
       const unit = fieldedUnits(store.state!, 1)[0]!;
 
       store.hover(unit.pos);
@@ -384,7 +390,7 @@ describe('battle store', () => {
 
       expect(store.state).toBe(before);
       expect(store.log).toEqual(logBefore);
-      expect(store.played).toEqual({ events: [], state: before });
+      expect(store.played).toMatchObject({ events: [], state: store.known });
       expect(store.selectedUnitId).toBe(unit.id);
       expect(store.canUndo).toBe(false);
     });
@@ -443,6 +449,130 @@ describe('battle store', () => {
       expect(store.played?.events[0]?.type).toBe('AttackResolved');
       expect(store.canUndo).toBe(false);
       expect(store.log.some((entry) => entry.tone === 'combat')).toBe(true);
+    });
+  });
+
+  describe('fog of war', () => {
+    it('shows a player their own army and none of the enemy they cannot see', () => {
+      const store = startedStore();
+
+      expect(fieldedUnits(store.known!, 0)).toHaveLength(12);
+      expect(sighted(store)).toEqual([]);
+      expect(store.shown?.visible?.size).toBeLessThan(Object.keys(store.defs!.map.hexes).length);
+    });
+
+    it('says that a hex lies out of sight', () => {
+      const store = startedStore();
+      const enemy = fieldedUnits(store.state!, 1)[0]!;
+
+      store.hover(enemy.pos);
+      expect(store.hoverInfo).toMatchObject({ unit: null, fogged: true });
+
+      store.hover(fieldedUnits(store.state!, 0)[0]!.pos);
+      expect(store.hoverInfo).toMatchObject({ fogged: false });
+    });
+
+    it('covers the map between the turns until the next player sits down', () => {
+      const store = startedStore();
+      const { unit } = movableUnit(store);
+      expect(store.handover).toBeNull();
+
+      store.endTurn();
+
+      expect(store.viewer).toBe(1);
+      expect(store.handover).toBe(1);
+      expect(fieldedUnits(store.known!, 1)).toHaveLength(12);
+      expect(fieldedUnits(store.played!.from!.state, 0)).toEqual([]);
+      expect(sighted(store)).toEqual([]);
+
+      const own = fieldedUnits(store.known!, 1)[0]!;
+      store.pick({ hex: own.pos, unitId: own.id });
+      expect(store.selectedUnitId).toBeNull();
+      expect(unit.owner).toBe(0);
+
+      store.takeSeat();
+      store.pick({ hex: own.pos, unitId: own.id });
+
+      expect(store.handover).toBeNull();
+      expect(store.selectedUnitId).toBe(own.id);
+    });
+
+    it('keeps a log for each player of what that player witnessed', () => {
+      const store = startedStore();
+      const { unit, goal } = movableUnit(store);
+      moveTo(store, unit, goal);
+      expect(store.log.some((entry) => entry.tone === 'move')).toBe(true);
+
+      store.endTurn();
+
+      expect(store.log.some((entry) => entry.tone === 'move')).toBe(false);
+      expect(store.log.at(-1)?.text).toBe('Kolo 1, na tahu Kartágo.');
+    });
+
+    it('hides how the first player deployed from the second', () => {
+      const store = deployingStore();
+      store.autoDeploy();
+
+      store.endDeployment();
+
+      expect(store.handover).toBe(1);
+      expect(fieldedUnits(store.state!, 0)).toHaveLength(12);
+      expect(fieldedUnits(store.known!)).toEqual([]);
+      expect(store.reserve).toHaveLength(12);
+    });
+
+    it('does not take back a move that brought an enemy into sight', () => {
+      const store = startedStore();
+      let sightings = 0;
+      for (let turn = 0; turn < MAX_TURNS_TO_CONTACT && sightings === 0; turn++) {
+        const player = store.state!.activePlayer;
+        const enemies = fieldedUnits(store.state!, opponentOf(player));
+        const gap = (from: Hex) =>
+          Math.min(...enemies.map((enemy) => hexDistance(from, enemy.pos)));
+        for (const { id } of fieldedUnits(store.known!, player)) {
+          const reach = unitReach(store.known!, store.defs!, fielded(store, id));
+          const closest = [...reach.values()]
+            .filter((node) => node.canStop && node.cost > 0)
+            .sort((a, b) => gap(a.hex) - gap(b.hex))[0];
+          if (!closest) continue;
+          const known = sighted(store).length;
+
+          moveTo(store, fielded(store, id), closest.hex);
+
+          const learned = sighted(store).length > known;
+          expect(store.canUndo).toBe(!learned);
+          if (learned) sightings++;
+        }
+        store.endTurn();
+        store.takeSeat();
+      }
+
+      expect(sightings).toBeGreaterThan(0);
+    });
+
+    it('shows everything and asks for no change of seats with the fog off', () => {
+      const store = startedStore({ fog: false });
+
+      expect(store.known).toBe(store.state);
+      expect(store.shown?.visible).toBeNull();
+
+      store.endTurn();
+
+      expect(store.viewer).toBe(1);
+      expect(store.handover).toBeNull();
+    });
+
+    it('lifts the fog when the battle is over', () => {
+      const store = startedStore();
+
+      store.state = {
+        ...store.state!,
+        phase: 'ended',
+        winner: { player: 0, reason: 'armyBroken' },
+      };
+
+      expect(store.shown?.visible).toBeNull();
+      expect(sighted(store)).toHaveLength(12);
     });
   });
 

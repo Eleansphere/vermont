@@ -28,11 +28,15 @@ async function press(code: string, init: KeyboardEventInit = {}): Promise<void> 
   await nextTick();
 }
 
-/** Goes through the menu into a battle; with `autoDeploy` both armies are on the field. */
-async function startBattle(autoDeploy: boolean) {
+/**
+ * Goes through the menu into a battle; with `autoDeploy` both armies are on the field, and
+ * without `fog` both players see all of it.
+ */
+async function startBattle(autoDeploy: boolean, fog = true) {
   const stores = mountApp();
   await click('new-battle');
   if (autoDeploy) await wrapper.find('input[name="autoDeploy"]').setValue(true);
+  if (!fog) await wrapper.find('input[name="fog"]').setValue(false);
   await click('start');
   return stores;
 }
@@ -113,10 +117,15 @@ describe('App', () => {
       expect(text('deployment')).toContain('Všechny jednotky stojí na poli.');
       await click('end-deployment');
       expect(text('turn')).toMatch(/^Rozestavení\s*na tahu\s*Kartágo$/);
+      expect(text('handover')).toContain('Na řadě: Kartágo');
+      await click('take-seat');
 
       await click('auto-deploy');
       await press('Enter');
+      expect(text('handover')).toContain('Na řadě: Řím');
+      await press('Enter');
 
+      expect(has('handover')).toBe(false);
       expect(store.state?.phase).toBe('battle');
       expect(has('deployment')).toBe(false);
       expect(text('turn')).toMatch(/^Kolo 1\s*na tahu\s*Řím$/);
@@ -236,7 +245,7 @@ describe('App', () => {
     });
 
     it('describes the hex under the pointer in a tooltip', async () => {
-      const { store } = await startBattle(true);
+      const { store } = await startBattle(true, false);
       expect(has('tooltip')).toBe(false);
 
       store.hover(fieldedUnits(store.state!, 1)[0]!.pos);
@@ -245,6 +254,38 @@ describe('App', () => {
       expect(text('tooltip')).toContain('Rovina');
       expect(text('tooltip')).toContain('Numidská jízda 1');
       expect(has('preview')).toBe(false);
+      expect(has('tooltip-fog')).toBe(false);
+    });
+
+    it('does not show an enemy the player cannot see', async () => {
+      const { store } = await startBattle(true);
+
+      store.hover(fieldedUnits(store.state!, 1)[0]!.pos);
+      await nextTick();
+
+      expect(text('tooltip')).not.toContain('Numidská jízda');
+      expect(text('tooltip-fog')).toBe('mimo dohled');
+    });
+
+    it('covers the battle between the turns and takes no orders meanwhile', async () => {
+      const { store, settings } = await startBattle(true);
+      settings.confirmEndTurn = false;
+
+      await press('Enter');
+      expect(store.state?.activePlayer).toBe(1);
+      expect(text('handover')).toContain('Na řadě: Kartágo');
+      expect(text('handover')).toContain('Kolo 1');
+      expect(has('tooltip')).toBe(false);
+
+      await press('Escape');
+      expect(has('resume')).toBe(false);
+      await press('Tab');
+      expect(store.selectedUnitId).toBeNull();
+
+      await press('Enter');
+
+      expect(has('handover')).toBe(false);
+      expect(store.state?.activePlayer).toBe(1);
     });
 
     it('says why an order was refused', async () => {
@@ -259,6 +300,7 @@ describe('App', () => {
     it('opens the pause menu with Escape and restarts the battle from it', async () => {
       const { store } = await startBattle(true);
       store.endTurn();
+      store.takeSeat();
 
       await press('Escape');
       expect(has('resume')).toBe(true);

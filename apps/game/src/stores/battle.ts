@@ -1,6 +1,7 @@
 import { computed, ref, shallowRef } from 'vue';
 import { defineStore } from 'pinia';
 import {
+  PLAYER_SLOTS,
   SCENARIOS,
   abilityOf,
   adjacentUnits,
@@ -8,12 +9,15 @@ import {
   autoDeployment,
   deploymentHexes,
   dispatch,
-  dispatchAll,
+  eventsSeenBy,
   fieldedUnits,
   hexEquals,
+  hexKey,
   isFielded,
   isFighting,
+  isFogLifted,
   pathFromReach,
+  playerView,
   previewAttack,
   reserveUnits,
   startScenario,
@@ -31,21 +35,34 @@ import type {
   GameEvent,
   Hex,
   PlayerSlot,
+  PlayerView,
   Reach,
   Rejection,
   ScenarioDef,
   TerrainDef,
   Unit,
 } from '@vermont/core';
-import type { Highlights, MapPick } from '@vermont/render';
+import type { Highlights, MapPick, VisibleHexes } from '@vermont/render';
 import type { LogEntry } from '../battle/log';
 import { describeEvents } from '../battle/log';
 
-/** What a carried-out command did, for the renderer to animate. */
-export interface PlayedEvents {
-  readonly events: readonly GameEvent[];
-  /** The state after the events. */
+/** What the player at the screen is shown of the battle. */
+export interface Shown {
+  /** The battle as that player knows it. */
   readonly state: BattleState;
+  /** Hexes the player sees; `null` when nothing lies in the fog. */
+  readonly visible: VisibleHexes;
+}
+
+/** What a carried-out command did, for the renderer to animate. */
+export interface PlayedEvents extends Shown {
+  /** The events the player at the screen witnessed; `state` is what they know after them. */
+  readonly events: readonly GameEvent[];
+  /**
+   * Set when another player took the screen over: what to show, without animation, before
+   * the events, so that nothing the previous player saw stays on the map.
+   */
+  readonly from?: Shown;
 }
 
 /** Who puts the armies on the map before the battle: the players, or the game for them. */
@@ -53,6 +70,8 @@ export type DeploymentMode = 'manual' | 'auto';
 
 export interface StartOptions {
   readonly deployment?: DeploymentMode;
+  /** Whether each player sees only what their units see; on when left out. */
+  readonly fog?: boolean;
 }
 
 /** What a click on the map orders the selected unit to do. */
@@ -67,16 +86,21 @@ export interface HoverInfo {
   readonly campOf: PlayerSlot | null;
   /** What attacking `unit` with the selected unit would do; `null` when it cannot be attacked. */
   readonly preview: AttackPreview | null;
+  /** The hex lies in the fog: whatever stands there is not shown. */
+  readonly fogged: boolean;
 }
+
+type Logs = Readonly<Record<PlayerSlot, readonly LogEntry[]>>;
 
 /** Where the game was before a command that can be taken back. */
 interface UndoStep {
   readonly state: BattleState;
-  readonly logLength: number;
+  readonly logLengths: Readonly<Record<PlayerSlot, number>>;
   readonly selectedUnitId: string | null;
 }
 
 const DEFAULT_SCENARIO_ID = 'trebia';
+const NO_LOGS: Logs = { 0: [], 1: [] };
 
 /**
  * Commands a player may take back. Nothing with a roll of the dice is among them, so undo can
@@ -86,24 +110,44 @@ const UNDOABLE_COMMANDS: readonly CommandType[] = ['MoveUnit', 'DeployUnit'];
 
 /**
  * A thin layer over the core: it holds the current battle, turns clicks into commands and asks
- * the core what is possible. It never works out the rules itself.
+ * the core what is possible. It never works out the rules itself. Two players share the
+ * screen, so everything shown is the view of one of them: `viewer`.
  */
 export const useBattleStore = defineStore('battle', () => {
   const scenario = shallowRef<ScenarioDef | null>(null);
   const defs = shallowRef<BattleDefs | null>(null);
+  /** The whole battle. Only the core is asked about it; the screen shows `known`. */
   const state = shallowRef<BattleState | null>(null);
   const played = shallowRef<PlayedEvents | null>(null);
   const rejection = shallowRef<Rejection | null>(null);
-  const log = shallowRef<readonly LogEntry[]>([]);
+  const logs = shallowRef<Logs>(NO_LOGS);
   const undoSteps = shallowRef<readonly UndoStep[]>([]);
   const startOptions = shallowRef<StartOptions>({});
   const selectedUnitId = ref<string | null>(null);
   const hoveredHex = shallowRef<Hex | null>(null);
   const order = ref<OrderMode>('move');
+  /** The player whose view of the battle is on the screen. */
+  const viewer = ref<PlayerSlot>(0);
+  /** The player asked to sit down at the screen; the map stays covered until they do. */
+  const handover = ref<PlayerSlot | null>(null);
+
+  const view = computed<PlayerView | null>(() =>
+    state.value && defs.value ? playerView(state.value, defs.value, viewer.value) : null
+  );
+
+  /** The battle as the player at the screen knows it. */
+  const known = computed<BattleState | null>(() => view.value?.state ?? null);
+
+  const shown = computed<Shown | null>(() =>
+    state.value && defs.value ? shownTo(state.value, defs.value, viewer.value) : null
+  );
+
+  /** What the player at the screen has witnessed so far. */
+  const log = computed<readonly LogEntry[]>(() => logs.value[viewer.value]);
 
   /** The unit the active player has picked: one to deploy before the battle, one to command in it. */
   const selectedUnit = computed<Unit | null>(() => {
-    const battle = state.value;
+    const battle = known.value;
     const unit = battle && selectedUnitId.value ? battle.units[selectedUnitId.value] : undefined;
     if (!battle || !unit || unit.owner !== battle.activePlayer) return null;
     if (battle.phase === 'deployment') {
@@ -115,19 +159,20 @@ export const useBattleStore = defineStore('battle', () => {
   /** The selected unit when it can be given orders in the battle. */
   const commandedUnit = computed<FieldedUnit | null>(() => {
     const unit = selectedUnit.value;
-    return state.value?.phase === 'battle' && unit && isFielded(unit) ? unit : null;
+    return known.value?.phase === 'battle' && unit && isFielded(unit) ? unit : null;
   });
 
+  /** Where the selected unit can go as far as its player knows; the fog may hold surprises. */
   const reach = computed<Reach | null>(() =>
-    state.value && defs.value && commandedUnit.value
-      ? unitReach(state.value, defs.value, commandedUnit.value)
+    known.value && defs.value && commandedUnit.value
+      ? unitReach(known.value, defs.value, commandedUnit.value)
       : null
   );
 
   const targets = computed<FieldedUnit[]>(() => {
     const unit = commandedUnit.value;
-    if (!state.value || !defs.value || !unit || unit.hasAttacked) return [];
-    return attackTargets(state.value, defs.value, unit);
+    if (!known.value || !defs.value || !unit || unit.hasAttacked) return [];
+    return attackTargets(known.value, defs.value, unit);
   });
 
   /** Units the selected unit may change places with; the core is asked by trying the command. */
@@ -144,18 +189,18 @@ export const useBattleStore = defineStore('battle', () => {
   /** Hexes the selected unit can be deployed on. */
   const deploymentTargets = computed<Hex[]>(() => {
     const unit = selectedUnit.value;
-    if (!state.value || !defs.value || !unit || state.value.phase !== 'deployment') return [];
-    return deploymentHexes(state.value, defs.value, unit);
+    if (!known.value || !defs.value || !unit || known.value.phase !== 'deployment') return [];
+    return deploymentHexes(known.value, defs.value, unit);
   });
 
   /** Units the active player has not put on the map yet. */
   const reserve = computed<Unit[]>(() =>
-    state.value?.phase === 'deployment' ? reserveUnits(state.value, state.value.activePlayer) : []
+    known.value?.phase === 'deployment' ? reserveUnits(known.value, known.value.activePlayer) : []
   );
 
   /** Units of the active player that can still move or attack this turn. */
   const readyUnits = computed<FieldedUnit[]>(() => {
-    const battle = state.value;
+    const battle = known.value;
     const battleDefs = defs.value;
     if (!battle || !battleDefs || battle.phase !== 'battle') return [];
     return fieldedUnits(battle, battle.activePlayer).filter(
@@ -170,7 +215,7 @@ export const useBattleStore = defineStore('battle', () => {
   });
 
   const highlights = computed<Highlights>(() => {
-    const battle = state.value;
+    const battle = known.value;
     const selected = selectedUnit.value?.pos ?? null;
     if (battle?.phase === 'deployment') {
       const hovered = hoveredHex.value;
@@ -202,7 +247,7 @@ export const useBattleStore = defineStore('battle', () => {
   });
 
   const hoverInfo = computed<HoverInfo | null>(() => {
-    const battle = state.value;
+    const battle = known.value;
     const battleDefs = defs.value;
     const target = hoveredHex.value;
     const terrain = battleDefs && target && terrainAt(battleDefs.map, battleDefs.terrains, target);
@@ -221,6 +266,7 @@ export const useBattleStore = defineStore('battle', () => {
       unit,
       campOf: camp ? (Number(camp[0]) as PlayerSlot) : null,
       preview: preview && 'kind' in preview ? preview : null,
+      fogged: shown.value?.visible ? !shown.value.visible.has(hexKey(target)) : false,
     };
   });
 
@@ -239,28 +285,37 @@ export const useBattleStore = defineStore('battle', () => {
     if (!chosen) throw new Error(`Unknown scenario: "${scenarioId}"`);
 
     const started = startScenario(chosen, seed);
+    const { rules } = started.defs;
+    const battleDefs: BattleDefs = {
+      ...started.defs,
+      rules: { ...rules, fog: { ...rules.fog, enabled: options.fog ?? rules.fog.enabled } },
+    };
     scenario.value = chosen;
-    defs.value = started.defs;
+    defs.value = battleDefs;
     state.value = started.state;
     startOptions.value = options;
     played.value = null;
     rejection.value = null;
-    log.value = [];
+    logs.value = NO_LOGS;
     undoSteps.value = [];
     hoveredHex.value = null;
     order.value = 'move';
     selectedUnitId.value = null;
+    viewer.value = started.state.activePlayer;
+    handover.value = null;
 
     if (options.deployment === 'auto') {
       while (state.value.phase === 'deployment') {
         const deployed = carryOut([
-          ...autoDeployment(state.value, started.defs),
+          ...autoDeployment(state.value, battleDefs),
           { type: 'EndDeployment' },
         ]);
         if (!deployed) throw new Error(`Scenario "${chosen.id}" could not be deployed`);
       }
-      // The battle is shown as it starts; there is nothing to animate or take back.
+      // The battle is shown as it starts; there is nothing to animate or take back, and the
+      // player who moves first is the one who started it.
       played.value = null;
+      handover.value = null;
     } else {
       selectedUnitId.value = reserve.value[0]?.id ?? null;
     }
@@ -278,11 +333,13 @@ export const useBattleStore = defineStore('battle', () => {
     state.value = null;
     played.value = null;
     rejection.value = null;
-    log.value = [];
+    logs.value = NO_LOGS;
     undoSteps.value = [];
     selectedUnitId.value = null;
     hoveredHex.value = null;
     order.value = 'move';
+    viewer.value = 0;
+    handover.value = null;
   }
 
   /**
@@ -291,31 +348,55 @@ export const useBattleStore = defineStore('battle', () => {
    */
   function carryOut(commands: readonly Command[]): boolean {
     const before = state.value;
-    if (!before || !defs.value || !scenario.value) return false;
-    const result = dispatchAll(before, commands, defs.value);
-    if (!result.ok) {
-      rejection.value = result.rejection;
-      return false;
+    const battleDefs = defs.value;
+    if (!before || !battleDefs || !scenario.value) return false;
+
+    let after = before;
+    const witnessed: Record<PlayerSlot, GameEvent[]> = { 0: [], 1: [] };
+    for (const command of commands) {
+      const result = dispatch(after, command, battleDefs);
+      if (!result.ok) {
+        rejection.value = result.rejection;
+        return false;
+      }
+      for (const player of PLAYER_SLOTS) {
+        witnessed[player].push(
+          ...eventsSeenBy(result.events, after, result.state, battleDefs, player)
+        );
+      }
+      after = result.state;
     }
+
     const step: UndoStep = {
       state: before,
-      logLength: log.value.length,
+      logLengths: { 0: logs.value[0].length, 1: logs.value[1].length },
       selectedUnitId: selectedUnitId.value,
     };
-    undoSteps.value = canTakeBack(commands, before, result.state) ? [...undoSteps.value, step] : [];
+    const takeBack =
+      canTakeBack(commands, before, after) &&
+      !learnedOfEnemy(before, after, battleDefs, witnessed[before.activePlayer]);
+    undoSteps.value = takeBack ? [...undoSteps.value, step] : [];
     rejection.value = null;
     order.value = 'move';
-    state.value = result.state;
-    played.value = { events: result.events, state: result.state };
-    log.value = [
-      ...log.value,
-      ...describeEvents(result.events, {
-        scenario: scenario.value,
-        defs: defs.value,
-        before,
-        after: result.state,
-      }),
-    ];
+    state.value = after;
+
+    // The screen goes to whoever is on the move; with the fog on they have to sit down first.
+    const changesHands = after.phase !== 'ended' && after.activePlayer !== viewer.value;
+    if (changesHands) {
+      viewer.value = after.activePlayer;
+      handover.value = isFogLifted(after, battleDefs) ? null : after.activePlayer;
+    }
+    played.value = {
+      ...shownTo(after, battleDefs, viewer.value),
+      events: witnessed[viewer.value],
+      ...(changesHands && { from: shownTo(before, battleDefs, viewer.value) }),
+    };
+
+    const context = { scenario: scenario.value, defs: battleDefs, before, after };
+    logs.value = {
+      0: [...logs.value[0], ...describeEvents(witnessed[0], context)],
+      1: [...logs.value[1], ...describeEvents(witnessed[1], context)],
+    };
     return true;
   }
 
@@ -327,21 +408,30 @@ export const useBattleStore = defineStore('battle', () => {
   /** Takes back the last move or deployment of this turn; returns whether there was one. */
   function undo(): boolean {
     const step = undoSteps.value.at(-1);
-    if (!step) return false;
+    if (!step || !defs.value) return false;
     undoSteps.value = undoSteps.value.slice(0, -1);
     state.value = step.state;
     // No events: the renderer just shows the earlier state.
-    played.value = { events: [], state: step.state };
-    log.value = log.value.slice(0, step.logLength);
+    played.value = { ...shownTo(step.state, defs.value, viewer.value), events: [] };
+    logs.value = {
+      0: logs.value[0].slice(0, step.logLengths[0]),
+      1: logs.value[1].slice(0, step.logLengths[1]),
+    };
     selectedUnitId.value = step.selectedUnitId;
     rejection.value = null;
     order.value = 'move';
     return true;
   }
 
+  /** The player who was asked to the screen has sat down; the map is uncovered for them. */
+  function takeSeat(): void {
+    handover.value = null;
+  }
+
   /** The player clicked a hex or a unit on the map, or beside the map (`null`). */
   function pick(picked: MapPick | null): void {
-    const battle = state.value;
+    const battle = known.value;
+    if (handover.value !== null) return;
     if (battle?.phase === 'deployment') pickInDeployment(battle, picked);
     else if (battle?.phase === 'battle') pickInBattle(battle, picked);
   }
@@ -414,7 +504,7 @@ export const useBattleStore = defineStore('battle', () => {
    * battle, one that can move or attack in it. `step` -1 goes the other way round.
    */
   function selectNext(step: 1 | -1 = 1): void {
-    const candidates = state.value?.phase === 'deployment' ? reserve.value : readyUnits.value;
+    const candidates = known.value?.phase === 'deployment' ? reserve.value : readyUnits.value;
     if (candidates.length === 0) return;
     const current = candidates.findIndex((unit) => unit.id === selectedUnitId.value);
     const start = current === -1 && step === -1 ? 0 : current;
@@ -453,6 +543,10 @@ export const useBattleStore = defineStore('battle', () => {
     scenario,
     defs,
     state,
+    known,
+    shown,
+    viewer,
+    handover,
     played,
     rejection,
     log,
@@ -471,6 +565,7 @@ export const useBattleStore = defineStore('battle', () => {
     leave,
     send,
     undo,
+    takeSeat,
     pick,
     select,
     selectNext,
@@ -484,6 +579,11 @@ export const useBattleStore = defineStore('battle', () => {
 
 function reliefCommand(unit: Unit, partner: Unit): Command {
   return { type: 'UseAbility', unitId: unit.id, abilityId: 'lineRelief', targetId: partner.id };
+}
+
+function shownTo(state: BattleState, defs: BattleDefs, player: PlayerSlot): Shown {
+  const view = playerView(state, defs, player);
+  return { state: view.state, visible: isFogLifted(state, defs) ? null : view.visible };
 }
 
 /** Whether the unit still has somewhere to go or somebody to attack this turn. */
@@ -508,5 +608,27 @@ function canTakeBack(
     commands.every((command) => UNDOABLE_COMMANDS.includes(command.type)) &&
     after.phase === before.phase &&
     after.rng === before.rng
+  );
+}
+
+/**
+ * Whether the step told the player who made it where an enemy is: a unit came into sight, or
+ * one of theirs ran into it. What was learned cannot be unlearned, so such a step stays.
+ */
+function learnedOfEnemy(
+  before: BattleState,
+  after: BattleState,
+  defs: BattleDefs,
+  witnessed: readonly GameEvent[]
+): boolean {
+  const player = before.activePlayer;
+  const sighted = (state: BattleState) =>
+    fieldedUnits(playerView(state, defs, player).state)
+      .filter((unit) => unit.owner !== player)
+      .map((unit) => unit.id);
+  const knownBefore = new Set(sighted(before));
+  return (
+    witnessed.some((event) => event.type === 'UnitAmbushed') ||
+    sighted(after).some((unitId) => !knownBefore.has(unitId))
   );
 }
