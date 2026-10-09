@@ -19,6 +19,10 @@ export interface TerrainDef {
   readonly impassableFor?: readonly Archetype[];
   /** Movement cost for archetypes that pay something other than `moveCost`. */
   readonly moveCostFor?: Readonly<Partial<Record<Archetype, number>>>;
+  /** Added to the attack of a unit striking from the hex. */
+  readonly attackBonus?: number;
+  /** Archetypes that fight badly here: they strike weaker and get no `defenseBonus`. */
+  readonly hinders?: readonly Archetype[];
 }
 
 export type TerrainTable = Readonly<Record<TerrainId, TerrainDef>>;

@@ -7,11 +7,19 @@ import type {
   Outcome,
   Rejection,
 } from './command';
+import { attack } from './handlers/attack';
 import { endTurn } from './handlers/endTurn';
+import { moveUnit } from './handlers/moveUnit';
+import { useAbility } from './handlers/useAbility';
+import type { BattleDefs } from './rules';
+import { concludeBattle } from './victory';
 
 /** Every command the core understands; a new command is added by registering its handler. */
 export const COMMAND_HANDLERS: CommandHandlers = {
   EndTurn: endTurn,
+  MoveUnit: moveUnit,
+  Attack: attack,
+  UseAbility: useAbility,
 };
 
 export interface Accepted extends Outcome {
@@ -40,29 +48,34 @@ export type DispatchAllResult = Accepted | RejectedAt;
 /**
  * Checks the command against the rules and carries it out. The given state is never changed:
  * an accepted command returns a new state and its events, a rejected one the same state and
- * the reason.
+ * the reason. A command that decides the battle also ends it.
  */
-export function dispatch(state: BattleState, command: Command): DispatchResult {
+export function dispatch(state: BattleState, command: Command, defs: BattleDefs): DispatchResult {
   const handler = findHandler(command);
   if (!handler) {
     return { ok: false, state, rejection: unknownCommand(command) };
   }
-  const rejection = rejectPhase(state, command, handler) ?? handler.validate?.(state, command);
+  const rejection =
+    rejectPhase(state, command, handler) ?? handler.validate?.(state, command, defs);
   if (rejection) {
     return { ok: false, state, rejection };
   }
-  return { ok: true, ...handler.apply(state, command) };
+  return { ok: true, ...concludeBattle(handler.apply(state, command, defs), defs) };
 }
 
 /**
  * Carries out the commands one after another, as a replay or a scenario test does. Stops at
  * the first rejected command and returns the state reached until then.
  */
-export function dispatchAll(state: BattleState, commands: readonly Command[]): DispatchAllResult {
+export function dispatchAll(
+  state: BattleState,
+  commands: readonly Command[],
+  defs: BattleDefs
+): DispatchAllResult {
   let current = state;
   const events: GameEvent[] = [];
   for (const [commandIndex, command] of commands.entries()) {
-    const result = dispatch(current, command);
+    const result = dispatch(current, command, defs);
     if (!result.ok) {
       return { ...result, events, commandIndex };
     }

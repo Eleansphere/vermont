@@ -3,6 +3,6 @@ import { RULES_VERSION } from './index';
 
 describe('core', () => {
   it('exposes the rules version', () => {
-    expect(RULES_VERSION).toBe(1);
+    expect(RULES_VERSION).toBe(2);
   });
 });

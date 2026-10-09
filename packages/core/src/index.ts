@@ -34,20 +34,80 @@ export type { MoveContext, Path, Reach, ReachNode } from './movement/movement';
 export { HILL_RANGE_BONUS, canSee, hasLineOfSight, rangeFrom, visibleHexes } from './sight/sight';
 export type { SightContext } from './sight/sight';
 
-export { PHASES, PLAYER_SLOTS, createBattle, opponentOf } from './game/battleState';
-export type { BattleOptions, BattleState, Phase, PlayerSlot } from './game/battleState';
 export type {
+  AbilityDef,
+  AbilityId,
+  AbilityTable,
+  UnitTypeDef,
+  UnitTypeTable,
+} from './units/unitType';
+export { ABILITIES } from './data/abilities';
+export { RULES } from './data/rules';
+export { UNIT_TYPES } from './data/unitTypes';
+
+export {
+  PHASES,
+  PLAYER_SLOTS,
+  VICTORY_REASONS,
+  createBattle,
+  opponentOf,
+} from './game/battleState';
+export type {
+  BattleOptions,
+  BattleState,
+  Phase,
+  PlayerSlot,
+  VictoryReason,
+  Winner,
+} from './game/battleState';
+export { createDefs } from './game/rules';
+export type { BattleDefs, BattleRules, CombatRules, MoraleRules } from './game/rules';
+export {
+  MORALE_STATES,
+  UNIT_STATUSES,
+  abilityOf,
+  adjacentUnits,
+  createUnits,
+  fieldedUnits,
+  isFielded,
+  isFighting,
+  moraleStateOf,
+  unitAt,
+  unitTypeOf,
+} from './game/unit';
+export type { FieldedUnit, MoraleState, Unit, UnitPlacement, UnitStatus } from './game/unit';
+export { checkWalk, moveContextFor, unitReach } from './game/unitMovement';
+export type { Walk } from './game/unitMovement';
+export { attackKindFor, attackTargets, previewAttack } from './game/combat';
+export type { AttackPreview, DamageRange } from './game/combat';
+export { isEncircled } from './game/morale';
+export { findWinner } from './game/victory';
+export type {
+  AttackCommand,
+  AttackKind,
+  AttackResolvedEvent,
+  BattleEndedEvent,
   Command,
   CommandHandler,
   CommandHandlers,
   CommandType,
   EndTurnCommand,
   GameEvent,
+  MoraleChangedEvent,
+  MoveUnitCommand,
   Outcome,
   Rejection,
   RejectionCode,
   TurnEndedEvent,
   TurnStartedEvent,
+  UnitDamagedEvent,
+  UnitDiedEvent,
+  UnitFledEvent,
+  UnitMovedEvent,
+  UnitRalliedEvent,
+  UnitRetreatedEvent,
+  UnitsSwappedEvent,
+  UseAbilityCommand,
 } from './game/command';
 export { COMMAND_HANDLERS, dispatch, dispatchAll } from './game/dispatch';
 export type {
