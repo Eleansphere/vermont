@@ -1,48 +1,72 @@
-import type { BattleMapDef } from '../map/battleMap';
-import { createMap, paintTerrain } from '../map/battleMap';
-import { rectangleHex, rectangleHexes } from '../map/shapes';
-import type { TerrainId } from '../map/terrain';
+import type { MapGrid } from '../map/mapGrid';
+import { gridSize, mapFromGrid } from '../map/mapGrid';
 import type { MapTable } from '../scenario/scenario';
-
-/** A hex of a rectangular map as `[column, row]`, both counted from 0. */
-type Cell = readonly [column: number, row: number];
-
-type Features = readonly (readonly [TerrainId, readonly Cell[]])[];
-
-export const TREBIA_WIDTH = 14;
-export const TREBIA_HEIGHT = 12;
 
 /**
  * A river comes in from the west and ends in a marsh in the middle of the field. It can be
  * crossed at two fords or ridden around on the open eastern side. Each army has a hill in
  * front of its lines and a wood on one wing.
  */
-const TREBIA_FEATURES: Features = [
-  // prettier-ignore
-  ['river', [[0, 5], [1, 5], [3, 5], [4, 5], [5, 6], [7, 6], [8, 6]]],
-  // prettier-ignore
-  ['ford', [[2, 5], [6, 6]]],
-  // prettier-ignore
-  ['marsh', [[9, 6], [10, 6]]],
-  // prettier-ignore
-  ['hill', [[4, 3], [5, 3], [9, 8], [10, 8]]],
-  // prettier-ignore
-  ['forest', [[11, 3], [12, 3], [12, 4], [1, 7], [1, 8], [2, 8]]],
+// prettier-ignore
+const TREBIA_GRID: MapGrid = [
+  '. . . . . . . . . . . . . .',
+  ' . . . . . . . . . . . . . .',
+  '. . . . . . . . . . . . . .',
+  ' . . . . h h . . . . . f f .',
+  '. . . . . . . . . . . . f .',
+  ' ~ ~ = ~ ~ . . . . . . . . .',
+  '. . . . . ~ = ~ ~ m m . . .',
+  ' . f . . . . . . . . . . . .',
+  '. f f . . . . . . h h . . .',
+  ' . . . . . . . . . . . . . .',
+  '. . . . . . . . . . . . . .',
+  ' . . . . . . . . . . . . . .',
 ];
 
-/** A rectangular plain with the given features painted on it. */
-function rectangleMap(id: string, width: number, height: number, features: Features): BattleMapDef {
-  let map = createMap(id, rectangleHexes(width, height));
-  for (const [terrain, cells] of features) {
-    map = paintTerrain(
-      map,
-      terrain,
-      cells.map(([column, row]) => rectangleHex(column, row))
-    );
-  }
-  return map;
-}
+/**
+ * A wide plain with a river down its western side. A bridge in the north and a ford in the
+ * south lead to the far bank, where a road joins them: the way round the flank of both lines.
+ * Each army has a hill ahead of one wing.
+ */
+// prettier-ignore
+const CANNAE_GRID: MapGrid = [
+  'f . ~ . . . . . . . . . . . . .',
+  ' f . ~ . . . . . . . . . . . . .',
+  '. . ~ . . . . . . . . . . . . .',
+  ' . # B . . . . . . . . . . . f f',
+  '. # ~ . . . . . . . . . . . . f',
+  ' # ~ . . h h . . . . . . . . . .',
+  '# ~ . . . . . . . . . . h h . .',
+  ' # ~ . . . . . . . . . . . . . .',
+  '. # = . . . . . . . . . . . . .',
+  ' . . ~ . . . . . . . . . . . . .',
+  'f . ~ . . . . . . . . . . . . .',
+  ' f . ~ . . . . . . . . . . . . .',
+];
+
+/** Open ground all the way across, with a low hill and a patch of wood towards each wing. */
+// prettier-ignore
+const ZAMA_GRID: MapGrid = [
+  '. . . . . . . . . . . . . . . .',
+  ' . . . . . . . . . . . . . . . .',
+  '. . . . . . . . . . . . . . . .',
+  ' f f . . . . . . . . . . . . . .',
+  '. . . . . . . . . . . . . . . .',
+  ' . . . . . . . . . . . . h h . .',
+  '. . h h . . . . . . . . . . . .',
+  ' . . . . . . . . . . . . . . . .',
+  '. . . . . . . . . . . . . . f f',
+  ' . . . . . . . . . . . . . . . .',
+  '. . . . . . . . . . . . . . . .',
+  ' . . . . . . . . . . . . . . . .',
+];
+
+export const TREBIA_SIZE = gridSize('trebia', TREBIA_GRID);
+export const CANNAE_SIZE = gridSize('cannae', CANNAE_GRID);
+export const ZAMA_SIZE = gridSize('zama', ZAMA_GRID);
 
 export const MAPS: MapTable = {
-  trebia: rectangleMap('trebia', TREBIA_WIDTH, TREBIA_HEIGHT, TREBIA_FEATURES),
+  trebia: mapFromGrid('trebia', TREBIA_GRID),
+  cannae: mapFromGrid('cannae', CANNAE_GRID),
+  zama: mapFromGrid('zama', ZAMA_GRID),
 };

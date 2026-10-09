@@ -1,7 +1,17 @@
 import type { Archetype } from '../archetype';
 
 export type TerrainId =
-  'plain' | 'forest' | 'hill' | 'mountain' | 'marsh' | 'ford' | 'road' | 'river' | 'sea' | 'camp';
+  | 'plain'
+  | 'forest'
+  | 'hill'
+  | 'mountain'
+  | 'marsh'
+  | 'ford'
+  | 'bridge'
+  | 'road'
+  | 'river'
+  | 'sea'
+  | 'camp';
 
 export interface TerrainDef {
   readonly id: TerrainId;

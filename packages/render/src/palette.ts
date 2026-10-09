@@ -21,6 +21,7 @@ export const TERRAIN_STYLES: Readonly<Record<TerrainId, TerrainStyle>> = {
   mountain: { color: 0x8d8780, height: 1.1 },
   marsh: { color: 0x66805c, height: 0.2 },
   ford: { color: 0x8dbdd0, height: 0.16 },
+  bridge: { color: 0x8a6a45, height: 0.34 },
   road: { color: 0xbc9f6c, height: 0.3 },
   river: { color: 0x3f7fb8, height: 0.1 },
   sea: { color: 0x2c5c96, height: 0.1 },

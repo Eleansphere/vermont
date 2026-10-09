@@ -23,6 +23,8 @@ export type { Hex, HexDirection, HexKey, LineSide } from './hex/hex';
 
 export { createMap, hasHex, mapHexes, paintTerrain, terrainAt } from './map/battleMap';
 export type { BattleMapDef, MapHex } from './map/battleMap';
+export { TERRAIN_SYMBOLS, gridSize, mapFromGrid } from './map/mapGrid';
+export type { GridSize, MapGrid } from './map/mapGrid';
 export { hexagonHexes, rectangleHex, rectangleHexes } from './map/shapes';
 export { terrainMoveCost } from './map/terrain';
 export type { TerrainDef, TerrainId, TerrainTable } from './map/terrain';

@@ -153,6 +153,8 @@ export const cs = {
 
   scenarios: {
     trebia: 'Trebia (218 př. n. l.)',
+    cannae: 'Kanny (216 př. n. l.)',
+    zama: 'Zama (202 př. n. l.)',
   } as Readonly<Record<string, string>>,
 
   unitTypes: {
@@ -186,6 +188,7 @@ export const cs = {
     mountain: 'Hory',
     marsh: 'Bažina',
     ford: 'Brod',
+    bridge: 'Most',
     road: 'Cesta',
     river: 'Řeka',
     sea: 'Moře',

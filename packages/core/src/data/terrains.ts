@@ -36,6 +36,7 @@ export const TERRAINS: TerrainTable = {
   },
   marsh: { id: 'marsh', moveCost: 3, defenseBonus: -1, ...OPEN_GROUND },
   ford: { id: 'ford', moveCost: 2, defenseBonus: -1, ...OPEN_GROUND, attackBonus: -2 },
+  bridge: { id: 'bridge', moveCost: 1, defenseBonus: 0, ...OPEN_GROUND },
   road: { id: 'road', moveCost: 0.5, defenseBonus: 0, ...OPEN_GROUND },
   river: { id: 'river', moveCost: null, defenseBonus: 0, ...OPEN_GROUND },
   sea: { id: 'sea', moveCost: null, defenseBonus: 0, ...OPEN_GROUND },

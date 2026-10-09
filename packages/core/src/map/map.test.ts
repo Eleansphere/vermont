@@ -93,6 +93,12 @@ describe('terrain', () => {
     expect(terrainMoveCost(TERRAINS.road, 'elephant')).toBe(0.5);
   });
 
+  it('takes a bridge for open ground', () => {
+    expect(terrainMoveCost(TERRAINS.bridge, 'elephant')).toBe(1);
+    expect(TERRAINS.bridge).toMatchObject({ defenseBonus: 0, blocksSight: false });
+    expect(TERRAINS.bridge.attackBonus).toBeUndefined();
+  });
+
   it('lets nobody into water', () => {
     expect(terrainMoveCost(TERRAINS.river, 'lightInfantry')).toBeNull();
     expect(terrainMoveCost(TERRAINS.sea, 'cavalry')).toBeNull();
