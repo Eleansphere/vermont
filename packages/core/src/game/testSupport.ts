@@ -12,11 +12,18 @@ import { createDefs } from './rules';
 import type { Unit, UnitPlacement } from './unit';
 import { createUnits, withUnits } from './unit';
 
-/** The standard rules without the random spread, so tests can expect exact damage. */
+/**
+ * The standard rules without the random spread, so tests can expect exact damage, and without
+ * the fog, so they can order units about wherever the enemy stands.
+ */
 export const EXACT_RULES: BattleRules = {
   ...RULES,
   combat: { ...RULES.combat, damageSpread: 0 },
+  fog: { ...RULES.fog, enabled: false },
 };
+
+/** `EXACT_RULES` with the fog of war on. */
+export const FOG_RULES: BattleRules = { ...EXACT_RULES, fog: RULES.fog };
 
 const OPEN_FIELD_RADIUS = 5;
 

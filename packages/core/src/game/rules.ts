@@ -53,9 +53,17 @@ export interface MoraleRules {
   readonly recoveryPerTurn: number;
 }
 
+export interface FogRules {
+  /** With the fog on, a player sees only what their units and camp see. */
+  readonly enabled: boolean;
+  /** How far a camp sees around itself. */
+  readonly campSight: number;
+}
+
 export interface BattleRules {
   readonly combat: CombatRules;
   readonly morale: MoraleRules;
+  readonly fog: FogRules;
 }
 
 /**

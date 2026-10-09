@@ -9,7 +9,11 @@ export interface EndTurnCommand {
   readonly type: 'EndTurn';
 }
 
-/** Moves a unit along `path`, which starts on the unit's hex and ends where it should stop. */
+/**
+ * Moves a unit along `path`, which starts on the unit's hex and ends where it should stop. The
+ * path is checked against what the player knows; an enemy hidden in the fog stops the unit on
+ * the way.
+ */
 export interface MoveUnitCommand {
   readonly type: 'MoveUnit';
   readonly unitId: string;
@@ -95,6 +99,16 @@ export interface UnitMovedEvent {
   readonly cost: number;
 }
 
+/**
+ * A unit ran into an enemy its player did not know about and had to stop on `hex`, short of
+ * where it was sent.
+ */
+export interface UnitAmbushedEvent {
+  readonly type: 'UnitAmbushed';
+  readonly unitId: string;
+  readonly hex: Hex;
+}
+
 export type AttackKind = 'melee' | 'ranged';
 
 export interface AttackResolvedEvent {
@@ -169,6 +183,7 @@ export type GameEvent =
   | TurnEndedEvent
   | TurnStartedEvent
   | UnitMovedEvent
+  | UnitAmbushedEvent
   | AttackResolvedEvent
   | UnitDamagedEvent
   | UnitDiedEvent

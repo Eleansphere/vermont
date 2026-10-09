@@ -34,4 +34,8 @@ export const RULES: BattleRules = {
     gainForWonAttack: 1,
     recoveryPerTurn: 1,
   },
+  fog: {
+    enabled: true,
+    campSight: 3,
+  },
 };

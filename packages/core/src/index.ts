@@ -79,7 +79,7 @@ export type {
   Winner,
 } from './game/battleState';
 export { createDefs } from './game/rules';
-export type { BattleDefs, BattleRules, CombatRules, MoraleRules } from './game/rules';
+export type { BattleDefs, BattleRules, CombatRules, FogRules, MoraleRules } from './game/rules';
 export {
   MORALE_STATES,
   UNIT_STATUSES,
@@ -94,8 +94,10 @@ export {
   unitTypeOf,
 } from './game/unit';
 export type { FieldedUnit, MoraleState, Unit, UnitPlacement, UnitStatus } from './game/unit';
-export { checkWalk, moveContextFor, unitReach } from './game/unitMovement';
-export type { Walk } from './game/unitMovement';
+export { checkWalk, marchAlong, moveContextFor, unitReach } from './game/unitMovement';
+export type { March, Walk } from './game/unitMovement';
+export { eventsSeenBy, isFogLifted, playerSight, playerView, seesUnit } from './game/fog';
+export type { PlayerView } from './game/fog';
 export { attackKindFor, attackTargets, previewAttack } from './game/combat';
 export type { AttackPreview, DamageRange } from './game/combat';
 export { isEncircled } from './game/morale';
@@ -123,6 +125,7 @@ export type {
   RejectionCode,
   TurnEndedEvent,
   TurnStartedEvent,
+  UnitAmbushedEvent,
   UnitDamagedEvent,
   UnitDeployedEvent,
   UnitDiedEvent,

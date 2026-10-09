@@ -1,6 +1,7 @@
 import type { BattleState } from '../battleState';
 import { attackKindFor, resolveAttack } from '../combat';
 import type { AttackCommand, AttackKind, CommandHandler, Rejection } from '../command';
+import { seesUnit } from '../fog';
 import type { BattleDefs } from '../rules';
 import type { FieldedUnit } from '../unit';
 import { isFielded } from '../unit';
@@ -41,7 +42,8 @@ function checkAttack(
     };
   }
   const target = findUnit(state, command.targetId);
-  if (!target || !isFielded(target)) {
+  // A unit hidden in the fog is refused like one that is not there, so asking gives nothing away.
+  if (!target || !isFielded(target) || !seesUnit(state, defs, attacker.owner, target)) {
     return {
       code: 'invalidTarget',
       message: `There is no unit ${JSON.stringify(command.targetId)} on the battlefield`,

@@ -96,6 +96,49 @@ export function checkWalk(
   return { cost, endsInZoneOfControl: context.zoneOfControl?.has(hexKey(previous)) ?? false };
 }
 
+/** How far along a route a unit really got. */
+export interface March {
+  /** Hexes walked through, from the starting hex to the one the unit stopped on. */
+  readonly path: readonly Hex[];
+  readonly cost: number;
+  readonly endsInZoneOfControl: boolean;
+  /** An enemy the route did not reckon with stopped the unit short of its end. */
+  readonly ambushed: boolean;
+}
+
+/**
+ * Walks a route that `checkWalk` passed for what the player knew, against what is really on
+ * the field: the unit stops in front of an enemy standing in its way and on the first hex next
+ * to one. A route checked against the real state is walked to its end. The unit never has to
+ * stop on a hex of its own side: a unit standing there would have seen the enemy, and the
+ * route would have been refused.
+ */
+export function marchAlong(
+  state: BattleState,
+  defs: BattleDefs,
+  unit: FieldedUnit,
+  path: readonly Hex[]
+): March {
+  const context = moveContextFor(state, defs, unit);
+  const walked: { hex: Hex; cost: number }[] = [{ hex: unit.pos, cost: 0 }];
+  for (const step of path.slice(1)) {
+    const key = hexKey(step);
+    if (context.enemy?.has(key)) break;
+    const terrain = terrainAt(defs.map, defs.terrains, step);
+    const stepCost = terrain && terrainMoveCost(terrain, context.archetype);
+    if (stepCost === null || stepCost === undefined) break;
+    walked.push({ hex: step, cost: walked.at(-1)!.cost + stepCost });
+    if (context.zoneOfControl?.has(key)) break;
+  }
+  const last = walked.at(-1)!;
+  return {
+    path: walked.map((step) => step.hex),
+    cost: last.cost,
+    endsInZoneOfControl: context.zoneOfControl?.has(hexKey(last.hex)) ?? false,
+    ambushed: walked.length < path.length,
+  };
+}
+
 function invalidPath(message: string): Rejection {
   return { code: 'invalidPath', message };
 }

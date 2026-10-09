@@ -1,6 +1,7 @@
-import type { CommandHandler, MoveUnitCommand } from '../command';
+import type { CommandHandler, GameEvent, MoveUnitCommand } from '../command';
+import { playerView } from '../fog';
 import { withUnits } from '../unit';
-import { checkWalk } from '../unitMovement';
+import { checkWalk, marchAlong } from '../unitMovement';
 import { isRejection, orderedUnit } from './orders';
 
 export const moveUnit: CommandHandler<MoveUnitCommand> = {
@@ -12,25 +13,30 @@ export const moveUnit: CommandHandler<MoveUnitCommand> = {
     if (!isPath(command.path)) {
       return { code: 'invalidPath', message: 'A path must be a list of hexes' };
     }
-    const walk = checkWalk(state, defs, unit, command.path);
+    // Checked against what the player knows: a refusal must not give hidden enemies away.
+    const known = playerView(state, defs, unit.owner).state;
+    const walk = checkWalk(known, defs, unit, command.path);
     return isRejection(walk) ? walk : null;
   },
 
   apply(state, command, defs) {
     const unit = orderedUnit(state, command.unitId);
     if (isRejection(unit)) throw new Error(unit.message);
-    const walk = checkWalk(state, defs, unit, command.path);
-    if (isRejection(walk)) throw new Error(walk.message);
 
+    const march = marchAlong(state, defs, unit, command.path);
+    const stopped = march.path.at(-1)!;
     const moved = {
       ...unit,
-      pos: command.path.at(-1)!,
-      movementLeft: walk.endsInZoneOfControl ? 0 : unit.movementLeft - walk.cost,
+      pos: stopped,
+      movementLeft:
+        march.ambushed || march.endsInZoneOfControl ? 0 : unit.movementLeft - march.cost,
     };
-    return {
-      state: withUnits(state, [moved]),
-      events: [{ type: 'UnitMoved', unitId: unit.id, path: [...command.path], cost: walk.cost }],
-    };
+    const events: GameEvent[] = [];
+    if (march.path.length > 1) {
+      events.push({ type: 'UnitMoved', unitId: unit.id, path: march.path, cost: march.cost });
+    }
+    if (march.ambushed) events.push({ type: 'UnitAmbushed', unitId: unit.id, hex: stopped });
+    return { state: withUnits(state, [moved]), events };
   },
 };
 
