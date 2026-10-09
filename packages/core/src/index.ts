@@ -1,5 +1,4 @@
-/** Version of the rules; saved games record it so old saves can be recognised. */
-export const RULES_VERSION = 1;
+export { RULES_VERSION } from './version';
 
 export type { Archetype } from './archetype';
 
@@ -34,3 +33,31 @@ export type { MoveContext, Path, Reach, ReachNode } from './movement/movement';
 
 export { HILL_RANGE_BONUS, canSee, hasLineOfSight, rangeFrom, visibleHexes } from './sight/sight';
 export type { SightContext } from './sight/sight';
+
+export { PHASES, PLAYER_SLOTS, createBattle, opponentOf } from './game/battleState';
+export type { BattleOptions, BattleState, Phase, PlayerSlot } from './game/battleState';
+export type {
+  Command,
+  CommandHandler,
+  CommandHandlers,
+  CommandType,
+  EndTurnCommand,
+  GameEvent,
+  Outcome,
+  Rejection,
+  RejectionCode,
+  TurnEndedEvent,
+  TurnStartedEvent,
+} from './game/command';
+export { COMMAND_HANDLERS, dispatch, dispatchAll } from './game/dispatch';
+export type {
+  Accepted,
+  DispatchAllResult,
+  DispatchResult,
+  Rejected,
+  RejectedAt,
+} from './game/dispatch';
+export { createRng, nextRandom, nextRandomInt } from './game/rng';
+export type { Draw, RngState } from './game/rng';
+export { deserializeBattle, serializeBattle } from './game/serialize';
+export type { SavedBattle } from './game/serialize';
