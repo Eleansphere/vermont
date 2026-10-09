@@ -1,0 +1,16 @@
+{
+  "name": "@vermont/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vermont game core: state, rules and hex maths in plain TypeScript",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

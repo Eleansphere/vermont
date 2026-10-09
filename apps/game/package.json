@@ -1,0 +1,28 @@
+{
+  "name": "@vermont/game",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vermont game: the Vue 3 application that ties the core and the renderer together",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@vermont/core": "workspace:*",
+    "@vermont/render": "workspace:*",
+    "pinia": "^4.0.3",
+    "vue": "^3.5.43"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.9",
+    "@vue/test-utils": "^2.5.1",
+    "happy-dom": "^20.14.6",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3",
+    "vue-tsc": "^3.3.12"
+  }
+}

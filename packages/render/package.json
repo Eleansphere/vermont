@@ -1,0 +1,20 @@
+{
+  "name": "@vermont/render",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vermont renderer: the Three.js scene, camera and picking",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.186.0",
+    "typescript": "^5.9.3"
+  }
+}
