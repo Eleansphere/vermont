@@ -47,7 +47,8 @@ export interface BattleOptions {
 }
 
 const FIRST_TURN = 1;
-const FIRST_PLAYER: PlayerSlot = 0;
+/** Deploys first and makes the first move of the battle. */
+export const FIRST_PLAYER: PlayerSlot = 0;
 
 export function createBattle(options: BattleOptions): BattleState {
   return {

@@ -13,12 +13,16 @@ export function rectangleHexes(width: number, height: number): Hex[] {
 
   const hexes: Hex[] = [];
   for (let row = 0; row < height; row++) {
-    const rowShift = Math.floor(row / 2);
     for (let column = 0; column < width; column++) {
-      hexes.push({ q: column - rowShift, r: row });
+      hexes.push(rectangleHex(column, row));
     }
   }
   return hexes;
+}
+
+/** The hex in the given column and row of a `rectangleHexes` map, both counted from 0. */
+export function rectangleHex(column: number, row: number): Hex {
+  return { q: column - Math.floor(row / 2), r: row };
 }
 
 /** Hexes of a hexagon around (0, 0) reaching `radius` steps from it. */

@@ -8,17 +8,20 @@ export type MoraleState = 'steady' | 'shaken' | 'routing';
 
 export const MORALE_STATES: readonly MoraleState[] = ['steady', 'shaken', 'routing'];
 
-/** `fled` units left the battlefield, `dead` ones were destroyed; neither comes back. */
-export type UnitStatus = 'active' | 'fled' | 'dead';
+/**
+ * `reserve` units wait to be deployed before the battle. `fled` units left the battlefield and
+ * `dead` ones were destroyed; neither comes back.
+ */
+export type UnitStatus = 'reserve' | 'active' | 'fled' | 'dead';
 
-export const UNIT_STATUSES: readonly UnitStatus[] = ['active', 'fled', 'dead'];
+export const UNIT_STATUSES: readonly UnitStatus[] = ['reserve', 'active', 'fled', 'dead'];
 
 /** One unit in a battle: what changes about it. The rest is in its `UnitTypeDef`. */
 export interface Unit {
   readonly id: string;
   readonly typeId: string;
   readonly owner: PlayerSlot;
-  /** `null` once the unit is no longer on the battlefield. */
+  /** `null` while the unit is not on the battlefield: not deployed yet, or gone from it. */
   readonly pos: Hex | null;
   readonly hp: number;
   readonly morale: number;
@@ -35,16 +38,17 @@ export interface Unit {
 /** A unit that is on the battlefield. */
 export type FieldedUnit = Unit & { readonly pos: Hex };
 
-/** Where a unit of some type starts the battle. */
+/** A unit of some type that starts the battle, and where. */
 export interface UnitPlacement {
   readonly typeId: string;
   readonly owner: PlayerSlot;
-  readonly pos: Hex;
+  /** Left out for a unit its player deploys before the battle. */
+  readonly pos?: Hex;
   /** Generated from the owner and type when left out. */
   readonly id?: string;
 }
 
-/** Fresh units for the start of a battle, at full health and morale. */
+/** Fresh units for the start of a battle, at full health and morale; ids count up per type. */
 export function createUnits(
   unitTypes: UnitTypeTable,
   rules: MoraleRules,
@@ -63,13 +67,13 @@ export function createUnits(
       id: placement.id ?? `${prefix}-${count}`,
       typeId: type.id,
       owner: placement.owner,
-      pos: placement.pos,
+      pos: placement.pos ?? null,
       hp: type.hp,
       morale: type.morale,
       moraleState: moraleStateOf(type.morale, rules),
       movementLeft: type.movement,
       hasAttacked: false,
-      status: 'active',
+      status: placement.pos ? 'active' : 'reserve',
       hasRetreated: false,
       spentAbilities: [],
     };

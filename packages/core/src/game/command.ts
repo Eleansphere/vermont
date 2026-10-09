@@ -31,10 +31,49 @@ export interface UseAbilityCommand {
   readonly targetId?: string;
 }
 
+/**
+ * Puts a unit on a hex of its side's deployment zone before the battle. A unit that already
+ * stands in the zone is moved.
+ */
+export interface DeployUnitCommand {
+  readonly type: 'DeployUnit';
+  readonly unitId: string;
+  readonly hex: Hex;
+}
+
+/** The active player is done deploying; after the second player the battle starts. */
+export interface EndDeploymentCommand {
+  readonly type: 'EndDeployment';
+}
+
 /** What a player wants to do. The core checks it and either carries it out or rejects it. */
-export type Command = EndTurnCommand | MoveUnitCommand | AttackCommand | UseAbilityCommand;
+export type Command =
+  | DeployUnitCommand
+  | EndDeploymentCommand
+  | EndTurnCommand
+  | MoveUnitCommand
+  | AttackCommand
+  | UseAbilityCommand;
 
 export type CommandType = Command['type'];
+
+export interface UnitDeployedEvent {
+  readonly type: 'UnitDeployed';
+  readonly unitId: string;
+  readonly hex: Hex;
+  /** Where the unit stood before; `null` when it came from the reserve. */
+  readonly from: Hex | null;
+}
+
+export interface DeploymentEndedEvent {
+  readonly type: 'DeploymentEnded';
+  readonly player: PlayerSlot;
+}
+
+export interface PhaseChangedEvent {
+  readonly type: 'PhaseChanged';
+  readonly phase: Phase;
+}
 
 export interface TurnEndedEvent {
   readonly type: 'TurnEnded';
@@ -124,6 +163,9 @@ export interface BattleEndedEvent {
 
 /** What happened; the renderer animates from events and the log lists them. */
 export type GameEvent =
+  | UnitDeployedEvent
+  | DeploymentEndedEvent
+  | PhaseChangedEvent
   | TurnEndedEvent
   | TurnStartedEvent
   | UnitMovedEvent
@@ -155,7 +197,10 @@ export type RejectionCode =
   | 'engaged'
   | 'outOfRange'
   | 'noLineOfSight'
-  | 'abilityUnavailable';
+  | 'abilityUnavailable'
+  | 'invalidHex'
+  | 'outsideDeploymentZone'
+  | 'unitsNotDeployed';
 
 /** Why a command was not carried out. The UI translates `code`; `message` is for logs. */
 export interface Rejection {

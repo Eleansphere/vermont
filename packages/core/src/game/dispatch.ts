@@ -8,6 +8,8 @@ import type {
   Rejection,
 } from './command';
 import { attack } from './handlers/attack';
+import { deployUnit } from './handlers/deployUnit';
+import { endDeployment } from './handlers/endDeployment';
 import { endTurn } from './handlers/endTurn';
 import { moveUnit } from './handlers/moveUnit';
 import { useAbility } from './handlers/useAbility';
@@ -16,6 +18,8 @@ import { concludeBattle } from './victory';
 
 /** Every command the core understands; a new command is added by registering its handler. */
 export const COMMAND_HANDLERS: CommandHandlers = {
+  DeployUnit: deployUnit,
+  EndDeployment: endDeployment,
   EndTurn: endTurn,
   MoveUnit: moveUnit,
   Attack: attack,

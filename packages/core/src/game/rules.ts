@@ -70,6 +70,8 @@ export interface BattleDefs {
   readonly rules: BattleRules;
   /** Camp of each side; the battle is won by whoever enters the opponent's. */
   readonly camps: Readonly<Partial<Record<PlayerSlot, Hex>>>;
+  /** Hexes each side may deploy its units on before the battle. */
+  readonly deploymentZones: Readonly<Partial<Record<PlayerSlot, readonly Hex[]>>>;
 }
 
 /** Definitions for a battle on `map` with the standard terrains, unit types and rules. */
@@ -84,6 +86,7 @@ export function createDefs(
     abilities: ABILITIES,
     rules: RULES,
     camps: {},
+    deploymentZones: {},
     ...overrides,
   };
 }

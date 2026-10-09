@@ -116,7 +116,14 @@ describe('dispatch', () => {
   });
 
   it('has a handler for every command type', () => {
-    expect(Object.keys(COMMAND_HANDLERS)).toEqual(['EndTurn', 'MoveUnit', 'Attack', 'UseAbility']);
+    expect(Object.keys(COMMAND_HANDLERS)).toEqual([
+      'DeployUnit',
+      'EndDeployment',
+      'EndTurn',
+      'MoveUnit',
+      'Attack',
+      'UseAbility',
+    ]);
   });
 });
 

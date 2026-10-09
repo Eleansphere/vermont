@@ -23,7 +23,7 @@ export type { Hex, HexDirection, HexKey, LineSide } from './hex/hex';
 
 export { createMap, hasHex, mapHexes, paintTerrain, terrainAt } from './map/battleMap';
 export type { BattleMapDef, MapHex } from './map/battleMap';
-export { hexagonHexes, rectangleHexes } from './map/shapes';
+export { hexagonHexes, rectangleHex, rectangleHexes } from './map/shapes';
 export { terrainMoveCost } from './map/terrain';
 export type { TerrainDef, TerrainId, TerrainTable } from './map/terrain';
 export { TERRAINS } from './data/terrains';
@@ -45,7 +45,25 @@ export { ABILITIES } from './data/abilities';
 export { RULES } from './data/rules';
 export { UNIT_TYPES } from './data/unitTypes';
 
+export type { FactionDef, FactionTable } from './scenario/faction';
+export { armySize, validateScenario } from './scenario/scenario';
+export type {
+  ArmyEntry,
+  GameData,
+  MapTable,
+  ScenarioDef,
+  ScenarioSide,
+  ScenarioTable,
+} from './scenario/scenario';
+export { scenarioDefs, startScenario } from './scenario/startScenario';
+export type { StartedBattle } from './scenario/startScenario';
+export { FACTIONS } from './data/factions';
+export { GAME_DATA } from './data/gameData';
+export { MAPS } from './data/maps';
+export { SCENARIOS } from './data/scenarios';
+
 export {
+  FIRST_PLAYER,
   PHASES,
   PLAYER_SLOTS,
   VICTORY_REASONS,
@@ -82,6 +100,7 @@ export { attackKindFor, attackTargets, previewAttack } from './game/combat';
 export type { AttackPreview, DamageRange } from './game/combat';
 export { isEncircled } from './game/morale';
 export { findWinner } from './game/victory';
+export { autoDeployment, checkDeployment, deploymentHexes, reserveUnits } from './game/deployment';
 export type {
   AttackCommand,
   AttackKind,
@@ -91,16 +110,21 @@ export type {
   CommandHandler,
   CommandHandlers,
   CommandType,
+  DeployUnitCommand,
+  DeploymentEndedEvent,
+  EndDeploymentCommand,
   EndTurnCommand,
   GameEvent,
   MoraleChangedEvent,
   MoveUnitCommand,
   Outcome,
+  PhaseChangedEvent,
   Rejection,
   RejectionCode,
   TurnEndedEvent,
   TurnStartedEvent,
   UnitDamagedEvent,
+  UnitDeployedEvent,
   UnitDiedEvent,
   UnitFledEvent,
   UnitMovedEvent,
