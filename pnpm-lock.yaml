@@ -84,6 +84,9 @@ importers:
 
   packages/render:
     dependencies:
+      '@vermont/core':
+        specifier: workspace:*
+        version: link:../core
       three:
         specifier: ^0.186.1
         version: 0.186.1
