@@ -4,6 +4,7 @@ import { sideColor, sideName } from '../battle/labels';
 import type { ShortcutAction } from '../battle/shortcuts';
 import { shortcutFor } from '../battle/shortcuts';
 import { rejectionText, t, victoryReasonText } from '../i18n';
+import { downloadSave } from '../save/storage';
 import { useBattleStore } from '../stores/battle';
 import { useSettingsStore } from '../stores/settings';
 import BattleCanvas from './BattleCanvas.vue';
@@ -91,6 +92,14 @@ function escape(): void {
   else if (store.order === 'relief') store.toggleRelief();
   else if (store.selectedUnitId) store.select(null);
   else overlay.value = 'pause';
+}
+
+/** Hands the battle to the player as a file named after the scenario and the round. */
+function saveToFile(): void {
+  const { savedGame, state } = store;
+  if (savedGame && state) {
+    downloadSave(savedGame, `vermont-${savedGame.scenarioId}-kolo-${state.turn}.json`);
+  }
 }
 
 function restart(): void {
@@ -211,6 +220,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
       </button>
       <button class="button button--wide" type="button" @click="overlay = 'help'">
         {{ t('menu.shortcuts') }}
+      </button>
+      <button class="button button--wide" type="button" data-test="save-file" @click="saveToFile">
+        {{ t('menu.saveFile') }}
       </button>
       <button class="button button--wide" type="button" data-test="restart" @click="restart">
         {{ t('menu.restart') }}

@@ -1,4 +1,5 @@
 import type { Difficulty } from '@vermont/ai';
+import type { SaveProblem } from '../save/savedGame';
 import type {
   AbilityId,
   Archetype,
@@ -35,6 +36,8 @@ export const cs = {
     'menu.pause': 'Pauza',
     'menu.resume': 'Zpět do bitvy',
     'menu.shortcuts': 'Ovládání',
+    'menu.loadFile': 'Načíst bitvu ze souboru',
+    'menu.saveFile': 'Uložit bitvu do souboru',
 
     'scenarios.title': 'Výběr scénáře',
     'scenarios.units': '{count} {units}',
@@ -248,6 +251,12 @@ export const cs = {
     campCaptured: 'dobyl tábor soupeře',
     armyBroken: 'armáda soupeře je zlomena',
   } satisfies Record<VictoryReason, string>,
+
+  saveProblems: {
+    unreadable: 'Tohle není uložená bitva hry Vermont.',
+    otherVersion: 'Uložená bitva je z jiné verze hry a nejde načíst.',
+    damaged: 'Uložená bitva je poškozená a nejde načíst.',
+  } satisfies Record<SaveProblem, string>,
 
   rejections: {
     unknownCommand: 'Neznámý příkaz.',

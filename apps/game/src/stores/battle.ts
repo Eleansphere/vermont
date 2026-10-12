@@ -42,6 +42,7 @@ import type {
   Reach,
   Rejection,
   ScenarioDef,
+  StartedBattle,
   TerrainDef,
   Unit,
 } from '@vermont/core';
@@ -50,6 +51,10 @@ import type { AiBrain } from '../ai/brain';
 import { createBrain, createLocalBrain } from '../ai/brain';
 import type { LogEntry } from '../battle/log';
 import { describeEvents } from '../battle/log';
+import type { DeploymentMode, SavedGame } from '../save/savedGame';
+import { SaveError, createSavedGame } from '../save/savedGame';
+
+export type { DeploymentMode } from '../save/savedGame';
 
 /** What the player at the screen is shown of the battle. */
 export interface Shown {
@@ -69,9 +74,6 @@ export interface PlayedEvents extends Shown {
    */
   readonly from?: Shown;
 }
-
-/** Who puts the armies on the map before the battle: the players, or the game for them. */
-export type DeploymentMode = 'manual' | 'auto';
 
 /** The computer as one of the two players. */
 export interface ComputerPlayer {
@@ -118,9 +120,31 @@ export interface HoverInfo {
 
 type Logs = Readonly<Record<PlayerSlot, readonly LogEntry[]>>;
 
+/** A battle to put on the screen: a new one, or a saved one played up to where it was left. */
+interface OpenedBattle extends StartedBattle {
+  readonly scenario: ScenarioDef;
+  readonly seed: number;
+  readonly options: StartOptions;
+  /** The computer player named in `options`, as it starts or as it was saved. */
+  readonly ai: AiState | null;
+  readonly commands?: readonly Command[];
+  readonly logs?: Logs;
+}
+
+/** What a list of commands did, or why the core refused one of them. */
+type Played =
+  | {
+      readonly ok: true;
+      readonly state: BattleState;
+      /** The events each player witnessed. */
+      readonly witnessed: Readonly<Record<PlayerSlot, readonly GameEvent[]>>;
+    }
+  | { readonly ok: false; readonly rejection: Rejection };
+
 /** Where the game was before a command that can be taken back. */
 interface UndoStep {
   readonly state: BattleState;
+  readonly commandCount: number;
   readonly logLengths: Readonly<Record<PlayerSlot, number>>;
   readonly selectedUnitId: string | null;
 }
@@ -155,6 +179,9 @@ export const useBattleStore = defineStore('battle', () => {
   const logs = shallowRef<Logs>(NO_LOGS);
   const undoSteps = shallowRef<readonly UndoStep[]>([]);
   const startOptions = shallowRef<StartOptions>({});
+  const seed = ref(0);
+  /** Every command carried out since the battle started; with the seed it replays the battle. */
+  const history = shallowRef<readonly Command[]>([]);
   const selectedUnitId = ref<string | null>(null);
   const hoveredHex = shallowRef<Hex | null>(null);
   const order = ref<OrderMode>('move');
@@ -320,58 +347,83 @@ export const useBattleStore = defineStore('battle', () => {
 
   const canUndo = computed(() => undoSteps.value.length > 0);
 
+  /** The battle as it is saved: how it was started and what was ordered since. */
+  const savedGame = computed<SavedGame | null>(() => {
+    if (!scenario.value || !defs.value) return null;
+    return createSavedGame({
+      scenarioId: scenario.value.id,
+      seed: seed.value,
+      deployment: startOptions.value.deployment ?? 'manual',
+      fog: defs.value.rules.fog.enabled,
+      computer: computer.value && { player: computer.value.player, state: computer.value.ai },
+      commands: history.value,
+    });
+  });
+
+  /** Puts a battle on the screen in place of whatever was there. */
+  function open(opened: OpenedBattle): void {
+    scenario.value = opened.scenario;
+    defs.value = opened.defs;
+    state.value = opened.state;
+    startOptions.value = opened.options;
+    seed.value = opened.seed;
+    history.value = opened.commands ?? [];
+    played.value = null;
+    rejection.value = null;
+    logs.value = opened.logs ?? NO_LOGS;
+    undoSteps.value = [];
+    hoveredHex.value = null;
+    order.value = 'move';
+    selectedUnitId.value = null;
+    viewer.value = opened.state.activePlayer;
+    handover.value = null;
+    battleNumber++;
+    computer.value?.brain.dispose();
+    computer.value = null;
+
+    const { ai } = opened.options;
+    if (ai && opened.ai) {
+      const brain = ai.brain ?? createBrain();
+      brain.begin(opened.defs);
+      computer.value = {
+        player: ai.player,
+        ai: opened.ai,
+        brain,
+        stepDelayMs: ai.stepDelayMs ?? AI_STEP_DELAY_MS,
+      };
+      viewer.value = opponentOf(ai.player);
+    }
+  }
+
   /**
    * Starts a scenario. With `deployment: 'auto'` both armies are put on the map by the game and
    * the battle begins at once; otherwise the players deploy by hand.
    */
   function start(
-    seed: number,
+    battleSeed: number,
     scenarioId: string = DEFAULT_SCENARIO_ID,
     options: StartOptions = {}
   ): void {
     const chosen = Object.hasOwn(SCENARIOS, scenarioId) ? SCENARIOS[scenarioId] : undefined;
     if (!chosen) throw new Error(`Unknown scenario: "${scenarioId}"`);
 
-    const started = startScenario(chosen, seed);
-    const { rules } = started.defs;
-    const battleDefs: BattleDefs = {
-      ...started.defs,
-      rules: { ...rules, fog: { ...rules.fog, enabled: options.fog ?? rules.fog.enabled } },
-    };
-    scenario.value = chosen;
-    defs.value = battleDefs;
-    state.value = started.state;
-    startOptions.value = options;
-    played.value = null;
-    rejection.value = null;
-    logs.value = NO_LOGS;
-    undoSteps.value = [];
-    hoveredHex.value = null;
-    order.value = 'move';
-    selectedUnitId.value = null;
-    viewer.value = started.state.activePlayer;
-    handover.value = null;
-    battleNumber++;
-    computer.value?.brain.dispose();
-    computer.value = null;
+    const begun = begin(chosen, battleSeed, options.fog);
+    open({
+      ...begun,
+      scenario: chosen,
+      seed: battleSeed,
+      options,
+      ai: options.ai ? createAi(options.ai.difficulty, battleSeed) : null,
+    });
 
     if (options.ai) {
-      const brain = options.ai.brain ?? createBrain();
-      brain.begin(battleDefs);
-      computer.value = {
-        player: options.ai.player,
-        ai: createAi(options.ai.difficulty, seed),
-        brain,
-        stepDelayMs: options.ai.stepDelayMs ?? AI_STEP_DELAY_MS,
-      };
-      viewer.value = opponentOf(options.ai.player);
       advance();
       // Whatever the game did at once is shown as the battle's start, not played out.
       played.value = null;
     } else if (options.deployment === 'auto') {
-      while (state.value.phase === 'deployment') {
+      while (state.value?.phase === 'deployment') {
         const deployed = carryOut([
-          ...autoDeployment(state.value, battleDefs),
+          ...autoDeployment(state.value, begun.defs),
           { type: 'EndDeployment' },
         ]);
         if (!deployed) throw new Error(`Scenario "${chosen.id}" could not be deployed`);
@@ -385,9 +437,53 @@ export const useBattleStore = defineStore('battle', () => {
     }
   }
 
+  /**
+   * Picks a saved battle up where it was left, by playing it again from its seed and commands.
+   * Throws a `SaveError`, and leaves the battle on the screen alone, when that cannot be done.
+   */
+  function load(saved: SavedGame, hooks: Pick<ComputerPlayer, 'brain' | 'stepDelayMs'> = {}): void {
+    const chosen = Object.hasOwn(SCENARIOS, saved.scenarioId)
+      ? SCENARIOS[saved.scenarioId]
+      : undefined;
+    if (!chosen) throw new SaveError('damaged', `Unknown scenario: "${saved.scenarioId}"`);
+
+    const replayed = replay(chosen, saved);
+    const { computer: savedComputer } = saved;
+    open({
+      ...replayed,
+      scenario: chosen,
+      seed: saved.seed,
+      options: {
+        deployment: saved.deployment,
+        fog: saved.fog,
+        ...(savedComputer && {
+          ai: {
+            player: savedComputer.player,
+            difficulty: savedComputer.state.difficulty,
+            ...hooks,
+          },
+        }),
+      },
+      ai: savedComputer?.state ?? null,
+      commands: saved.commands,
+    });
+
+    if (computer.value) {
+      advance();
+      played.value = null;
+      return;
+    }
+    // Two players sharing the screen: whoever is on the move has to sit down at it first.
+    const { state: battle, defs: battleDefs } = replayed;
+    if (battle.phase !== 'ended' && !isFogLifted(battle, battleDefs)) {
+      handover.value = battle.activePlayer;
+    }
+    if (battle.phase === 'deployment') selectedUnitId.value = reserve.value[0]?.id ?? null;
+  }
+
   /** Starts the same scenario again, from the beginning. */
-  function restart(seed: number): void {
-    if (scenario.value) start(seed, scenario.value.id, startOptions.value);
+  function restart(battleSeed: number): void {
+    if (scenario.value) start(battleSeed, scenario.value.id, startOptions.value);
   }
 
   /** Leaves the battle; nothing of it is kept. */
@@ -401,6 +497,7 @@ export const useBattleStore = defineStore('battle', () => {
     played.value = null;
     rejection.value = null;
     logs.value = NO_LOGS;
+    history.value = [];
     undoSteps.value = [];
     selectedUnitId.value = null;
     hoveredHex.value = null;
@@ -418,24 +515,16 @@ export const useBattleStore = defineStore('battle', () => {
     const battleDefs = defs.value;
     if (!before || !battleDefs || !scenario.value) return false;
 
-    let after = before;
-    const witnessed: Record<PlayerSlot, GameEvent[]> = { 0: [], 1: [] };
-    for (const command of commands) {
-      const result = dispatch(after, command, battleDefs);
-      if (!result.ok) {
-        rejection.value = result.rejection;
-        return false;
-      }
-      for (const player of PLAYER_SLOTS) {
-        witnessed[player].push(
-          ...eventsSeenBy(result.events, after, result.state, battleDefs, player)
-        );
-      }
-      after = result.state;
+    const result = play(before, commands, battleDefs);
+    if (!result.ok) {
+      rejection.value = result.rejection;
+      return false;
     }
+    const { state: after, witnessed } = result;
 
     const step: UndoStep = {
       state: before,
+      commandCount: history.value.length,
       logLengths: { 0: logs.value[0].length, 1: logs.value[1].length },
       selectedUnitId: selectedUnitId.value,
     };
@@ -447,6 +536,7 @@ export const useBattleStore = defineStore('battle', () => {
     rejection.value = null;
     order.value = 'move';
     state.value = after;
+    history.value = [...history.value, ...commands];
 
     // The screen goes to whoever is on the move; with the fog on they have to sit down first.
     // Against the computer it never changes hands.
@@ -543,6 +633,7 @@ export const useBattleStore = defineStore('battle', () => {
     if (!step || !defs.value || aiOnTurn.value) return false;
     undoSteps.value = undoSteps.value.slice(0, -1);
     state.value = step.state;
+    history.value = history.value.slice(0, step.commandCount);
     // No events: the renderer just shows the earlier state.
     played.value = { ...shownTo(step.state, defs.value, viewer.value), events: [] };
     logs.value = {
@@ -695,7 +786,9 @@ export const useBattleStore = defineStore('battle', () => {
     highlights,
     hoverInfo,
     canUndo,
+    savedGame,
     start,
+    load,
     restart,
     leave,
     send,
@@ -711,6 +804,62 @@ export const useBattleStore = defineStore('battle', () => {
     endDeployment,
   };
 });
+
+/** The scenario ready to be played from `seed`, with the fog as the players chose it. */
+function begin(scenario: ScenarioDef, seed: number, fog: boolean | undefined): StartedBattle {
+  const started = startScenario(scenario, seed);
+  const { rules } = started.defs;
+  return {
+    state: started.state,
+    defs: {
+      ...started.defs,
+      rules: { ...rules, fog: { ...rules.fog, enabled: fog ?? rules.fog.enabled } },
+    },
+  };
+}
+
+/** Sends the commands to the core one after another and notes what each player saw of them. */
+function play(before: BattleState, commands: readonly Command[], defs: BattleDefs): Played {
+  let state = before;
+  const witnessed: Record<PlayerSlot, GameEvent[]> = { 0: [], 1: [] };
+  for (const command of commands) {
+    const result = dispatch(state, command, defs);
+    if (!result.ok) return { ok: false, rejection: result.rejection };
+    for (const player of PLAYER_SLOTS) {
+      witnessed[player].push(...eventsSeenBy(result.events, state, result.state, defs, player));
+    }
+    state = result.state;
+  }
+  return { ok: true, state, witnessed };
+}
+
+/**
+ * Plays a saved battle from its start to where it was left, and writes the log each player
+ * would have by then. A save the core does not accept command by command is damaged.
+ */
+function replay(scenario: ScenarioDef, saved: SavedGame): StartedBattle & { logs: Logs } {
+  try {
+    const { state: begun, defs } = begin(scenario, saved.seed, saved.fog);
+    let state = begun;
+    const logs: Record<PlayerSlot, LogEntry[]> = { 0: [], 1: [] };
+    for (const [index, command] of saved.commands.entries()) {
+      const step = play(state, [command], defs);
+      if (!step.ok) {
+        throw new SaveError('damaged', `Saved command ${index}: ${step.rejection.message}`);
+      }
+      const context = { scenario, defs, before: state, after: step.state };
+      for (const player of PLAYER_SLOTS) {
+        logs[player].push(...describeEvents(step.witnessed[player], context));
+      }
+      state = step.state;
+    }
+    return { state, defs, logs };
+  } catch (error) {
+    if (error instanceof SaveError) throw error;
+    // A command of the wrong shape can make a handler throw before it gets to reject it.
+    throw new SaveError('damaged', 'The saved commands cannot be played again');
+  }
+}
 
 function reliefCommand(unit: Unit, partner: Unit): Command {
   return { type: 'UseAbility', unitId: unit.id, abilityId: 'lineRelief', targetId: partner.id };

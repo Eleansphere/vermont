@@ -1,15 +1,26 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { RULES_VERSION } from '@vermont/core';
-import { t } from '../i18n';
+import { saveProblemText, t } from '../i18n';
+import type { SaveProblem } from '../save/savedGame';
 import SettingsPanel from './SettingsPanel.vue';
 import ShortcutList from './ShortcutList.vue';
 
-defineProps<{ canContinue: boolean }>();
-defineEmits<{ newBattle: []; continue: [] }>();
+defineProps<{ canContinue: boolean; saveProblem: SaveProblem | null }>();
+const emit = defineEmits<{ newBattle: []; continue: []; loadFile: [file: File] }>();
 
 type Page = 'main' | 'settings' | 'shortcuts';
 const page = ref<Page>('main');
+const fileInput = ref<HTMLInputElement | null>(null);
+
+function onFileChosen(): void {
+  const input = fileInput.value;
+  const file = input?.files?.[0];
+  if (!input || !file) return;
+  emit('loadFile', file);
+  // The same file can be chosen again, for instance after the player has looked at why not.
+  input.value = '';
+}
 </script>
 
 <template>
@@ -38,6 +49,25 @@ const page = ref<Page>('main');
       >
         {{ t('menu.newBattle') }}
       </button>
+      <button
+        class="button button--wide"
+        type="button"
+        data-test="load-file"
+        @click="fileInput?.click()"
+      >
+        {{ t('menu.loadFile') }}
+      </button>
+      <input
+        ref="fileInput"
+        class="menu__file"
+        type="file"
+        accept=".json,application/json"
+        data-test="save-file"
+        @change="onFileChosen"
+      />
+      <p v-if="saveProblem" class="menu__problem" role="alert" data-test="save-problem">
+        {{ saveProblemText(saveProblem) }}
+      </p>
       <button
         class="button button--wide"
         type="button"
@@ -96,6 +126,16 @@ const page = ref<Page>('main');
   gap: 10px;
   width: min(360px, calc(100% - 32px));
   padding: 16px;
+}
+
+.menu__file {
+  display: none;
+}
+
+.menu__problem {
+  margin: 0;
+  color: var(--danger);
+  font-size: 14px;
 }
 
 .menu__version {

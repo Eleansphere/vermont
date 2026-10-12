@@ -5,6 +5,7 @@ import { mount } from '@vue/test-utils';
 import { createPinia } from 'pinia';
 import { RULES_VERSION, fieldedUnits } from '@vermont/core';
 import App from './App.vue';
+import { SAVE_STORAGE_KEY } from './save/storage';
 import { useBattleStore } from './stores/battle';
 import { useSettingsStore } from './stores/settings';
 
@@ -45,6 +46,78 @@ async function startBattle(autoDeploy: boolean, fog = true) {
 describe('App', () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => wrapper.unmount());
+
+  describe('saved battle', () => {
+    it('keeps the battle in the browser and offers to continue it on the next visit', async () => {
+      const first = await startBattle(true, false);
+      first.store.endTurn();
+      await nextTick();
+      const left = first.store.state;
+      expect(left).toMatchObject({ phase: 'battle', activePlayer: 1 });
+      wrapper.unmount();
+
+      const { store } = mountApp();
+
+      expect(store.state).toEqual(left);
+      await click('continue');
+      expect(text('turn')).toMatch(/^Kolo 1 z 20\s*na tahu\s*Kartágo$/);
+    });
+
+    it('forgets a battle that is over', async () => {
+      const { store } = await startBattle(true);
+      await nextTick();
+      expect(localStorage.getItem(SAVE_STORAGE_KEY)).not.toBeNull();
+
+      store.state = { ...store.state!, phase: 'ended', draw: true };
+      await nextTick();
+      expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBeNull();
+      wrapper.unmount();
+      mountApp();
+
+      expect(has('continue')).toBe(false);
+    });
+
+    it('says why a battle from an older version was not kept, once', async () => {
+      const { store } = await startBattle(true);
+      await nextTick();
+      const saved = { ...store.savedGame!, rulesVersion: RULES_VERSION - 1 };
+      wrapper.unmount();
+      localStorage.setItem(SAVE_STORAGE_KEY, JSON.stringify(saved));
+
+      mountApp();
+
+      expect(has('continue')).toBe(false);
+      expect(text('save-problem')).toBe('Uložená bitva je z jiné verze hry a nejde načíst.');
+      expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBeNull();
+    });
+
+    it('loads a battle from a file and says so when the file is no save', async () => {
+      const { store } = await startBattle(true, false);
+      const saved = JSON.stringify(store.savedGame);
+      const played = store.state;
+      wrapper.unmount();
+      localStorage.clear();
+      const fresh = mountApp();
+      const choose = async (content: string) => {
+        const input = wrapper.find('input[data-test="save-file"]');
+        Object.defineProperty(input.element, 'files', {
+          value: [new File([content], 'save.json')],
+          configurable: true,
+        });
+        await input.trigger('change');
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await nextTick();
+      };
+
+      await choose('holiday photo');
+      expect(text('save-problem')).toBe('Tohle není uložená bitva hry Vermont.');
+      expect(fresh.store.state).toBeNull();
+
+      await choose(saved);
+      expect(fresh.store.state).toEqual(played);
+      expect(has('turn')).toBe(true);
+    });
+  });
 
   describe('menu', () => {
     it('opens on the main menu with the rules version', () => {

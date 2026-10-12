@@ -14,6 +14,8 @@ import {
   unitReach,
 } from '@vermont/core';
 import { createLocalBrain } from '../ai/brain';
+import type { SavedGame } from '../save/savedGame';
+import { SaveError, parseSavedGame } from '../save/savedGame';
 import type { StartOptions } from './battle';
 import { useBattleStore } from './battle';
 
@@ -635,6 +637,162 @@ describe('battle store', () => {
       expect(store.reliefPartners).toEqual([]);
       expect(store.order).toBe('move');
     });
+  });
+
+  describe('saving and loading', () => {
+    /** The battle as it comes back after the browser was closed: through text, into a new store. */
+    function reloaded(store: BattleStore): BattleStore {
+      const saved = parseSavedGame(JSON.stringify(store.savedGame));
+      setActivePinia(createPinia());
+      const loaded = useBattleStore();
+      loaded.load(saved, { brain: createLocalBrain(), stepDelayMs: 0 });
+      return loaded;
+    }
+
+    it('has nothing to save before a battle is started', () => {
+      expect(useBattleStore().savedGame).toBeNull();
+    });
+
+    it('saves how the battle was started and every command since', () => {
+      const store = startedStore({ fog: false });
+      const { unit, goal } = movableUnit(store);
+      moveTo(store, unit, goal);
+      store.endTurn();
+
+      expect(store.savedGame).toMatchObject({
+        scenarioId: 'trebia',
+        seed: SEED,
+        deployment: 'auto',
+        fog: false,
+        computer: null,
+      });
+      expect(store.savedGame!.commands.at(-2)).toMatchObject({ type: 'MoveUnit', unitId: unit.id });
+      expect(store.savedGame!.commands.at(-1)).toEqual({ type: 'EndTurn' });
+    });
+
+    it('picks the battle up where it was left, with the log of each player', () => {
+      const store = startedStore();
+      playUntilContact(store);
+      const viewerLog = store.log;
+
+      const loaded = reloaded(store);
+
+      expect(loaded.state).toEqual(store.state);
+      expect(loaded.defs).toEqual(store.defs);
+      expect(loaded.scenario?.id).toBe('trebia');
+      expect(loaded.viewer).toBe(store.viewer);
+      expect(loaded.log).toEqual(viewerLog);
+      expect(loaded.savedGame).toEqual(store.savedGame);
+      expect(loaded.canUndo).toBe(false);
+    });
+
+    it('rolls the same dice after loading as it would have without', () => {
+      const store = startedStore({ fog: false });
+      const attacker = playUntilContact(store);
+      const target = attackTargets(store.state!, store.defs!, attacker)[0]!;
+      const loaded = reloaded(store);
+
+      store.send({ type: 'Attack', unitId: attacker.id, targetId: target.id });
+      loaded.send({ type: 'Attack', unitId: attacker.id, targetId: target.id });
+
+      expect(loaded.state).toEqual(store.state);
+    });
+
+    it('asks the player on the move to the screen when two share it in the fog', () => {
+      const store = startedStore();
+      store.endTurn();
+      store.takeSeat();
+
+      const loaded = reloaded(store);
+
+      expect(loaded.handover).toBe(1);
+      expect(loaded.viewer).toBe(1);
+      expect(reloaded(startedStore({ fog: false })).handover).toBeNull();
+    });
+
+    it('goes on with a deployment by hand', () => {
+      const store = deployingStore();
+      const unit = store.reserve[0]!;
+      store.pick({ hex: deploymentHexes(store.state!, store.defs!, unit)[0]! });
+
+      const loaded = reloaded(store);
+
+      expect(loaded.state!.phase).toBe('deployment');
+      expect(loaded.reserve).toHaveLength(store.reserve.length);
+      expect(loaded.selectedUnitId).toBe(loaded.reserve[0]!.id);
+    });
+
+    it('forgets a move that was taken back', () => {
+      const store = startedStore({ fog: false });
+      const before = store.savedGame!.commands.length;
+      const { unit, goal } = movableUnit(store);
+      moveTo(store, unit, goal);
+      expect(store.savedGame!.commands).toHaveLength(before + 1);
+
+      store.undo();
+
+      expect(store.savedGame!.commands).toHaveLength(before);
+      expect(reloaded(store).state).toEqual(store.state);
+    });
+
+    it('refuses a save that cannot be played again and keeps the battle on the screen', () => {
+      const store = startedStore();
+      const state = store.state;
+      const saved = store.savedGame!;
+      const damaged: SavedGame[] = [
+        { ...saved, scenarioId: 'thermopylae' },
+        { ...saved, commands: [{ type: 'EndTurn' }, ...saved.commands] },
+        { ...saved, commands: [...saved.commands, { type: 'MoveUnit' } as never] },
+      ];
+
+      for (const save of damaged) {
+        expect(() => store.load(save)).toThrow(SaveError);
+        expect(() => store.load(save)).toThrow(expect.objectContaining({ problem: 'damaged' }));
+      }
+      expect(store.state).toBe(state);
+    });
+
+    it('goes on against the computer with the same opponent', async () => {
+      const store = useBattleStore();
+      store.start(SEED, 'trebia', {
+        deployment: 'auto',
+        ai: { player: 1, difficulty: 'hard', brain: createLocalBrain(), stepDelayMs: 0 },
+      });
+      await vi.waitFor(() => expect(store.aiOnTurn).toBe(false), { timeout: 20_000 });
+      const saved = store.savedGame!;
+      expect(saved.computer).toMatchObject({ player: 1, state: { difficulty: 'hard' } });
+
+      const loaded = reloaded(store);
+
+      expect(loaded.state).toEqual(store.state);
+      expect(loaded.viewer).toBe(0);
+      expect(loaded.handover).toBeNull();
+      expect(loaded.savedGame).toEqual(saved);
+
+      // Both go on the same way: the computer's dice were saved where they stopped.
+      store.endTurn();
+      loaded.endTurn();
+      await vi.waitFor(() => expect(store.aiOnTurn).toBe(false), { timeout: 20_000 });
+      await vi.waitFor(() => expect(loaded.aiOnTurn).toBe(false), { timeout: 20_000 });
+      expect(loaded.state).toEqual(store.state);
+    }, 60_000);
+
+    it('lets the computer finish the move it was saved in the middle of', async () => {
+      const store = useBattleStore();
+      store.start(SEED, 'trebia', {
+        deployment: 'auto',
+        ai: { player: 0, difficulty: 'normal', brain: createLocalBrain(), stepDelayMs: 0 },
+      });
+      // Saved at once: the computer, which plays first, has not even deployed yet.
+      const saved = parseSavedGame(JSON.stringify(store.savedGame));
+      store.leave();
+
+      store.load(saved, { brain: createLocalBrain(), stepDelayMs: 0 });
+      expect(store.aiOnTurn).toBe(true);
+      await vi.waitFor(() => expect(store.aiOnTurn).toBe(false), { timeout: 20_000 });
+
+      expect(store.state).toMatchObject({ phase: 'battle', turn: 1, activePlayer: 1 });
+    }, 60_000);
   });
 
   describe('against the computer', () => {
