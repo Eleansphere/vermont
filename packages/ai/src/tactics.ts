@@ -1,4 +1,13 @@
-import type { BattleDefs, BattleState, Command, FieldedUnit, Hex, PlayerSlot } from '@vermont/core';
+import type {
+  BattleDefs,
+  BattleState,
+  Command,
+  Draw,
+  FieldedUnit,
+  Hex,
+  PlayerSlot,
+  RngState,
+} from '@vermont/core';
 import {
   HILL_RANGE_BONUS,
   abilityOf,
@@ -8,6 +17,7 @@ import {
   hexDistance,
   hexEquals,
   isFighting,
+  nextRandom,
   opponentOf,
   pathFromReach,
   previewAttack,
@@ -25,15 +35,18 @@ export interface Tactics {
   readonly plan: PlanOptions;
   /** Whether fresh units take the place of weakened ones in the line. */
   readonly relief: boolean;
-  /** Whether units keep out of places where the enemy could destroy them in a turn. */
-  readonly wary: boolean;
   /** Whether the army advances together, nobody far ahead of the rest. */
   readonly formation: boolean;
   /**
-   * Whether a unit strikes as soon as it can. Otherwise the whole army moves up first, so
-   * that every attack gets the help of the units standing around its target.
+   * Whether a place to move to is judged by the attack the unit would have from it. Without
+   * it a unit just makes for its objective and strikes at whatever it then finds in reach.
    */
-  readonly attacksFirst: boolean;
+  readonly looksAhead: boolean;
+  /**
+   * How far off, either way, the AI may be when it compares two moves or two attacks. It is
+   * what makes two battles from different seeds differ, and a careless player weaker.
+   */
+  readonly misjudgement: number;
 }
 
 /** A command the AI considers and how much it expects of it. */
@@ -55,8 +68,10 @@ interface Situation {
   readonly plan: ReadonlyMap<string, Orders>;
   readonly enemyCamp: Hex | null;
   readonly tactics: Tactics;
-  /** dvanceLimit of the units asked about so far. */
+  /** `advanceLimit` of the units asked about so far. */
   readonly advanceLimits: Map<string, number>;
+  /** How much the AI misjudges the next thing it weighs: drawn anew at every call. */
+  readonly misjudge: () => number;
 }
 
 const HOLD: Orders = { role: 'fight', objective: null };
@@ -82,8 +97,6 @@ const RELIEF_VALUE = 2.5;
 const MIN_GAIN = 0.2;
 /** Breaks ties in favour of the shorter march. */
 const STEP_COST = 0.01;
-/** What a place costs where the enemies around could finish the unit off next turn. */
-const DOOM_COST = 4;
 /** How far ahead of its support a unit may go, in movement points. */
 const LEAD = 2;
 /** Which of the other units, counted from the nearest to the objective, is the support. */
@@ -98,10 +111,9 @@ const PULL: Readonly<Record<Role, number>> = {
   fight: 1,
   guard: GUARD_PULL,
   raid: 1.5,
-  withdraw: 1,
 };
 /** How much of the damage it may take on a hex each role minds. */
-const CAUTION: Readonly<Record<Role, number>> = { fight: 0.15, guard: 0, raid: 0.3, withdraw: 0.6 };
+const CAUTION: Readonly<Record<Role, number>> = { fight: 0.15, guard: 0, raid: 0.3 };
 /** Shooters hang back: they need the enemy in range, not in reach. */
 const SHOOTER_PULL = 0.5;
 const SHOOTER_CAUTION = 0.5;
@@ -115,9 +127,16 @@ export function tacticalOrders(
   state: BattleState,
   defs: BattleDefs,
   player: PlayerSlot,
-  tactics: Tactics
-): Command {
+  tactics: Tactics,
+  rng: RngState
+): Draw<Command> {
   const enemies = fieldedUnits(state, opponentOf(player));
+  let dice = rng;
+  const misjudge = (): number => {
+    const draw = nextRandom(dice);
+    dice = draw.rng;
+    return (2 * draw.value - 1) * tactics.misjudgement;
+  };
   const situation: Situation = {
     state,
     defs,
@@ -129,16 +148,15 @@ export function tacticalOrders(
     enemyCamp: defs.camps[opponentOf(player)] ?? null,
     tactics,
     advanceLimits: new Map(),
+    misjudge,
   };
 
-  const options = tactics.attacksFirst
-    ? [winningMove, bestAttack, bestMove]
-    : [winningMove, bestRelief, bestMove, bestAttack];
-  for (const option of options) {
+  // A unit strikes as soon as it can: whoever lands the first blows usually wins the fight.
+  for (const option of [winningMove, bestRelief, bestAttack, bestMove]) {
     const best = option(situation);
-    if (best) return best.command;
+    if (best) return { value: best.command, rng: dice };
   }
-  return { type: 'EndTurn' };
+  return { value: { type: 'EndTurn' }, rng: dice };
 }
 
 /** A march into the enemy camp, when some unit can make it this turn. */
@@ -160,8 +178,10 @@ function bestAttack(situation: Situation): Option | null {
   for (const unit of situation.own) {
     if (unit.hasAttacked) continue;
     for (const target of attackTargets(state, defs, unit)) {
-      const value = attackValue(situation, state, unit, target);
-      if (value !== null && value > (best?.value ?? 0)) {
+      const worth = attackValue(situation, state, unit, target);
+      if (worth === null || worth <= 0) continue;
+      const value = worth + situation.misjudge();
+      if (!best || value > best.value) {
         best = { command: { type: 'Attack', unitId: unit.id, targetId: target.id }, value };
       }
     }
@@ -178,8 +198,10 @@ function bestMove(situation: Situation): Option | null {
     const staying = positionValue(situation, unit, unit.pos);
     for (const node of reach.values()) {
       if (!node.canStop || node.cost === 0) continue;
-      const value = positionValue(situation, unit, node.hex) - staying - STEP_COST * node.cost;
-      if (value > (best?.value ?? MIN_GAIN)) {
+      const gain = positionValue(situation, unit, node.hex) - staying - STEP_COST * node.cost;
+      if (gain <= MIN_GAIN) continue;
+      const value = gain + situation.misjudge();
+      if (!best || value > best.value) {
         const path = pathFromReach(reach, node.hex)!.hexes;
         best = { command: { type: 'MoveUnit', unitId: unit.id, path }, value };
       }
@@ -286,7 +308,7 @@ function positionValue(situation: Situation, unit: FieldedUnit, at: Hex): number
   const orders = situation.plan.get(unit.id) ?? HOLD;
   const shoots = type.range !== undefined && orders.role === 'fight';
 
-  let value = bestAttackFrom(situation, unit, at);
+  let value = situation.tactics.looksAhead ? bestAttackFrom(situation, unit, at) : 0;
   if (orders.objective) {
     const pull = shoots ? SHOOTER_PULL : PULL[orders.role];
     const way = travelCost(defs, type.archetype, orders.objective, at);
@@ -297,7 +319,6 @@ function positionValue(situation: Situation, unit: FieldedUnit, at: Hex): number
     let danger = 0;
     for (const enemy of situation.threats) danger += threat(defs, enemy, unit, at);
     value -= caution * danger;
-    if (situation.tactics.wary && danger >= unit.hp) value -= DOOM_COST;
   }
   if (orders.role === 'fight') {
     const company = situation.own.filter(

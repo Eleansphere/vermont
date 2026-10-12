@@ -32,9 +32,10 @@ function rowsZone({ width }: GridSize, rows: readonly number[]): Hex[] {
 }
 
 /**
- * Loosely after the battle on the Trebia (218 BC): Rome in the north, Carthage in the south,
- * twelve units each. The armies are listed wing to wing, the way they line up when deployed
- * in order.
+ * Loosely after the battle on the Trebia (218 BC): Rome in the north, Carthage in the south.
+ * Carthage has the elephants and the better cavalry, Rome one unit more. The armies are listed
+ * wing to wing, the way they line up when deployed in order; Rome's last velites stand behind
+ * the line.
  */
 const TREBIA: ScenarioDef = {
   id: 'trebia',
@@ -51,6 +52,7 @@ const TREBIA: ScenarioDef = {
         { typeId: 'principes', count: 3 },
         { typeId: 'velites', count: 1 },
         { typeId: 'equites', count: 1 },
+        { typeId: 'velites', count: 1 },
       ],
       camp: rectangleHex(7, 0),
       deploymentZone: rowsZone(TREBIA_SIZE, northRows()),
@@ -63,7 +65,7 @@ const TREBIA: ScenarioDef = {
         { typeId: 'gallic-mercenaries', count: 2 },
         { typeId: 'libyan-spearmen', count: 3 },
         { typeId: 'war-elephants', count: 1 },
-        { typeId: 'balearic-slingers', count: 1 },
+        { typeId: 'libyan-spearmen', count: 1 },
         { typeId: 'iberian-cavalry', count: 2 },
         { typeId: 'numidian-cavalry', count: 1 },
       ],
@@ -79,9 +81,10 @@ const CANNAE_ROME_RESERVE_COLUMNS = [7, 11] as const;
 const CANNAE_CARTHAGE_COLUMNS = [3, 14] as const;
 
 /**
- * Loosely after Cannae (216 BC). Rome brings the bigger army and packs it deep: nine units in
- * front and the triarii with the skirmishers behind their middle. Carthage has no elephants
- * and stands in one longer line, the Gauls in its centre and cavalry on both wings.
+ * Loosely after Cannae (216 BC), fourteen units a side. Rome packs its army deep: nine units
+ * in front and the triarii with the skirmishers behind their middle. Carthage has no elephants
+ * and stands in one longer line, the Gauls in its centre and the stronger cavalry on both
+ * wings, with the slingers behind.
  */
 const CANNAE: ScenarioDef = {
   id: 'cannae',
@@ -112,13 +115,12 @@ const CANNAE: ScenarioDef = {
     {
       factionId: 'carthage',
       army: [
-        { typeId: 'iberian-cavalry', count: 2 },
+        { typeId: 'iberian-cavalry', count: 3 },
         { typeId: 'libyan-spearmen', count: 2 },
-        { typeId: 'balearic-slingers', count: 1 },
-        { typeId: 'gallic-mercenaries', count: 2 },
-        { typeId: 'balearic-slingers', count: 1 },
+        { typeId: 'gallic-mercenaries', count: 3 },
         { typeId: 'libyan-spearmen', count: 2 },
         { typeId: 'numidian-cavalry', count: 2 },
+        { typeId: 'balearic-slingers', count: 2 },
       ],
       camp: rectangleHex(8, CANNAE_SIZE.height - 1),
       deploymentZone: southRows(CANNAE_SIZE).flatMap((row) =>
@@ -129,8 +131,9 @@ const CANNAE: ScenarioDef = {
 };
 
 /**
- * Loosely after Zama (202 BC), on open ground. Rome has the stronger cavalry this time, two
- * units on each wing; Carthage has three units of elephants spread along its line.
+ * Loosely after Zama (202 BC), on open ground. Rome has the bigger army and the stronger
+ * cavalry this time, two units on each wing; Carthage has the elephants in the middle of its
+ * line.
  */
 const ZAMA: ScenarioDef = {
   id: 'zama',
@@ -157,14 +160,11 @@ const ZAMA: ScenarioDef = {
         { typeId: 'numidian-cavalry', count: 1 },
         { typeId: 'balearic-slingers', count: 1 },
         { typeId: 'gallic-mercenaries', count: 1 },
-        { typeId: 'war-elephants', count: 1 },
-        { typeId: 'libyan-spearmen', count: 1 },
+        { typeId: 'libyan-spearmen', count: 2 },
         { typeId: 'gallic-mercenaries', count: 1 },
         { typeId: 'war-elephants', count: 1 },
-        { typeId: 'libyan-spearmen', count: 1 },
+        { typeId: 'libyan-spearmen', count: 2 },
         { typeId: 'gallic-mercenaries', count: 1 },
-        { typeId: 'war-elephants', count: 1 },
-        { typeId: 'libyan-spearmen', count: 1 },
         { typeId: 'balearic-slingers', count: 1 },
         { typeId: 'iberian-cavalry', count: 1 },
       ],

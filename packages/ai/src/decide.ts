@@ -5,20 +5,25 @@ import { randomDeployment, randomOrders } from './random';
 import type { Tactics } from './tactics';
 import { tacticalOrders } from './tactics';
 
+/**
+ * The two levels that think. The hard one judges a move by the attack it leads to, keeps its
+ * army together, relieves worn units in the line and sends a rider for the enemy camp; it is
+ * also surer of its judgement. Both strike as soon as they can.
+ */
 const TACTICS: Readonly<Record<Exclude<Difficulty, 'easy'>, Tactics>> = {
   normal: {
-    plan: { guard: true, raid: false, withdraw: false },
+    plan: { guard: true, raid: false },
     relief: false,
-    wary: false,
     formation: false,
-    attacksFirst: true,
+    looksAhead: false,
+    misjudgement: 0.6,
   },
   hard: {
-    plan: { guard: true, raid: true, withdraw: true },
+    plan: { guard: true, raid: true },
     relief: true,
-    wary: true,
     formation: true,
-    attacksFirst: false,
+    looksAhead: true,
+    misjudgement: 0.3,
   },
 };
 
@@ -40,9 +45,9 @@ export function decide(view: PlayerView, defs: BattleDefs, ai: AiState): Decisio
         : randomOrders(state, defs, player, ai.rng);
     return { command: draw.value, ai: { ...ai, rng: draw.rng } };
   }
-  const command =
-    state.phase === 'deployment'
-      ? plannedDeployment(state, defs, player)
-      : tacticalOrders(state, defs, player, TACTICS[ai.difficulty]);
-  return { command, ai };
+  if (state.phase === 'deployment') {
+    return { command: plannedDeployment(state, defs, player), ai };
+  }
+  const draw = tacticalOrders(state, defs, player, TACTICS[ai.difficulty], ai.rng);
+  return { command: draw.value, ai: { ...ai, rng: draw.rng } };
 }

@@ -134,7 +134,7 @@ describe('App', () => {
       await click('new-battle');
 
       expect(wrapper.text()).toContain('Trebia (218 př. n. l.)');
-      expect(wrapper.text()).toContain('Řím (12 jednotek)');
+      expect(wrapper.text()).toContain('Řím (13 jednotek)');
       expect(wrapper.text()).toContain('Kartágo (12 jednotek)');
 
       await click('back');
@@ -195,7 +195,7 @@ describe('App', () => {
       const { store } = await startBattle(false);
 
       expect(text('turn')).toMatch(/^Rozestavení\s*na tahu\s*Řím$/);
-      expect(text('deployment')).toContain('Čeká na rozestavení: 12');
+      expect(text('deployment')).toContain('Čeká na rozestavení: 13');
       expect(wrapper.find('[data-test="end-deployment"]').attributes('disabled')).toBeDefined();
       expect(has('end-turn')).toBe(false);
       expect(text('unit-panel')).toContain('V záloze');
@@ -239,7 +239,7 @@ describe('App', () => {
 
       await click('undo');
 
-      expect(store.reserve).toHaveLength(12);
+      expect(store.reserve).toHaveLength(13);
     });
   });
 
@@ -249,7 +249,7 @@ describe('App', () => {
 
       expect(text('turn')).toMatch(/^Kolo 1 z 20\s*na tahu\s*Řím$/);
       expect(text('army-0')).toContain('Řím');
-      expect(text('army-0')).toContain('v boji 12 z 12');
+      expect(text('army-0')).toContain('v boji 13 z 13');
       expect(text('army-1')).toContain('Kartágo');
       expect(wrapper.find('battle-canvas-stub').exists()).toBe(true);
     });
@@ -258,7 +258,7 @@ describe('App', () => {
       const { store } = await startBattle(true);
 
       await click('end-turn');
-      expect(wrapper.text()).toContain('Některé jednotky ještě mohou jednat (12)');
+      expect(wrapper.text()).toContain('Některé jednotky ještě mohou jednat (13)');
       expect(store.state?.activePlayer).toBe(0);
 
       await click('cancel');

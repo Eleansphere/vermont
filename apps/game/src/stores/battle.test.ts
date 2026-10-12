@@ -97,7 +97,7 @@ describe('battle store', () => {
 
       expect(store.scenario?.id).toBe('trebia');
       expect(store.state?.phase).toBe('battle');
-      expect(fieldedUnits(store.state!, 0)).toHaveLength(12);
+      expect(fieldedUnits(store.state!, 0)).toHaveLength(13);
       expect(fieldedUnits(store.state!, 1)).toHaveLength(12);
       expect(store.played).toBeNull();
       expect(store.canUndo).toBe(false);
@@ -107,7 +107,7 @@ describe('battle store', () => {
       const store = deployingStore();
 
       expect(store.state?.phase).toBe('deployment');
-      expect(store.reserve).toHaveLength(12);
+      expect(store.reserve).toHaveLength(13);
       expect(store.selectedUnitId).toBe(store.reserve[0]!.id);
     });
 
@@ -161,7 +161,7 @@ describe('battle store', () => {
       store.pick({ hex: target });
 
       expect(store.state!.units[first!.id]!.pos).toEqual(target);
-      expect(store.reserve).toHaveLength(11);
+      expect(store.reserve).toHaveLength(12);
       expect(store.selectedUnitId).toBe(second!.id);
       expect(store.played?.events.map((event) => event.type)).toEqual(['UnitDeployed']);
     });
@@ -173,7 +173,7 @@ describe('battle store', () => {
 
       store.pick({ hex: outside });
 
-      expect(store.reserve).toHaveLength(12);
+      expect(store.reserve).toHaveLength(13);
       expect(store.selectedUnitId).toBe(selected);
     });
 
@@ -214,7 +214,7 @@ describe('battle store', () => {
       expect(store.reserve).toHaveLength(0);
 
       store.undo();
-      expect(store.reserve).toHaveLength(11);
+      expect(store.reserve).toHaveLength(12);
     });
 
     it('does not end the deployment while units wait in reserve', () => {
@@ -353,7 +353,7 @@ describe('battle store', () => {
     it('lists the units that can still act and walks through them', () => {
       const store = startedStore();
       const ready = store.readyUnits.map((unit) => unit.id);
-      expect(ready).toHaveLength(12);
+      expect(ready).toHaveLength(13);
 
       store.selectNext();
       expect(store.selectedUnitId).toBe(ready[0]);
@@ -460,7 +460,7 @@ describe('battle store', () => {
     it('shows a player their own army and none of the enemy they cannot see', () => {
       const store = startedStore();
 
-      expect(fieldedUnits(store.known!, 0)).toHaveLength(12);
+      expect(fieldedUnits(store.known!, 0)).toHaveLength(13);
       expect(sighted(store)).toEqual([]);
       expect(store.shown?.visible?.size).toBeLessThan(Object.keys(store.defs!.map.hexes).length);
     });
@@ -520,7 +520,7 @@ describe('battle store', () => {
       store.endDeployment();
 
       expect(store.handover).toBe(1);
-      expect(fieldedUnits(store.state!, 0)).toHaveLength(12);
+      expect(fieldedUnits(store.state!, 0)).toHaveLength(13);
       expect(fieldedUnits(store.known!)).toEqual([]);
       expect(store.reserve).toHaveLength(12);
     });
@@ -831,7 +831,7 @@ describe('battle store', () => {
 
       expect(store.viewer).toBe(1);
       expect(store.state).toMatchObject({ phase: 'battle', turn: 1, activePlayer: 1 });
-      expect(fieldedUnits(store.state!, 0)).toHaveLength(12);
+      expect(fieldedUnits(store.state!, 0)).toHaveLength(13);
       expect(fieldedUnits(store.state!, 1)).toHaveLength(12);
     });
 

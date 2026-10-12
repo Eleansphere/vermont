@@ -54,20 +54,24 @@ describe.each(Object.values(SCENARIOS))('AI against AI: $id', (scenario: Scenari
     }
   );
 
-  it('is won by the hard AI over the easy one more often than not', { timeout: TIMEOUT_MS }, () => {
-    let won = 0;
-    for (const seed of DUEL_SEEDS) {
-      for (const hardSide of [0, 1] as const satisfies readonly PlayerSlot[]) {
-        const fought =
-          hardSide === 0
-            ? battle(scenario, seed, 'hard', 'easy')
-            : battle(scenario, seed, 'easy', 'hard');
-        expectDecided(fought);
-        if (fought.state.winner?.player === hardSide) won++;
+  it.each(['easy', 'normal'] as const)(
+    'is won by the hard AI over the %s one more often than not',
+    { timeout: TIMEOUT_MS },
+    (weaker) => {
+      let won = 0;
+      for (const seed of DUEL_SEEDS) {
+        for (const hardSide of [0, 1] as const satisfies readonly PlayerSlot[]) {
+          const fought =
+            hardSide === 0
+              ? battle(scenario, seed, 'hard', weaker)
+              : battle(scenario, seed, weaker, 'hard');
+          expectDecided(fought);
+          if (fought.state.winner?.player === hardSide) won++;
+        }
       }
+      expect(won).toBeGreaterThan(DUEL_SEEDS.length);
     }
-    expect(won).toBeGreaterThan(DUEL_SEEDS.length);
-  });
+  );
 
   it('plays out the same way again from the seed and the commands', () => {
     const fought = battle(scenario, REPLAY_SEED, 'hard', 'normal');

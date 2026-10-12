@@ -3,10 +3,10 @@ import { fieldedUnits, hexDistance, isFighting, opponentOf, unitTypeOf } from '@
 import { travelCost } from './routes';
 
 /**
- * What a unit is in the battle for: `fight` goes for the enemy, `guard` holds its side's camp,
- * `raid` rides for the enemy's, and `withdraw` pulls back to recover.
+ * What a unit is in the battle for: `fight` goes for the enemy, `guard` holds its side's camp
+ * and `raid` rides for the enemy's.
  */
-export type Role = 'fight' | 'guard' | 'raid' | 'withdraw';
+export type Role = 'fight' | 'guard' | 'raid';
 
 export interface Orders {
   readonly role: Role;
@@ -19,8 +19,6 @@ export interface PlanOptions {
   readonly guard: boolean;
   /** Whether a fast unit is sent for the enemy camp once the battle is under way. */
   readonly raid: boolean;
-  /** Whether weakened units are pulled back to recover. */
-  readonly withdraw: boolean;
 }
 
 /** At this share of its full health or below a unit is pulled out of the fight. */
@@ -33,9 +31,7 @@ const FAST_UNITS_TO_RAID = 2;
 const RAID_FROM_TURN = 3;
 /** The last unit of an army has nobody to hold the camp for. */
 const ARMY_TO_GUARD = 2;
-/** Other units fit to fight that have to be left before a weak one may withdraw. */
-const FIT_UNITS_TO_WITHDRAW = 2;
-/** For this many last rounds nobody guards or withdraws: a battle left undecided is a draw. */
+/** For this many last rounds nobody guards the camp: a battle left undecided is a draw. */
 const ALL_OUT_ROUNDS = 5;
 /** How much nearer an enemy seems to a unit whose archetype has the advantage over it. */
 const PREY_PULL = 3;
@@ -89,14 +85,6 @@ export function battlePlan(
       plan.set(unit.id, { role: 'guard', objective: ownCamp });
     } else if (unit.id === raider?.id) {
       plan.set(unit.id, { role: 'raid', objective: enemyCamp });
-    } else if (
-      options.withdraw &&
-      !allOut &&
-      ownCamp &&
-      isWeakened(defs, unit) &&
-      fit.filter((other) => other.id !== guard?.id).length >= FIT_UNITS_TO_WITHDRAW
-    ) {
-      plan.set(unit.id, { role: 'withdraw', objective: ownCamp });
     } else {
       const target = preyOf(defs, unit, enemies);
       plan.set(unit.id, { role: 'fight', objective: target?.pos ?? enemyCamp });

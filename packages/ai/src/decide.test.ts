@@ -116,6 +116,22 @@ describe('decide', () => {
     expect(first.ai.rng).not.toEqual(createAi('easy', SEED).rng);
   });
 
+  it.each(THINKING)('%s: is not always sure which of two moves is better', (difficulty) => {
+    const battle = battleWith([
+      place('own', 'hastati', 0, 0, 0),
+      place('other', 'hastati', 0, 0, 1),
+      place('foe', 'hastati', 1, 5, 0),
+    ]);
+    const view = playerView(battle.state, battle.defs, 0);
+
+    const first = decide(view, battle.defs, createAi(difficulty, SEED));
+    const again = decide(view, battle.defs, createAi(difficulty, SEED));
+
+    // Its own dice go into the judgement: the same seed decides the same, and the dice move on.
+    expect(again).toEqual(first);
+    expect(first.ai.rng).not.toEqual(createAi(difficulty, SEED).rng);
+  });
+
   it.each(THINKING)('%s: marches into the enemy camp when a unit can reach it', (difficulty) => {
     const camp = hex(4, 0);
     const battle = battleWith(
@@ -213,44 +229,6 @@ describe('decide', () => {
         targetId: 'tired',
       });
       expect(positionOf(turn.state, 'fresh')).toEqual(hex(0, 0));
-    });
-
-    it('pulls a shaken unit away from the enemy', () => {
-      const battle = withUnit(
-        battleWith(
-          [
-            place('shaken', 'hastati', 0, 0, 0),
-            place('first', 'hastati', 0, -1, 2),
-            place('second', 'hastati', 0, 1, -2),
-            place('guard', 'triarii', 0, -5, 0),
-            place('foe', 'hastati', 1, 1, 0),
-          ],
-          { camps: { 0: hex(-5, 0) } }
-        ),
-        'shaken',
-        { morale: 3, moraleState: 'shaken' }
-      );
-
-      const turn = playTurn(battle, 'hard');
-
-      expect(hexDistance(positionOf(turn.state, 'shaken'), hex(1, 0))).toBeGreaterThan(1);
-    });
-
-    it('does not send a lone rider into the enemy line', () => {
-      const battle = battleWith([
-        place('rider', 'equites', 0, -4, 0),
-        place('foot', 'hastati', 0, -5, 0),
-        place('other', 'hastati', 0, -5, 1),
-        place('spears', 'libyan-spearmen', 1, 2, 0),
-        place('more', 'libyan-spearmen', 1, 2, 1),
-        place('gauls', 'gallic-mercenaries', 1, 3, -1),
-      ]);
-
-      const turn = playTurn(battle, 'hard');
-
-      const enemies = fieldedUnits(turn.state, 1);
-      const rider = positionOf(turn.state, 'rider');
-      expect(enemies.every((enemy) => hexDistance(enemy.pos, rider) > 1)).toBe(true);
     });
   });
 

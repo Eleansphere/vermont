@@ -184,7 +184,7 @@ describe('playerView', () => {
 
     for (const player of [0, 1] as const) {
       const units = Object.values(playerView(current, started.defs, player).state.units);
-      expect(units).toHaveLength(12);
+      expect(units).toHaveLength(player === 0 ? 13 : 12);
       expect(units.every((unit) => unit.owner === player)).toBe(true);
     }
   });
@@ -307,7 +307,7 @@ describe('eventsSeenBy', () => {
     const result = dispatchAll(state, autoDeployment(state, defs), defs);
     if (!result.ok) throw new Error(result.rejection.message);
 
-    expect(eventsSeenBy(result.events, state, result.state, defs, 0)).toHaveLength(12);
+    expect(eventsSeenBy(result.events, state, result.state, defs, 0)).toHaveLength(13);
     expect(eventsSeenBy(result.events, state, result.state, defs, 1)).toEqual([]);
   });
 

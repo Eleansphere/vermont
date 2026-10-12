@@ -223,6 +223,6 @@ describe('the scenarios in the data', () => {
     const { trebia } = SCENARIOS;
 
     expect(trebia?.sides.map((side) => side.factionId)).toEqual(['rome', 'carthage']);
-    expect(trebia?.sides.map(armySize)).toEqual([12, 12]);
+    expect(trebia?.sides.map(armySize)).toEqual([13, 12]);
   });
 });

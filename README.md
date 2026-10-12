@@ -24,14 +24,15 @@ pnpm dev
 
 ## Scripts
 
-| Script               | What it does                                 |
-| -------------------- | -------------------------------------------- |
-| `pnpm dev`           | Starts the game with Vite                    |
-| `pnpm build`         | Builds the game into `apps/game/dist`        |
-| `pnpm test`          | Runs all Vitest projects once                |
-| `pnpm test:coverage` | Runs the tests with a coverage report        |
-| `pnpm lint`          | Runs ESLint, including the import boundaries |
-| `pnpm typecheck`     | Type-checks every package                    |
-| `pnpm format`        | Formats the repository with Prettier         |
+| Script               | What it does                                       |
+| -------------------- | -------------------------------------------------- |
+| `pnpm dev`           | Starts the game with Vite                          |
+| `pnpm build`         | Builds the game into `apps/game/dist`              |
+| `pnpm test`          | Runs all Vitest projects once                      |
+| `pnpm test:coverage` | Runs the tests with a coverage report              |
+| `pnpm lint`          | Runs ESLint, including the import boundaries       |
+| `pnpm typecheck`     | Type-checks every package                          |
+| `pnpm format`        | Formats the repository with Prettier               |
+| `pnpm balance`       | Lets the AIs fight every scenario, prints who wins |
 
 CI (`.github/workflows/ci.yml`) runs format check, lint, typecheck, tests and build.
