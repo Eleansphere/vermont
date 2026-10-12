@@ -1,4 +1,11 @@
-import type { BattleDefs, BattleState, Command, PlayerSlot, StartedBattle } from '@vermont/core';
+import type {
+  BattleDefs,
+  BattleState,
+  Command,
+  GameEvent,
+  PlayerSlot,
+  StartedBattle,
+} from '@vermont/core';
 import { autoDeployment, dispatch, playerView } from '@vermont/core';
 import type { AiState } from './ai';
 import { decide } from './decide';
@@ -8,6 +15,8 @@ export interface SimulatedBattle {
   readonly state: BattleState;
   /** Every command that was carried out, in order; with the seed it replays the battle. */
   readonly commands: readonly Command[];
+  /** Everything that happened in it, in order. */
+  readonly events: readonly GameEvent[];
   /** Commands of the AIs the core refused. */
   readonly rejected: number;
 }
@@ -40,11 +49,13 @@ export function simulateBattle(
   let rejected = 0;
   const ais = { ...players };
   const commands: Command[] = [];
+  const events: GameEvent[] = [];
   const carryOut = (command: Command): boolean => {
     const result = dispatch(state, command, defs);
     if (!result.ok) return false;
     state = result.state;
     commands.push(command);
+    events.push(...result.events);
     return true;
   };
 
@@ -57,5 +68,5 @@ export function simulateBattle(
     rejected++;
     if (!fallbackCommands(state, defs).every(carryOut)) break;
   }
-  return { state, commands, rejected };
+  return { state, commands, events, rejected };
 }
