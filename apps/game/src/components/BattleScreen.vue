@@ -60,6 +60,7 @@ watch(
 );
 
 function requestEndTurn(): void {
+  if (store.aiOnTurn) return;
   const phase = store.state?.phase;
   if (phase === 'deployment') {
     if (store.reserve.length === 0) store.endDeployment();

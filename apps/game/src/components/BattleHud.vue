@@ -82,6 +82,9 @@ function percent(share: number): string {
         <strong class="hud__side" :style="{ borderColor: activeSide.color }">
           {{ activeSide.name }}
         </strong>
+        <span v-if="store.aiOnTurn" class="muted" data-test="ai-on-turn">
+          {{ t('hud.aiOnTurn') }}
+        </span>
       </template>
     </div>
 
@@ -100,7 +103,7 @@ function percent(share: number): string {
         class="button button--primary"
         type="button"
         data-test="end-turn"
-        :disabled="store.state?.phase !== 'battle'"
+        :disabled="store.state?.phase !== 'battle' || store.aiOnTurn"
         @click="$emit('endTurn')"
       >
         {{ t('hud.endTurn') }}

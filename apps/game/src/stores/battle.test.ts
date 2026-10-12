@@ -1,17 +1,19 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import type { FieldedUnit, Hex } from '@vermont/core';
+import type { FieldedUnit, Hex, PlayerSlot } from '@vermont/core';
 import {
   attackTargets,
   deploymentHexes,
   fieldedUnits,
   hexDistance,
   hexEquals,
+  hexKey,
   opponentOf,
   pathFromReach,
   reserveUnits,
   unitReach,
 } from '@vermont/core';
+import { createLocalBrain } from '../ai/brain';
 import type { StartOptions } from './battle';
 import { useBattleStore } from './battle';
 
@@ -633,5 +635,120 @@ describe('battle store', () => {
       expect(store.reliefPartners).toEqual([]);
       expect(store.order).toBe('move');
     });
+  });
+
+  describe('against the computer', () => {
+    /** A battle against the computer, which thinks on the spot and does not wait between commands. */
+    function storeAgainst(aiPlayer: PlayerSlot, options: StartOptions = {}): BattleStore {
+      const store = useBattleStore();
+      store.start(SEED, 'trebia', {
+        deployment: 'auto',
+        ...options,
+        ai: { player: aiPlayer, difficulty: 'hard', brain: createLocalBrain(), stepDelayMs: 0 },
+      });
+      return store;
+    }
+
+    const playersTurn = (store: BattleStore) =>
+      vi.waitFor(() => expect(store.aiOnTurn).toBe(false), { timeout: 20_000 });
+
+    it('keeps the screen with the player and never asks to hand it over', async () => {
+      const store = storeAgainst(1);
+      await playersTurn(store);
+
+      store.endTurn();
+      expect(store.aiOnTurn).toBe(true);
+      await playersTurn(store);
+
+      expect(store.viewer).toBe(0);
+      expect(store.handover).toBeNull();
+      expect(store.state).toMatchObject({ phase: 'battle', turn: 2, activePlayer: 0 });
+    });
+
+    it('lets the computer deploy its army and make the first move when it plays first', async () => {
+      const store = storeAgainst(0);
+      expect(store.aiOnTurn).toBe(true);
+
+      await playersTurn(store);
+
+      expect(store.viewer).toBe(1);
+      expect(store.state).toMatchObject({ phase: 'battle', turn: 1, activePlayer: 1 });
+      expect(fieldedUnits(store.state!, 0)).toHaveLength(12);
+      expect(fieldedUnits(store.state!, 1)).toHaveLength(12);
+    });
+
+    it('waits for the player to deploy by hand, then deploys itself', async () => {
+      const store = storeAgainst(1, { deployment: 'manual' });
+      expect(store.selectedUnitId).toBe(store.reserve[0]!.id);
+
+      store.autoDeploy();
+      store.endDeployment();
+      await playersTurn(store);
+
+      expect(store.state).toMatchObject({ phase: 'battle', activePlayer: 0 });
+      expect(fieldedUnits(store.state!, 1)).toHaveLength(12);
+    });
+
+    it('takes no orders from the player while the computer is on the move', async () => {
+      const store = storeAgainst(1);
+      await playersTurn(store);
+      store.endTurn();
+      const before = store.state;
+
+      store.endTurn();
+      store.pick({ hex: fielded(store, 'p0-hastati-1').pos, unitId: 'p0-hastati-1' });
+
+      expect(store.state).toBe(before);
+      expect(store.selectedUnitId).toBeNull();
+      expect(store.readyUnits).toEqual([]);
+      expect(store.undo()).toBe(false);
+      await playersTurn(store);
+    });
+
+    it('does not let the player take back what the computer did', async () => {
+      const store = storeAgainst(1);
+      await playersTurn(store);
+      store.endTurn();
+      await playersTurn(store);
+
+      expect(store.canUndo).toBe(false);
+    });
+
+    it('shows the player only their own view of the battle', async () => {
+      const store = storeAgainst(1);
+      await playersTurn(store);
+      store.endTurn();
+      await playersTurn(store);
+
+      expect(Object.keys(store.known!.units).length).toBeLessThan(
+        Object.keys(store.state!.units).length
+      );
+      expect(sighted(store).every((unit) => store.shown!.visible!.has(hexKey(unit.pos)))).toBe(
+        true
+      );
+    });
+
+    it('stops listening to the computer when the battle is left', async () => {
+      const store = storeAgainst(0);
+
+      store.leave();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(store.state).toBeNull();
+      expect(store.aiOnTurn).toBe(false);
+    });
+
+    it('plays a whole battle against a player who only ends their turns', async () => {
+      const store = storeAgainst(1, { fog: false });
+
+      for (let turn = 0; turn < 60; turn++) {
+        await playersTurn(store);
+        if (store.state!.phase === 'ended') break;
+        store.endTurn();
+      }
+
+      expect(store.state!.winner?.player).toBe(1);
+      expect(store.rejection).toBeNull();
+    }, 60_000);
   });
 });

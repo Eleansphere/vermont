@@ -41,6 +41,9 @@ importers:
 
   apps/game:
     dependencies:
+      '@vermont/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@vermont/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -75,6 +78,16 @@ importers:
       vue-tsc:
         specifier: ^3.3.12
         version: 3.3.12(typescript@5.9.3)
+
+  packages/ai:
+    dependencies:
+      '@vermont/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
   packages/core:
     devDependencies:

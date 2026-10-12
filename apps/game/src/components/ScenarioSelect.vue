@@ -1,20 +1,39 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { PLAYER_SLOTS, SCENARIOS, armySize } from '@vermont/core';
-import type { ScenarioDef } from '@vermont/core';
+import { computed, ref } from 'vue';
+import type { Difficulty } from '@vermont/ai';
+import { DIFFICULTIES } from '@vermont/ai';
+import { PLAYER_SLOTS, SCENARIOS, armySize, opponentOf } from '@vermont/core';
+import type { PlayerSlot, ScenarioDef } from '@vermont/core';
 import { sideColor, sideName } from '../battle/labels';
-import { plural, scenarioName, t } from '../i18n';
-import type { DeploymentMode } from '../stores/battle';
+import { difficultyName, plural, scenarioName, t } from '../i18n';
+import type { StartOptions } from '../stores/battle';
 
 const emit = defineEmits<{
-  start: [scenarioId: string, deployment: DeploymentMode, fog: boolean];
+  start: [scenarioId: string, options: StartOptions];
   back: [];
 }>();
 
+type Opponent = 'computer' | 'human';
+
 const scenarios: readonly ScenarioDef[] = Object.values(SCENARIOS);
 const chosenId = ref(scenarios[0]?.id ?? '');
+const chosen = computed(() => scenarios.find((scenario) => scenario.id === chosenId.value));
+const opponent = ref<Opponent>('computer');
+/** The side the player takes against the computer. */
+const side = ref<PlayerSlot>(0);
+const difficulty = ref<Difficulty>('normal');
 const autoDeploy = ref(false);
 const fog = ref(true);
+
+function start(): void {
+  emit('start', chosenId.value, {
+    deployment: autoDeploy.value ? 'auto' : 'manual',
+    fog: fog.value,
+    ...(opponent.value === 'computer' && {
+      ai: { player: opponentOf(side.value), difficulty: difficulty.value },
+    }),
+  });
+}
 
 function armyText(scenario: ScenarioDef, player: 0 | 1): string {
   const count = armySize(scenario.sides[player]);
@@ -48,6 +67,32 @@ function armyText(scenario: ScenarioDef, player: 0 | 1): string {
         </li>
       </ul>
 
+      <fieldset class="scenarios__group">
+        <legend>{{ t('scenarios.opponent') }}</legend>
+        <label v-for="kind in ['computer', 'human'] as const" :key="kind" class="scenarios__option">
+          <input v-model="opponent" type="radio" name="opponent" :value="kind" />
+          {{ t(`scenarios.opponent.${kind}`) }}
+        </label>
+      </fieldset>
+
+      <template v-if="opponent === 'computer' && chosen">
+        <fieldset class="scenarios__group">
+          <legend>{{ t('scenarios.side') }}</legend>
+          <label v-for="player in PLAYER_SLOTS" :key="player" class="scenarios__option">
+            <input v-model="side" type="radio" name="side" :value="player" />
+            <span class="scenario__dot" :style="{ background: sideColor(player) }" />
+            {{ sideName(chosen, player) }}
+          </label>
+        </fieldset>
+        <fieldset class="scenarios__group">
+          <legend>{{ t('scenarios.difficulty') }}</legend>
+          <label v-for="level in DIFFICULTIES" :key="level" class="scenarios__option">
+            <input v-model="difficulty" type="radio" name="difficulty" :value="level" />
+            {{ difficultyName(level) }}
+          </label>
+        </fieldset>
+      </template>
+
       <label class="scenarios__option">
         <input v-model="autoDeploy" type="checkbox" name="autoDeploy" />
         {{ t('scenarios.autoDeploy') }}
@@ -66,7 +111,7 @@ function armyText(scenario: ScenarioDef, player: 0 | 1): string {
           type="button"
           data-test="start"
           :disabled="!chosenId"
-          @click="emit('start', chosenId, autoDeploy ? 'auto' : 'manual', fog)"
+          @click="start"
         >
           {{ t('scenarios.start') }}
         </button>
@@ -150,6 +195,22 @@ function armyText(scenario: ScenarioDef, player: 0 | 1): string {
   align-items: center;
   gap: 8px;
   cursor: pointer;
+}
+
+.scenarios__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+}
+
+.scenarios__group legend {
+  padding: 0 6px;
+  color: var(--muted, inherit);
+  font-size: 13px;
 }
 
 .scenarios__actions {

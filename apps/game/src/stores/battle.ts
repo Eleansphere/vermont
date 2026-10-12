@@ -1,5 +1,7 @@
 import { computed, ref, shallowRef } from 'vue';
 import { defineStore } from 'pinia';
+import type { AiState, Difficulty } from '@vermont/ai';
+import { createAi, fallbackCommands } from '@vermont/ai';
 import {
   PLAYER_SLOTS,
   SCENARIOS,
@@ -16,6 +18,7 @@ import {
   isFielded,
   isFighting,
   isFogLifted,
+  opponentOf,
   pathFromReach,
   playerView,
   previewAttack,
@@ -43,6 +46,8 @@ import type {
   Unit,
 } from '@vermont/core';
 import type { Highlights, MapPick, VisibleHexes } from '@vermont/render';
+import type { AiBrain } from '../ai/brain';
+import { createBrain, createLocalBrain } from '../ai/brain';
 import type { LogEntry } from '../battle/log';
 import { describeEvents } from '../battle/log';
 
@@ -68,10 +73,31 @@ export interface PlayedEvents extends Shown {
 /** Who puts the armies on the map before the battle: the players, or the game for them. */
 export type DeploymentMode = 'manual' | 'auto';
 
+/** The computer as one of the two players. */
+export interface ComputerPlayer {
+  /** The side the computer plays; the other one is the player's at the screen. */
+  readonly player: PlayerSlot;
+  readonly difficulty: Difficulty;
+  /** What does the thinking; a Web Worker when left out. */
+  readonly brain?: AiBrain;
+  /** Pause after each command of the computer the player saw, so that its turn can be followed. */
+  readonly stepDelayMs?: number;
+}
+
 export interface StartOptions {
   readonly deployment?: DeploymentMode;
   /** Whether each player sees only what their units see; on when left out. */
   readonly fog?: boolean;
+  /** Set when one side is played by the computer; two players share the screen otherwise. */
+  readonly ai?: ComputerPlayer;
+}
+
+/** The computer player of the battle in progress. */
+interface Computer {
+  readonly player: PlayerSlot;
+  readonly ai: AiState;
+  readonly brain: AiBrain;
+  readonly stepDelayMs: number;
 }
 
 /** What a click on the map orders the selected unit to do. */
@@ -101,6 +127,11 @@ interface UndoStep {
 
 const DEFAULT_SCENARIO_ID = 'trebia';
 const NO_LOGS: Logs = { 0: [], 1: [] };
+const AI_STEP_DELAY_MS = 300;
+
+function pause(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
 
 /**
  * Commands a player may take back. Nothing with a roll of the dice is among them, so undo can
@@ -110,8 +141,9 @@ const UNDOABLE_COMMANDS: readonly CommandType[] = ['MoveUnit', 'DeployUnit'];
 
 /**
  * A thin layer over the core: it holds the current battle, turns clicks into commands and asks
- * the core what is possible. It never works out the rules itself. Two players share the
- * screen, so everything shown is the view of one of them: `viewer`.
+ * the core what is possible. It never works out the rules itself. Everything shown is the view
+ * of one player, `viewer`: two players share the screen and take turns at it, or one plays
+ * the computer and the screen stays theirs.
  */
 export const useBattleStore = defineStore('battle', () => {
   const scenario = shallowRef<ScenarioDef | null>(null);
@@ -130,6 +162,22 @@ export const useBattleStore = defineStore('battle', () => {
   const viewer = ref<PlayerSlot>(0);
   /** The player asked to sit down at the screen; the map stays covered until they do. */
   const handover = ref<PlayerSlot | null>(null);
+  const computer = shallowRef<Computer | null>(null);
+  /** Counts the battles started, so that an answer of the AI to an earlier one is dropped. */
+  let battleNumber = 0;
+  /** The battle the computer is giving its commands in right now, if any. */
+  let computerPlaysIn: number | null = null;
+
+  /** Whether the computer is on the move; the player at the screen can only watch then. */
+  const aiOnTurn = computed(() => {
+    const battle = state.value;
+    return (
+      !!battle &&
+      battle.phase !== 'ended' &&
+      computer.value !== null &&
+      battle.activePlayer === computer.value.player
+    );
+  });
 
   const view = computed<PlayerView | null>(() =>
     state.value && defs.value ? playerView(state.value, defs.value, viewer.value) : null
@@ -202,7 +250,7 @@ export const useBattleStore = defineStore('battle', () => {
   const readyUnits = computed<FieldedUnit[]>(() => {
     const battle = known.value;
     const battleDefs = defs.value;
-    if (!battle || !battleDefs || battle.phase !== 'battle') return [];
+    if (!battle || !battleDefs || battle.phase !== 'battle' || aiOnTurn.value) return [];
     return fieldedUnits(battle, battle.activePlayer).filter(
       (unit) => isFighting(unit) && canAct(battle, battleDefs, unit)
     );
@@ -303,8 +351,24 @@ export const useBattleStore = defineStore('battle', () => {
     selectedUnitId.value = null;
     viewer.value = started.state.activePlayer;
     handover.value = null;
+    battleNumber++;
+    computer.value?.brain.dispose();
+    computer.value = null;
 
-    if (options.deployment === 'auto') {
+    if (options.ai) {
+      const brain = options.ai.brain ?? createBrain();
+      brain.begin(battleDefs);
+      computer.value = {
+        player: options.ai.player,
+        ai: createAi(options.ai.difficulty, seed),
+        brain,
+        stepDelayMs: options.ai.stepDelayMs ?? AI_STEP_DELAY_MS,
+      };
+      viewer.value = opponentOf(options.ai.player);
+      advance();
+      // Whatever the game did at once is shown as the battle's start, not played out.
+      played.value = null;
+    } else if (options.deployment === 'auto') {
       while (state.value.phase === 'deployment') {
         const deployed = carryOut([
           ...autoDeployment(state.value, battleDefs),
@@ -328,6 +392,9 @@ export const useBattleStore = defineStore('battle', () => {
 
   /** Leaves the battle; nothing of it is kept. */
   function leave(): void {
+    battleNumber++;
+    computer.value?.brain.dispose();
+    computer.value = null;
     scenario.value = null;
     defs.value = null;
     state.value = null;
@@ -373,6 +440,7 @@ export const useBattleStore = defineStore('battle', () => {
       selectedUnitId: selectedUnitId.value,
     };
     const takeBack =
+      before.activePlayer !== computer.value?.player &&
       canTakeBack(commands, before, after) &&
       !learnedOfEnemy(before, after, battleDefs, witnessed[before.activePlayer]);
     undoSteps.value = takeBack ? [...undoSteps.value, step] : [];
@@ -381,7 +449,9 @@ export const useBattleStore = defineStore('battle', () => {
     state.value = after;
 
     // The screen goes to whoever is on the move; with the fog on they have to sit down first.
-    const changesHands = after.phase !== 'ended' && after.activePlayer !== viewer.value;
+    // Against the computer it never changes hands.
+    const changesHands =
+      !computer.value && after.phase !== 'ended' && after.activePlayer !== viewer.value;
     if (changesHands) {
       viewer.value = after.activePlayer;
       handover.value = isFogLifted(after, battleDefs) ? null : after.activePlayer;
@@ -397,7 +467,69 @@ export const useBattleStore = defineStore('battle', () => {
       0: [...logs.value[0], ...describeEvents(witnessed[0], context)],
       1: [...logs.value[1], ...describeEvents(witnessed[1], context)],
     };
+    advance();
     return true;
+  }
+
+  /**
+   * What the game does by itself after a command in a battle against the computer: it lets the
+   * computer play when it is on the move, and deploys for a player who left that to the game.
+   */
+  function advance(): void {
+    const battle = state.value;
+    const battleDefs = defs.value;
+    if (!computer.value || !battle || !battleDefs || battle.phase === 'ended') return;
+
+    if (battle.activePlayer === computer.value.player) {
+      void playComputer();
+    } else if (battle.phase === 'deployment') {
+      if (startOptions.value.deployment === 'auto') {
+        carryOut([...autoDeployment(battle, battleDefs), { type: 'EndDeployment' }]);
+      } else if (!selectedUnit.value) {
+        selectedUnitId.value = reserve.value[0]?.id ?? null;
+      }
+    }
+  }
+
+  /**
+   * The computer gives its commands one by one until the move is the player's again. It is
+   * asked with its own view of the battle only, and its commands go the way the player's do.
+   */
+  async function playComputer(): Promise<void> {
+    const playedBattle = battleNumber;
+    if (computerPlaysIn === playedBattle) return;
+    computerPlaysIn = playedBattle;
+    try {
+      while (aiOnTurn.value && state.value && defs.value && computer.value) {
+        const battle = state.value;
+        const battleDefs = defs.value;
+        const { player, ai, brain, stepDelayMs } = computer.value;
+        let command: Command | null = null;
+        try {
+          const decision = await brain.decide(playerView(battle, battleDefs, player), ai);
+          if (playedBattle !== battleNumber) return;
+          computer.value = { ...computer.value, ai: decision.ai };
+          command = decision.command;
+        } catch {
+          if (playedBattle !== battleNumber) return;
+          // A worker that cannot be started or has failed is replaced for the rest of the battle.
+          brain.dispose();
+          const local = createLocalBrain();
+          local.begin(battleDefs);
+          computer.value = { ...computer.value, brain: local };
+        }
+        if (!command || !carryOut([command])) {
+          carryOut(fallbackCommands(battle, battleDefs));
+          rejection.value = null;
+        }
+        // Only what the player saw happen is worth a pause; the rest goes by at once.
+        const witnessed = played.value?.events.length ?? 0;
+        if (stepDelayMs > 0 && witnessed > 0) await pause(stepDelayMs);
+        if (playedBattle !== battleNumber) return;
+      }
+    } finally {
+      if (computerPlaysIn === playedBattle) computerPlaysIn = null;
+    }
   }
 
   /** Sends a command to the core; returns whether it was carried out. */
@@ -408,7 +540,7 @@ export const useBattleStore = defineStore('battle', () => {
   /** Takes back the last move or deployment of this turn; returns whether there was one. */
   function undo(): boolean {
     const step = undoSteps.value.at(-1);
-    if (!step || !defs.value) return false;
+    if (!step || !defs.value || aiOnTurn.value) return false;
     undoSteps.value = undoSteps.value.slice(0, -1);
     state.value = step.state;
     // No events: the renderer just shows the earlier state.
@@ -431,7 +563,7 @@ export const useBattleStore = defineStore('battle', () => {
   /** The player clicked a hex or a unit on the map, or beside the map (`null`). */
   function pick(picked: MapPick | null): void {
     const battle = known.value;
-    if (handover.value !== null) return;
+    if (handover.value !== null || aiOnTurn.value) return;
     if (battle?.phase === 'deployment') pickInDeployment(battle, picked);
     else if (battle?.phase === 'battle') pickInBattle(battle, picked);
   }
@@ -524,18 +656,20 @@ export const useBattleStore = defineStore('battle', () => {
   }
 
   function endTurn(): void {
+    if (aiOnTurn.value) return;
     if (send({ type: 'EndTurn' })) selectedUnitId.value = null;
   }
 
   /** Puts the units still in reserve on the map for the active player. */
   function autoDeploy(): void {
-    if (!state.value || !defs.value || state.value.phase !== 'deployment') return;
+    if (!state.value || !defs.value || state.value.phase !== 'deployment' || aiOnTurn.value) return;
     const commands = autoDeployment(state.value, defs.value);
     if (commands.length > 0 && carryOut(commands)) selectedUnitId.value = null;
   }
 
   /** The active player is done deploying; the other player deploys next, or the battle starts. */
   function endDeployment(): void {
+    if (aiOnTurn.value) return;
     if (send({ type: 'EndDeployment' })) selectedUnitId.value = reserve.value[0]?.id ?? null;
   }
 
@@ -547,6 +681,7 @@ export const useBattleStore = defineStore('battle', () => {
     shown,
     viewer,
     handover,
+    aiOnTurn,
     played,
     rejection,
     log,

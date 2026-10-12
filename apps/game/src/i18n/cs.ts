@@ -1,3 +1,4 @@
+import type { Difficulty } from '@vermont/ai';
 import type {
   AbilityId,
   Archetype,
@@ -38,7 +39,12 @@ export const cs = {
     'scenarios.title': 'Výběr scénáře',
     'scenarios.units': '{count} {units}',
     'scenarios.versus': 'proti',
-    'scenarios.autoDeploy': 'Rozestavit obě armády automaticky',
+    'scenarios.opponent': 'Soupeř',
+    'scenarios.opponent.computer': 'Počítač',
+    'scenarios.opponent.human': 'Druhý hráč u tohoto počítače',
+    'scenarios.side': 'Hraješ za',
+    'scenarios.difficulty': 'Obtížnost',
+    'scenarios.autoDeploy': 'Rozestavit armády automaticky',
     'scenarios.fog': 'Mlha války: každý vidí jen to, co jeho jednotky',
     'scenarios.start': 'Začít bitvu',
 
@@ -49,6 +55,7 @@ export const cs = {
     'hud.round': 'Kolo {turn}',
     'hud.deployment': 'Rozestavení',
     'hud.onTurn': 'na tahu',
+    'hud.aiOnTurn': 'počítač táhne…',
     'hud.endTurn': 'Ukončit tah',
     'hud.undo': 'Vrátit',
     'hud.menu': 'Menu',
@@ -139,6 +146,12 @@ export const cs = {
     'keys.escape': 'Esc: zrušit výběr, pak menu',
     'keys.help': 'H: tato nápověda',
   },
+
+  difficulties: {
+    easy: 'Lehká',
+    normal: 'Střední',
+    hard: 'Těžká',
+  } satisfies Record<Difficulty, string>,
 
   plurals: {
     hexes: ['hex', 'hexy', 'hexů'],

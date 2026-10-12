@@ -1,0 +1,19 @@
+{
+  "name": "@vermont/ai",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vermont AI: a computer player that gives the same commands as a human",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vermont/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

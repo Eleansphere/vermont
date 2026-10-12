@@ -1,3 +1,4 @@
+import type { Difficulty } from '@vermont/ai';
 import type {
   AbilityId,
   Archetype,
@@ -48,4 +49,5 @@ export const terrainName = (terrain: TerrainId): string => messages.terrains[ter
 export const abilityText = (ability: AbilityId): AbilityText => messages.abilities[ability];
 export const moraleStateName = (state: MoraleState): string => messages.moraleStates[state];
 export const victoryReasonText = (reason: VictoryReason): string => messages.victoryReasons[reason];
+export const difficultyName = (difficulty: Difficulty): string => messages.difficulties[difficulty];
 export const rejectionText = (code: RejectionCode): string => messages.rejections[code];

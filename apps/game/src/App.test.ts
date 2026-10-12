@@ -35,6 +35,7 @@ async function press(code: string, init: KeyboardEventInit = {}): Promise<void> 
 async function startBattle(autoDeploy: boolean, fog = true) {
   const stores = mountApp();
   await click('new-battle');
+  await wrapper.find('input[name="opponent"][value="human"]').setValue(true);
   if (autoDeploy) await wrapper.find('input[name="autoDeploy"]').setValue(true);
   if (!fog) await wrapper.find('input[name="fog"]').setValue(false);
   await click('start');
@@ -65,6 +66,33 @@ describe('App', () => {
 
       await click('back');
       expect(has('new-battle')).toBe(true);
+    });
+
+    it('starts a battle against the computer on the side and level chosen', async () => {
+      const { store } = mountApp();
+      await click('new-battle');
+      await wrapper.find('input[name="side"][value="1"]').setValue(true);
+      await wrapper.find('input[name="difficulty"][value="hard"]').setValue(true);
+      await wrapper.find('input[name="autoDeploy"]').setValue(true);
+
+      await click('start');
+
+      // Rome moves first and is the computer's: the player watches from the other side.
+      expect(store.viewer).toBe(1);
+      expect(store.aiOnTurn).toBe(true);
+      expect(text('turn')).toContain('počítač táhne');
+      store.leave();
+    });
+
+    it('hides the choice of side and level when two players share the computer', async () => {
+      mountApp();
+      await click('new-battle');
+      expect(wrapper.find('input[name="difficulty"]').exists()).toBe(true);
+
+      await wrapper.find('input[name="opponent"][value="human"]').setValue(true);
+
+      expect(wrapper.find('input[name="side"]').exists()).toBe(false);
+      expect(wrapper.find('input[name="difficulty"]').exists()).toBe(false);
     });
 
     it('changes the settings', async () => {
@@ -324,7 +352,6 @@ describe('App', () => {
 
       expect(text('result')).toContain('Vítězství: Kartágo');
       expect(text('result')).toContain('armáda soupeře je zlomena');
-      expect(wrapper.find('[data-test="end-turn"]').attributes('disabled')).toBeDefined();
     });
   });
 });

@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import BattleScreen from './components/BattleScreen.vue';
 import MainMenu from './components/MainMenu.vue';
 import ScenarioSelect from './components/ScenarioSelect.vue';
-import type { DeploymentMode } from './stores/battle';
+import type { StartOptions } from './stores/battle';
 import { useBattleStore } from './stores/battle';
 
 type Screen = 'menu' | 'scenarios' | 'battle';
@@ -11,9 +11,9 @@ type Screen = 'menu' | 'scenarios' | 'battle';
 const store = useBattleStore();
 const screen = ref<Screen>('menu');
 
-function startBattle(scenarioId: string, deployment: DeploymentMode, fog: boolean): void {
+function startBattle(scenarioId: string, options: StartOptions): void {
   // The clock is the seed: every battle rolls differently, a saved seed replays it.
-  store.start(Date.now(), scenarioId, { deployment, fog });
+  store.start(Date.now(), scenarioId, options);
   screen.value = 'battle';
 }
 </script>

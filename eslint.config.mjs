@@ -19,6 +19,9 @@ const CORE_FORBIDDEN_IMPORTS = [
 ];
 const CORE_FORBIDDEN_GLOBALS = ['window', 'document', 'navigator', 'localStorage', 'process'];
 
+/** The AI is a player like any other: it knows the core and nothing of the screen. */
+const AI_FORBIDDEN_IMPORTS = CORE_FORBIDDEN_IMPORTS;
+
 /** The renderer draws what the core says; it never depends on the UI framework. */
 const RENDER_FORBIDDEN_IMPORTS = ['vue', 'vue/*', '@vue/*', 'pinia', '@vermont/game'];
 
@@ -45,6 +48,13 @@ export default defineConfig(
     files: ['packages/core/src/**'],
     rules: {
       'no-restricted-imports': ['error', { patterns: CORE_FORBIDDEN_IMPORTS }],
+      'no-restricted-globals': ['error', ...CORE_FORBIDDEN_GLOBALS],
+    },
+  },
+  {
+    files: ['packages/ai/src/**'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: AI_FORBIDDEN_IMPORTS }],
       'no-restricted-globals': ['error', ...CORE_FORBIDDEN_GLOBALS],
     },
   },
