@@ -1,7 +1,7 @@
 import type { Archetype } from '../archetype';
 
 export type AbilityId =
-  'pilum' | 'lineRelief' | 'shieldWall' | 'furiousCharge' | 'hitAndRun' | 'fear';
+  'pilum' | 'lineRelief' | 'shieldWall' | 'furiousCharge' | 'hitAndRun' | 'fear' | 'rampage';
 
 /**
  * A special rule some unit types have. What the ability does is written in the rules; the

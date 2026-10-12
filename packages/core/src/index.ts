@@ -102,7 +102,7 @@ export { eventsSeenBy, isFogLifted, playerSight, playerView, seesUnit } from './
 export type { PlayerView } from './game/fog';
 export { attackKindFor, attackTargets, previewAttack } from './game/combat';
 export type { AttackPreview, DamageRange } from './game/combat';
-export { isEncircled } from './game/morale';
+export { holdsOwnCamp, isEncircled, isWorn, moraleLossWhenHit } from './game/morale';
 export { findWinner } from './game/victory';
 export { autoDeployment, checkDeployment, deploymentHexes, reserveUnits } from './game/deployment';
 export type {
@@ -135,6 +135,7 @@ export type {
   UnitFledEvent,
   UnitMovedEvent,
   UnitRalliedEvent,
+  UnitRampagedEvent,
   UnitRetreatedEvent,
   UnitsSwappedEvent,
   UseAbilityCommand,

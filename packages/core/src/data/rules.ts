@@ -4,7 +4,7 @@ import type { BattleRules } from '../game/rules';
 export const RULES: BattleRules = {
   roundLimit: 20,
   combat: {
-    baseDamage: 3,
+    baseDamage: 2,
     damageSpread: 0.1,
     minAttackDamage: 1,
     counterFactor: 0.5,
@@ -29,6 +29,8 @@ export const RULES: BattleRules = {
     routingAt: 1,
     shakenAttackFactor: 0.75,
     lossWhenHit: 2,
+    lossWhenWorn: 1,
+    wornAt: 0.5,
     lossWhenEncircled: 1,
     encircledAt: 3,
     lossWhenAllyDies: 1,

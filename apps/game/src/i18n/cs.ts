@@ -129,6 +129,7 @@ export const cs = {
     'log.morale.shaken': '{unit}: jednotka otřesena.',
     'log.morale.routing': '{unit}: dává se na útěk.',
     'log.swapped': '{unit}: střídání linie s {target}.',
+    'log.rampaged': '{unit}: běsní a zasahuje jednotku {target} za {damage}.',
     'log.retreated': '{unit}: ustupuje před nepřítelem.',
     'log.rallied': '{unit}: znovu v boji.',
     'log.fled': '{unit}: opustila bojiště.',
@@ -238,6 +239,10 @@ export const cs = {
     fear: {
       name: 'Strach',
       description: 'Oslabuje sousední jízdu a otřásá tím, koho zasáhne.',
+    },
+    rampage: {
+      name: 'Běsnění',
+      description: 'Když se dá na útěk, zaútočí na náhodnou sousední jednotku, i vlastní.',
     },
   } satisfies Record<AbilityId, AbilityText>,
 

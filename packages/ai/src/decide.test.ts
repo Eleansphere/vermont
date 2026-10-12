@@ -230,6 +230,32 @@ describe('decide', () => {
       });
       expect(positionOf(turn.state, 'fresh')).toEqual(hex(0, 0));
     });
+
+    it('pulls a shaken unit back towards its camp instead of sending it to fight', () => {
+      const camps = { 0: hex(-5, 0), 1: hex(5, 0) };
+      const battle = withUnit(
+        battleWith(
+          [
+            place('shaken', 'hastati', 0, -1, 0),
+            place('steady', 'hastati', 0, -1, 1),
+            place('foe', 'hastati', 1, 2, 0),
+          ],
+          { camps }
+        ),
+        'shaken',
+        { morale: 2, moraleState: 'shaken' }
+      );
+      const toFoe = (state: BattleState, unitId: string) =>
+        hexDistance(positionOf(state, unitId), positionOf(state, 'foe'));
+
+      const turn = playTurn(battle, 'hard');
+
+      expect(toFoe(turn.state, 'shaken')).toBeGreaterThan(toFoe(battle.state, 'shaken'));
+      expect(toFoe(turn.state, 'steady')).toBeLessThan(toFoe(battle.state, 'steady'));
+      expect(turn.commands).not.toContainEqual(
+        expect.objectContaining({ unitId: 'shaken', type: 'Attack' })
+      );
+    });
   });
 
   describe('deployment', () => {

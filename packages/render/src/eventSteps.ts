@@ -50,6 +50,8 @@ export function eventSteps(event: GameEvent, context: StepContext): Step[] {
         steps.push(lunge(event.targetId, event.attackerId, context));
       return steps;
     }
+    case 'UnitRampaged':
+      return [lunge(event.unitId, event.targetId, context)];
     case 'UnitDamaged':
       return [hit(event.unitId, event.hp, units)];
     case 'UnitDied':

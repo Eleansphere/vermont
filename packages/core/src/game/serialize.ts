@@ -110,9 +110,7 @@ function readUnit(unit: unknown, id: string): Unit {
   for (const stat of ['hp', 'morale', 'movementLeft'] as const) {
     if (!isAmount(unit[stat])) throw invalid(`${field}.${stat}`, 'a number that is not negative');
   }
-  for (const flag of ['hasAttacked', 'hasRetreated'] as const) {
-    if (typeof unit[flag] !== 'boolean') throw invalid(`${field}.${flag}`, 'true or false');
-  }
+  if (typeof unit.hasAttacked !== 'boolean') throw invalid(`${field}.hasAttacked`, 'true or false');
   const { spentAbilities } = unit;
   if (!Array.isArray(spentAbilities) || spentAbilities.some((spent) => typeof spent !== 'string')) {
     throw invalid(`${field}.spentAbilities`, 'a list of ability ids');
@@ -128,7 +126,6 @@ function readUnit(unit: unknown, id: string): Unit {
     movementLeft: unit.movementLeft as number,
     hasAttacked: unit.hasAttacked as boolean,
     status: unit.status as UnitStatus,
-    hasRetreated: unit.hasRetreated as boolean,
     spentAbilities: [...(spentAbilities as AbilityId[])],
   };
 }

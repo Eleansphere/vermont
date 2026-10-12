@@ -148,7 +148,7 @@ const UNIT_TYPE_LIST: readonly UnitTypeDef[] = [
     movement: 5,
     sight: 3,
     morale: 6,
-    abilities: ['fear'],
+    abilities: ['fear', 'rampage'],
   },
 ];
 

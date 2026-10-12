@@ -122,6 +122,19 @@ export function describeEvents(events: readonly GameEvent[], context: LogContext
           )
         );
         break;
+      case 'UnitRampaged':
+        entries.push(
+          aboutUnit(
+            'combat',
+            event.unitId,
+            t('log.rampaged', {
+              unit: label(event.unitId),
+              target: label(event.targetId),
+              damage: event.damage,
+            })
+          )
+        );
+        break;
       case 'UnitRetreated':
         entries.push(
           aboutUnit('morale', event.unitId, t('log.retreated', { unit: label(event.unitId) }))

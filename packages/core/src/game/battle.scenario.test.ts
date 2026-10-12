@@ -68,6 +68,7 @@ describe('scenario: a battle of two armies', () => {
       'UnitFled',
       'UnitMoved',
       'UnitRallied',
+      'UnitRampaged',
       'UnitRetreated',
     ]);
   });

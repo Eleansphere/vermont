@@ -53,7 +53,6 @@ describe('createUnits', () => {
       movementLeft: 5,
       hasAttacked: false,
       status: 'active',
-      hasRetreated: false,
       spentAbilities: [],
     });
   });

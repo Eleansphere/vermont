@@ -1,2 +1,2 @@
 /** Version of the rules; saved games record it so old saves can be recognised. */
-export const RULES_VERSION = 6;
+export const RULES_VERSION = 7;

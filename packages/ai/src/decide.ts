@@ -7,19 +7,19 @@ import { tacticalOrders } from './tactics';
 
 /**
  * The two levels that think. The hard one judges a move by the attack it leads to, keeps its
- * army together, relieves worn units in the line and sends a rider for the enemy camp; it is
- * also surer of its judgement. Both strike as soon as they can.
+ * army together, relieves worn units in the line, pulls shaken ones back to recover and sends a
+ * rider for the enemy camp; it is also surer of its judgement. Both strike as soon as they can.
  */
 const TACTICS: Readonly<Record<Exclude<Difficulty, 'easy'>, Tactics>> = {
   normal: {
-    plan: { guard: true, raid: false },
+    plan: { guard: true, raid: false, rest: false },
     relief: false,
     formation: false,
     looksAhead: false,
     misjudgement: 0.6,
   },
   hard: {
-    plan: { guard: true, raid: true },
+    plan: { guard: true, raid: true, rest: true },
     relief: true,
     formation: true,
     looksAhead: true,

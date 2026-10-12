@@ -17,6 +17,7 @@ import {
   hexDistance,
   hexEquals,
   isFighting,
+  moraleLossWhenHit,
   nextRandom,
   opponentOf,
   pathFromReach,
@@ -111,9 +112,10 @@ const PULL: Readonly<Record<Role, number>> = {
   fight: 1,
   guard: GUARD_PULL,
   raid: 1.5,
+  rest: 0.3,
 };
 /** How much of the damage it may take on a hex each role minds. */
-const CAUTION: Readonly<Record<Role, number>> = { fight: 0.15, guard: 0, raid: 0.3 };
+const CAUTION: Readonly<Record<Role, number>> = { fight: 0.15, guard: 0, raid: 0.3, rest: 1 };
 /** Shooters hang back: they need the enemy in range, not in reach. */
 const SHOOTER_PULL = 0.5;
 const SHOOTER_CAUTION = 0.5;
@@ -177,7 +179,10 @@ function bestAttack(situation: Situation): Option | null {
   let best: Option | null = null;
   for (const unit of situation.own) {
     if (unit.hasAttacked) continue;
+    const resting = situation.plan.get(unit.id)?.role === 'rest';
     for (const target of attackTargets(state, defs, unit)) {
+      // A resting unit strikes only where nothing strikes back.
+      if (resting && strikesBack(state, defs, unit, target)) continue;
       const worth = attackValue(situation, state, unit, target);
       if (worth === null || worth <= 0) continue;
       const value = worth + situation.misjudge();
@@ -208,6 +213,16 @@ function bestMove(situation: Situation): Option | null {
     }
   }
   return best;
+}
+
+function strikesBack(
+  state: BattleState,
+  defs: BattleDefs,
+  attacker: FieldedUnit,
+  target: FieldedUnit
+): boolean {
+  const preview = previewAttack(state, defs, attacker, target);
+  return 'kind' in preview && (preview.counterDamage?.max ?? 0) > 0;
 }
 
 /** A fresh unit behind the line changes places with a weakened one that stands in it. */
@@ -265,17 +280,26 @@ function attackValue(
 
   let value = damage - care * counter;
   if (damage >= target.hp) value += KILL_BONUS;
-  else if (isFighting(target) && breaksMorale(defs, attacker, target)) value += ROUT_BONUS;
+  else if (isFighting(target) && breaksMorale(state, defs, attacker, target, damage)) {
+    value += ROUT_BONUS;
+  }
   if (!isFighting(target)) value *= ROUTING_TARGET_FACTOR;
   if (counter >= attacker.hp) value -= KILL_BONUS;
   return value;
 }
 
-/** Whether a hit by `attacker` would leave the target's morale low enough to run. */
-function breaksMorale(defs: BattleDefs, attacker: FieldedUnit, target: FieldedUnit): boolean {
-  const rules = defs.rules.morale;
-  const loss = rules.lossWhenHit + (abilityOf(defs, attacker, 'fear')?.params.moraleLoss ?? 0);
-  return target.morale - loss <= rules.routingAt;
+/** Whether a hit of `damage` by `attacker` would leave the target's morale low enough to run. */
+function breaksMorale(
+  state: BattleState,
+  defs: BattleDefs,
+  attacker: FieldedUnit,
+  target: FieldedUnit,
+  damage: number
+): boolean {
+  const hurt = { ...target, hp: target.hp - damage };
+  return (
+    target.morale - moraleLossWhenHit(state, defs, hurt, attacker) <= defs.rules.morale.routingAt
+  );
 }
 
 /** The best attack the unit would have from `at`, or 0 when it has none there. */

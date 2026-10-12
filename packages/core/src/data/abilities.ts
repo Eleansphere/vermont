@@ -23,4 +23,6 @@ export const ABILITIES: AbilityTable = {
     params: { attack: -2, moraleLoss: 1 },
     against: ['cavalry', 'lightCavalry'],
   },
+  /** When its morale breaks, the unit strikes one unit next to it, friend or foe, then runs. */
+  rampage: { id: 'rampage', kind: 'triggered', params: {} },
 };

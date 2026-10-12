@@ -149,11 +149,19 @@ export interface UnitsSwappedEvent {
   readonly targetId: string;
 }
 
-/** A routing unit ran from the enemy; the path is a single hex when it had nowhere to go. */
+/** A unit whose morale broke ran from the enemy; a single hex when it had nowhere to go. */
 export interface UnitRetreatedEvent {
   readonly type: 'UnitRetreated';
   readonly unitId: string;
   readonly path: readonly Hex[];
+}
+
+/** A unit whose morale broke trampled a unit next to it, of either side, before it ran. */
+export interface UnitRampagedEvent {
+  readonly type: 'UnitRampaged';
+  readonly unitId: string;
+  readonly targetId: string;
+  readonly damage: number;
 }
 
 /** A routing unit pulled itself together and can be commanded again. */
@@ -194,6 +202,7 @@ export type GameEvent =
   | UnitDiedEvent
   | MoraleChangedEvent
   | UnitsSwappedEvent
+  | UnitRampagedEvent
   | UnitRetreatedEvent
   | UnitRalliedEvent
   | UnitFledEvent

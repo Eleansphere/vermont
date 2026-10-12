@@ -12,14 +12,24 @@ import { createDefs } from './rules';
 import type { Unit, UnitPlacement } from './unit';
 import { createUnits, withUnits } from './unit';
 
+/** Damage of an even strike in the tests, whatever the balancing made of it in the game. */
+const TEST_BASE_DAMAGE = 3;
+
 /**
- * The standard rules without the random spread, so tests can expect exact damage, and without
- * the fog, so they can order units about wherever the enemy stands.
+ * The standard rules without the random spread and with a base damage of their own, so tests
+ * can expect exact damage that balancing does not move, and without the fog, so they can order
+ * units about wherever the enemy stands.
  */
 export const EXACT_RULES: BattleRules = {
   ...RULES,
-  combat: { ...RULES.combat, damageSpread: 0 },
+  combat: { ...RULES.combat, baseDamage: TEST_BASE_DAMAGE, damageSpread: 0 },
   fog: { ...RULES.fog, enabled: false },
+};
+
+/** `EXACT_RULES` with the random spread of the game back in. */
+export const SPREAD_RULES: BattleRules = {
+  ...EXACT_RULES,
+  combat: { ...EXACT_RULES.combat, damageSpread: RULES.combat.damageSpread },
 };
 
 /** `EXACT_RULES` with the fog of war on. */

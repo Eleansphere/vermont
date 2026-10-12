@@ -3,10 +3,10 @@ import { fieldedUnits, hexDistance, isFighting, opponentOf, unitTypeOf } from '@
 import { travelCost } from './routes';
 
 /**
- * What a unit is in the battle for: `fight` goes for the enemy, `guard` holds its side's camp
- * and `raid` rides for the enemy's.
+ * What a unit is in the battle for: `fight` goes for the enemy, `guard` holds its side's camp,
+ * `raid` rides for the enemy's and `rest` keeps out of the fight until it has its nerve back.
  */
-export type Role = 'fight' | 'guard' | 'raid';
+export type Role = 'fight' | 'guard' | 'raid' | 'rest';
 
 export interface Orders {
   readonly role: Role;
@@ -19,6 +19,8 @@ export interface PlanOptions {
   readonly guard: boolean;
   /** Whether a fast unit is sent for the enemy camp once the battle is under way. */
   readonly raid: boolean;
+  /** Whether shaken units are pulled back towards the camp to recover. */
+  readonly rest: boolean;
 }
 
 /** At this share of its full health or below a unit is pulled out of the fight. */
@@ -85,6 +87,8 @@ export function battlePlan(
       plan.set(unit.id, { role: 'guard', objective: ownCamp });
     } else if (unit.id === raider?.id) {
       plan.set(unit.id, { role: 'raid', objective: enemyCamp });
+    } else if (options.rest && !allOut && unit.moraleState === 'shaken') {
+      plan.set(unit.id, { role: 'rest', objective: ownCamp });
     } else {
       const target = preyOf(defs, unit, enemies);
       plan.set(unit.id, { role: 'fight', objective: target?.pos ?? enemyCamp });

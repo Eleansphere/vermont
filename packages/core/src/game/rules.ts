@@ -41,6 +41,10 @@ export interface MoraleRules {
   /** Damage multiplier of a shaken unit. */
   readonly shakenAttackFactor: number;
   readonly lossWhenHit: number;
+  /** Lost on top of `lossWhenHit` by a unit the hit leaves worn. */
+  readonly lossWhenWorn: number;
+  /** At this share of its full health or less a unit is worn. */
+  readonly wornAt: number;
   /** Lost on top of `lossWhenHit` by a unit hit while encircled. */
   readonly lossWhenEncircled: number;
   /** Enemy units next to a unit that make it encircled. */

@@ -133,6 +133,7 @@ export function eventsSeenBy(
         // A hit from the dark is still felt; who struck is plain from the blow.
         if (sawUnit(event.attackerId) || sawUnit(event.targetId)) seen.push(event);
         break;
+      case 'UnitRampaged':
       case 'UnitsSwapped':
         if (sawUnit(event.unitId) || sawUnit(event.targetId)) seen.push(event);
         break;

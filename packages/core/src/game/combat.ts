@@ -7,8 +7,9 @@ import type { AbilityId } from '../units/unitType';
 import type { BattleState } from './battleState';
 import { opponentOf } from './battleState';
 import type { AttackKind, GameEvent, Outcome, Rejection } from './command';
-import { moraleChanged, moraleLossWhenHit, shiftMorale } from './morale';
-import { nextRandom } from './rng';
+import { holdsOwnCamp, moraleChanged, moraleLossWhenHit, shiftMorale } from './morale';
+import { nextRandom, nextRandomInt } from './rng';
+import { retreat } from './rout';
 import type { BattleDefs } from './rules';
 import type { FieldedUnit, Unit } from './unit';
 import {
@@ -160,44 +161,116 @@ export function resolveAttack(
       counterDamage,
     },
   ];
+  const blows: Blow[] = [
+    { hurt: hurtTarget, damage, striker: attacker },
+    { hurt: hurtAttacker, damage: counterDamage ?? 0, striker: target },
+  ];
+  const wonAttack = damage > (counterDamage ?? 0) ? defs.rules.morale.gainForWonAttack : 0;
+  const fought = settleBlows({ ...state, rng }, defs, blows, events, [[attacker.id, wonAttack]]);
+  return { state: routBroken(state, fought, defs, events), events };
+}
+
+/** A strike that was dealt: the unit as it left it, how much it took and who struck. */
+interface Blow {
+  readonly hurt: FieldedUnit;
+  readonly damage: number;
+  readonly striker: Unit;
+}
+
+/**
+ * Takes the blows into the state: the losses, and what they do to the morale of those hit and
+ * of the units that see a neighbour of their side destroyed. `gains` is morale won besides.
+ */
+function settleBlows(
+  state: BattleState,
+  defs: BattleDefs,
+  blows: readonly Blow[],
+  events: GameEvent[],
+  gains: readonly (readonly [unitId: string, morale: number])[] = []
+): BattleState {
   const morale = new Map<string, number>();
   const addMorale = (unitId: string, delta: number) =>
     morale.set(unitId, (morale.get(unitId) ?? 0) + delta);
 
-  const settle = (hurt: FieldedUnit, damageTaken: number, striker: Unit): Unit => {
-    if (damageTaken === 0) return hurt;
-    events.push({ type: 'UnitDamaged', unitId: hurt.id, damage: damageTaken, hp: hurt.hp });
+  const changed = new Map<string, Unit>();
+  for (const { hurt, damage, striker } of blows) {
+    changed.set(hurt.id, hurt);
+    if (damage === 0) continue;
+    events.push({ type: 'UnitDamaged', unitId: hurt.id, damage, hp: hurt.hp });
     if (hurt.hp > 0) {
       addMorale(hurt.id, -moraleLossWhenHit(state, defs, hurt, striker));
-      return hurt;
+      continue;
     }
     events.push({ type: 'UnitDied', unitId: hurt.id, hex: hurt.pos });
     for (const ally of adjacentUnits(state, hurt.pos, hurt.owner)) {
       addMorale(ally.id, -defs.rules.morale.lossWhenAllyDies);
     }
-    return { ...hurt, status: 'dead', pos: null };
-  };
-  const changed = new Map<string, Unit>();
-  for (const unit of [
-    settle(hurtTarget, damage, attacker),
-    settle(hurtAttacker, counterDamage ?? 0, target),
-  ]) {
-    changed.set(unit.id, unit);
+    changed.set(hurt.id, { ...hurt, status: 'dead', pos: null });
   }
-  if (damage > (counterDamage ?? 0)) {
-    addMorale(attacker.id, defs.rules.morale.gainForWonAttack);
-  }
+  for (const [unitId, gain] of gains) addMorale(unitId, gain);
 
   for (const [unitId, delta] of morale) {
     const unit = changed.get(unitId) ?? state.units[unitId]!;
-    if (!isFielded(unit)) continue;
+    if (!isFielded(unit) || (delta < 0 && holdsOwnCamp(defs, unit))) continue;
     const shifted = shiftMorale(unit, delta, defs.rules.morale);
     if (shifted === unit) continue;
     changed.set(unitId, shifted);
     events.push(moraleChanged(shifted));
   }
+  return withUnits(state, [...changed.values()]);
+}
 
-  return { state: { ...withUnits(state, [...changed.values()]), rng }, events };
+/**
+ * Units that fought `before` and whose morale has broken since run from the enemy at once. One
+ * after another: where a unit runs to depends on those that ran before it, and a rampage on
+ * the way out may break more of them.
+ */
+function routBroken(
+  before: BattleState,
+  after: BattleState,
+  defs: BattleDefs,
+  events: GameEvent[]
+): BattleState {
+  let state = after;
+  const ran = new Set<string>();
+  for (;;) {
+    const broken = fieldedUnits(state).find(
+      (unit) =>
+        unit.moraleState === 'routing' && !ran.has(unit.id) && isFighting(before.units[unit.id]!)
+    );
+    if (!broken) return state;
+    ran.add(broken.id);
+
+    state = rampage(state, defs, broken, events);
+    const run = retreat(state, defs, broken);
+    state = withUnits(state, [run.unit]);
+    events.push(...run.events);
+  }
+}
+
+/**
+ * A unit with the `rampage` ability that breaks tramples one unit next to it before it runs,
+ * friend or foe, whichever the dice pick. Nobody strikes back at it.
+ */
+function rampage(
+  state: BattleState,
+  defs: BattleDefs,
+  unit: FieldedUnit,
+  events: GameEvent[]
+): BattleState {
+  if (!abilityOf(defs, unit, 'rampage')) return state;
+  const inTheWay = fieldedUnits(state).filter((other) => hexDistance(other.pos, unit.pos) === 1);
+  if (inTheWay.length === 0) return state;
+
+  const pick = nextRandomInt(state.rng, 0, inTheWay.length - 1);
+  const victim = inTheWay[pick.value]!;
+  const roll = nextRandom(pick.rng);
+  const expected = expectedDamage(state, defs, unit, victim, 'attack');
+  const damage = rollDamage(defs, expected, roll.value, victim.hp, 'attack');
+
+  events.push({ type: 'UnitRampaged', unitId: unit.id, targetId: victim.id, damage });
+  const blow: Blow = { hurt: { ...victim, hp: victim.hp - damage }, damage, striker: unit };
+  return settleBlows({ ...state, rng: roll.rng }, defs, [blow], events);
 }
 
 /** The attacker once its attack is over: hurt by the answer and with its turn used up. */

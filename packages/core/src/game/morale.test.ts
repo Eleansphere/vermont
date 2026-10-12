@@ -106,10 +106,32 @@ describe('morale in combat', () => {
       place('target', 'principes', 1, 1, 0),
     ]);
 
+    // 3 × 8 / 6 × 1.25 = 5 leaves the principes worn as well: 8 − 2 − 1 − 1.
     expect(unitOf(play(battle, attack('elephants', 'target')), 'target')).toMatchObject({
+      hp: 5,
+      morale: 4,
+    });
+  });
+
+  it('drops by one more for a unit the hit leaves at half its strength or less', () => {
+    const worn = withUnit(duel(), 'target', { hp: 8 });
+
+    expect(unitOf(play(worn, attack('attacker', 'target')), 'target')).toMatchObject({
       hp: 5,
       morale: 5,
     });
+  });
+
+  it('does not drop for a unit that holds its own camp', () => {
+    const battle = battleWith(
+      [place('attacker', 'principes', 0, 0, 0), place('target', 'principes', 1, 1, 0)],
+      { camps: { 1: hex(1, 0) } }
+    );
+
+    const after = play(battle, attack('attacker', 'target'));
+
+    expect(unitOf(after, 'target').morale).toBe(8);
+    expect(unitOf(after, 'target').hp).toBeLessThan(10);
   });
 
   it('drops for units that see a neighbour of their side destroyed', () => {
@@ -182,13 +204,18 @@ describe('recovery', () => {
   });
 });
 
+/** The duel with the target one hit short of breaking. */
+function brittle(...others: UnitPlacement[]): TestBattle {
+  return withUnit(duel(...others), 'target', { morale: 2, moraleState: 'shaken' });
+}
+
 describe('routing', () => {
   it('takes no orders and does not strike back', () => {
-    const battle = play(routing(duel(), 'target'), END_TURN);
+    const battle = routing(duel(), 'attacker');
 
-    expect(rejectionOf(battle, attack('target', 'attacker'))).toBe('unitRouting');
+    expect(rejectionOf(battle, attack('attacker', 'target'))).toBe('unitRouting');
     expect(
-      rejectionOf(battle, { type: 'MoveUnit', unitId: 'target', path: [hex(1, 0), hex(2, 0)] })
+      rejectionOf(battle, { type: 'MoveUnit', unitId: 'attacker', path: [hex(0, 0), hex(-1, 0)] })
     ).toBe('unitRouting');
     expect(play(routing(duel(), 'target'), attack('attacker', 'target')).events[0]).toMatchObject({
       damage: 3,
@@ -196,60 +223,72 @@ describe('routing', () => {
     });
   });
 
-  it('runs away from the enemy at the start of its turn', () => {
-    const after = play(routing(duel(), 'target'), END_TURN);
+  it('runs away from the enemy as soon as its morale breaks', () => {
+    const after = play(brittle(), attack('attacker', 'target'));
     const target = unitOf(after, 'target') as FieldedUnit;
 
     expect(hexDistance(target.pos, hex(0, 0))).toBe(5);
-    expect(target).toMatchObject({ hasRetreated: true, movementLeft: 0, moraleState: 'routing' });
-    expect(after.events).toMatchObject([
-      { type: 'TurnEnded' },
-      { type: 'UnitRetreated', unitId: 'target' },
-      { type: 'TurnStarted' },
-    ]);
-    const retreat = after.events[1];
+    expect(target).toMatchObject({ movementLeft: 0, moraleState: 'routing' });
+    const retreat = after.events.at(-1);
     const path = retreat?.type === 'UnitRetreated' ? retreat.path : [];
     expect(path).toHaveLength(5);
     expect(path[0]).toEqual(hex(1, 0));
     expect(path.at(-1)).toEqual(target.pos);
   });
 
+  it('does not run again when it is hit on the run', () => {
+    const caught = withUnit(routing(duel(), 'target'), 'target', { morale: 0 });
+
+    const after = play(caught, attack('attacker', 'target'));
+
+    expect(unitOf(after, 'target').pos).toEqual(hex(1, 0));
+    expect(after.events.map((event) => event.type)).not.toContain('UnitRetreated');
+  });
+
   it('stays put when there is nowhere better to run', () => {
-    const cornered = routing(
+    const cornered = withUnit(
       battleWith([
         place('target', 'principes', 1, 5, 0),
         place('north', 'hastati', 0, 5, -1),
         place('west', 'hastati', 0, 4, 0),
         place('south', 'hastati', 0, 4, 1),
       ]),
-      'target'
+      'target',
+      { morale: 2, moraleState: 'shaken' }
     );
 
-    const after = play(cornered, END_TURN);
+    const after = play(cornered, attack('north', 'target'));
 
-    expect(unitOf(after, 'target')).toMatchObject({ pos: hex(5, 0), hasRetreated: true });
-    expect(after.events[1]).toEqual({ type: 'UnitRetreated', unitId: 'target', path: [hex(5, 0)] });
+    expect(unitOf(after, 'target')).toMatchObject({ pos: hex(5, 0), moraleState: 'routing' });
+    expect(after.events.at(-1)).toEqual({
+      type: 'UnitRetreated',
+      unitId: 'target',
+      path: [hex(5, 0)],
+    });
   });
 
-  it('rallies a turn later if the enemy did not follow', () => {
-    const escaped = nextRound(play(routing(duel(), 'target'), END_TURN));
+  it('rallies at the start of its turn if the enemy did not follow, and spends the turn at it', () => {
+    const escaped = play(brittle(), attack('attacker', 'target'), END_TURN);
 
     expect(unitOf(escaped, 'target')).toMatchObject({
       status: 'active',
       morale: 2,
       moraleState: 'shaken',
-      hasRetreated: false,
-      movementLeft: 4,
+      movementLeft: 0,
+      hasAttacked: true,
     });
     expect(escaped.events).toContainEqual({ type: 'UnitRallied', unitId: 'target' });
-    expect(rejectionOf(escaped, attack('target', 'attacker'))).toBe('outOfRange');
+    expect(unitOf(nextRound(escaped), 'target')).toMatchObject({
+      morale: 3,
+      movementLeft: 4,
+      hasAttacked: false,
+    });
   });
 
-  it('leaves the battlefield a turn later if the enemy caught up with it', () => {
+  it('leaves the battlefield if the enemy caught up with it', () => {
     const fleeing = play(
-      routing(duel(place('reserve', 'libyan-spearmen', 1, -4, 0)), 'target'),
-      END_TURN,
-      END_TURN
+      brittle(place('reserve', 'libyan-spearmen', 1, -4, 0)),
+      attack('attacker', 'target')
     );
     const refuge = (unitOf(fleeing, 'target') as FieldedUnit).pos;
 
@@ -261,7 +300,7 @@ describe('routing', () => {
   });
 
   it('breaks the army when its last unit leaves the battlefield', () => {
-    const fleeing = play(routing(duel(), 'target'), END_TURN, END_TURN);
+    const fleeing = play(brittle(), attack('attacker', 'target'));
     const refuge = (unitOf(fleeing, 'target') as FieldedUnit).pos;
 
     const after = play(pursue(fleeing, refuge), END_TURN);

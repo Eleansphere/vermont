@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { RULES } from '../data/rules';
 import { hex } from '../hex/hex';
 import { createMap, paintTerrain } from '../map/battleMap';
 import { hexagonHexes } from '../map/shapes';
@@ -9,6 +8,7 @@ import type { AttackResolvedEvent, Command, GameEvent } from './command';
 import type { TestBattle } from './testSupport';
 import {
   END_TURN,
+  SPREAD_RULES,
   battleWith,
   nextRound,
   place,
@@ -310,6 +310,69 @@ describe('abilities', () => {
       strike(duel('equites', 'principes', place('elephants', 'war-elephants', 1, 0, 1)))[0]
     ).toBe(2); // 3 × 3 / 6 instead of 3 × 5 / 6
   });
+
+  it('rampage tramples a unit next to the elephants when they break, even one of their side', () => {
+    const battle = withUnit(
+      battleWith([
+        place('velites', 'velites', 0, -1, 0),
+        place('elephants', 'war-elephants', 1, 1, 0),
+        place('libyans', 'libyan-spearmen', 1, 2, 0),
+      ]),
+      'elephants',
+      { morale: 2, moraleState: 'shaken' }
+    );
+
+    const after = play(battle, attack('velites', 'elephants'));
+
+    const blows = after.events.filter((event) => event.type !== 'MoraleChanged');
+
+    expect(blows.map((event) => event.type)).toEqual([
+      'AttackResolved',
+      'UnitDamaged',
+      'UnitRampaged',
+      'UnitDamaged',
+      'UnitRetreated',
+    ]);
+    // 3 × 8 / 6 × 1.25 against spears, at 12 of 14 health
+    expect(blows[2]).toEqual({
+      type: 'UnitRampaged',
+      unitId: 'elephants',
+      targetId: 'libyans',
+      damage: 5,
+    });
+    expect(unitOf(after, 'libyans')).toMatchObject({ hp: 5, morale: 3 });
+    expect(unitOf(after, 'elephants')).toMatchObject({ hp: 12, moraleState: 'routing' });
+    expect(unitOf(after, 'elephants').pos).not.toEqual(hex(1, 0));
+  });
+
+  it('rampage turns on the enemy as readily, and is not struck back', () => {
+    const battle = withUnit(duel('principes', 'war-elephants'), 'target', {
+      morale: 2,
+      moraleState: 'shaken',
+    });
+
+    const after = play(battle, attack('attacker', 'target'));
+    const rampage = after.events.find((event) => event.type === 'UnitRampaged');
+
+    expect(rampage).toMatchObject({ unitId: 'target', targetId: 'attacker' });
+    expect(after.events.filter((event) => event.type === 'AttackResolved')).toHaveLength(1);
+  });
+
+  it('rampage does nothing when nobody stands next to the elephants', () => {
+    const battle = withUnit(
+      battleWith([
+        place('velites', 'velites', 0, -1, 0),
+        place('elephants', 'war-elephants', 1, 1, 0),
+      ]),
+      'elephants',
+      { morale: 2, moraleState: 'shaken' }
+    );
+
+    const after = play(battle, attack('velites', 'elephants'));
+
+    expect(after.events.map((event) => event.type)).not.toContain('UnitRampaged');
+    expect(after.events.at(-1)).toMatchObject({ type: 'UnitRetreated', unitId: 'elephants' });
+  });
 });
 
 describe('death', () => {
@@ -362,7 +425,7 @@ describe('death', () => {
 describe('random spread', () => {
   const charge = (seed: number) =>
     battleWith([place('attacker', 'war-elephants', 0, 0, 0), place('target', 'triarii', 1, 1, 0)], {
-      rules: RULES,
+      rules: SPREAD_RULES,
       seed,
     });
 
@@ -392,7 +455,7 @@ describe('previewAttack', () => {
   it('shows the range of losses of both sides without changing anything', () => {
     const battle = battleWith(
       [place('attacker', 'war-elephants', 0, 0, 0), place('target', 'triarii', 1, 1, 0)],
-      { rules: RULES }
+      { rules: SPREAD_RULES }
     );
     const attacker = unitOf(battle, 'attacker') as FieldedUnit;
     const target = unitOf(battle, 'target') as FieldedUnit;
@@ -408,7 +471,7 @@ describe('previewAttack', () => {
     for (let seed = 0; seed < 40; seed++) {
       const battle = battleWith(
         [place('attacker', 'gallic-mercenaries', 0, 0, 0), place('target', 'hastati', 1, 1, 0)],
-        { rules: RULES, seed }
+        { rules: SPREAD_RULES, seed }
       );
       const preview = previewAttack(
         battle.state,

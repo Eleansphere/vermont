@@ -128,7 +128,6 @@ describe('serialization of units', () => {
       [{ morale: 'high' }, 'state.units.hastati.morale'],
       [{ movementLeft: null }, 'state.units.hastati.movementLeft'],
       [{ hasAttacked: 0 }, 'state.units.hastati.hasAttacked'],
-      [{ hasRetreated: undefined }, 'state.units.hastati.hasRetreated'],
       [{ spentAbilities: 'pilum' }, 'state.units.hastati.spentAbilities'],
       [{ spentAbilities: [1] }, 'state.units.hastati.spentAbilities'],
     ];

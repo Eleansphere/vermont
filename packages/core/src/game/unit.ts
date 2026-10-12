@@ -29,8 +29,6 @@ export interface Unit {
   readonly movementLeft: number;
   readonly hasAttacked: boolean;
   readonly status: UnitStatus;
-  /** A routing unit that has already made its retreat; next it rallies or leaves the field. */
-  readonly hasRetreated: boolean;
   /** One-off abilities the unit has used up. */
   readonly spentAbilities: readonly AbilityId[];
 }
@@ -74,7 +72,6 @@ export function createUnits(
       movementLeft: type.movement,
       hasAttacked: false,
       status: placement.pos ? 'active' : 'reserve',
-      hasRetreated: false,
       spentAbilities: [],
     };
   });
