@@ -103,6 +103,20 @@ describe('dispatch', () => {
     });
   });
 
+  it('ends the battle in a draw when the last round is played out', () => {
+    const lastRound = { ...battle(), turn: DEFS.rules.roundLimit };
+    const afterFirst = dispatch(lastRound, END_TURN, DEFS);
+    const result = dispatch(afterFirst.state, END_TURN, DEFS);
+
+    expect(afterFirst.state).toMatchObject({ phase: 'battle', turn: DEFS.rules.roundLimit });
+    expect(result.state).toMatchObject({ phase: 'ended', draw: true, activePlayer: 1 });
+    expect(result.state.winner).toBeUndefined();
+    expect(result.ok && result.events).toEqual([
+      { type: 'TurnEnded', player: 1, turn: DEFS.rules.roundLimit },
+      { type: 'BattleDrawn' },
+    ]);
+  });
+
   it('rejects a command it does not know', () => {
     const unknown = [{ type: 'Surrender' }, { type: 'toString' }, {}, null] as unknown as Command[];
 

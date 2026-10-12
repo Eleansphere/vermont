@@ -35,8 +35,8 @@ const RAID_FROM_TURN = 3;
 const ARMY_TO_GUARD = 2;
 /** Other units fit to fight that have to be left before a weak one may withdraw. */
 const FIT_UNITS_TO_WITHDRAW = 2;
-/** From this round on nobody guards or withdraws, so that no battle drags on for ever. */
-const ALL_OUT_TURN = 25;
+/** For this many last rounds nobody guards or withdraws: a battle left undecided is a draw. */
+const ALL_OUT_ROUNDS = 5;
 /** How much nearer an enemy seems to a unit whose archetype has the advantage over it. */
 const PREY_PULL = 3;
 
@@ -71,7 +71,7 @@ export function battlePlan(
   const enemies = standing.length > 0 ? standing : sighted;
   const ownCamp = defs.camps[player] ?? null;
   const enemyCamp = defs.camps[opponentOf(player)] ?? null;
-  const allOut = state.turn >= ALL_OUT_TURN;
+  const allOut = state.turn > defs.rules.roundLimit - ALL_OUT_ROUNDS;
 
   const fit = own.filter((unit) => !isWeakened(defs, unit));
   const guard =

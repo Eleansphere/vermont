@@ -26,7 +26,7 @@ const phaseText = computed(() => {
   if (!battle) return '';
   return battle.phase === 'deployment'
     ? t('hud.deployment')
-    : t('hud.round', { turn: battle.turn });
+    : t('hud.round', { turn: battle.turn, limit: store.defs?.rules.roundLimit ?? battle.turn });
 });
 
 const activeSide = computed(() => {

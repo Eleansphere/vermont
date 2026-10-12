@@ -108,6 +108,12 @@ describe('describeEvents', () => {
     ).toEqual(['Galští žoldnéři 1: jednotka otřesena.', 'Galští žoldnéři 1: dává se na útěk.']);
   });
 
+  it('announces a draw', () => {
+    expect(describeEvents([{ type: 'BattleDrawn' }], context)).toEqual([
+      { tone: 'result', player: null, text: 'Remíza: po 20 kolech nikdo nezvítězil.' },
+    ]);
+  });
+
   it('says whose line each event is, for its colour', () => {
     const entries = describeEvents(
       [

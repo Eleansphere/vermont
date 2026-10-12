@@ -23,8 +23,10 @@ export interface BattleState {
   readonly activePlayer: PlayerSlot;
   /** Every unit that started the battle, by id; destroyed and fled ones stay in the record. */
   readonly units: Readonly<Record<string, Unit>>;
-  /** Set once the battle is over. */
+  /** Set once the battle is won. */
   readonly winner?: Winner;
+  /** Set when the battle ended with no winner: the round limit ran out. */
+  readonly draw?: true;
   readonly rng: RngState;
 }
 

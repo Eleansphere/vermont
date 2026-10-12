@@ -175,6 +175,11 @@ export interface BattleEndedEvent {
   readonly reason: VictoryReason;
 }
 
+/** The last round was played out and nobody won. */
+export interface BattleDrawnEvent {
+  readonly type: 'BattleDrawn';
+}
+
 /** What happened; the renderer animates from events and the log lists them. */
 export type GameEvent =
   | UnitDeployedEvent
@@ -192,7 +197,8 @@ export type GameEvent =
   | UnitRetreatedEvent
   | UnitRalliedEvent
   | UnitFledEvent
-  | BattleEndedEvent;
+  | BattleEndedEvent
+  | BattleDrawnEvent;
 
 export type RejectionCode =
   | 'unknownCommand'

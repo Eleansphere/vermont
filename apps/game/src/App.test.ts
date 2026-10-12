@@ -156,7 +156,7 @@ describe('App', () => {
       expect(has('handover')).toBe(false);
       expect(store.state?.phase).toBe('battle');
       expect(has('deployment')).toBe(false);
-      expect(text('turn')).toMatch(/^Kolo 1\s*na tahu\s*Řím$/);
+      expect(text('turn')).toMatch(/^Kolo 1 z 20\s*na tahu\s*Řím$/);
       expect(text('log')).toContain('Bitva začíná.');
     });
 
@@ -174,7 +174,7 @@ describe('App', () => {
     it('shows whose turn it is and how the armies stand', async () => {
       await startBattle(true);
 
-      expect(text('turn')).toMatch(/^Kolo 1\s*na tahu\s*Řím$/);
+      expect(text('turn')).toMatch(/^Kolo 1 z 20\s*na tahu\s*Řím$/);
       expect(text('army-0')).toContain('Řím');
       expect(text('army-0')).toContain('v boji 12 z 12');
       expect(text('army-1')).toContain('Kartágo');
@@ -194,7 +194,7 @@ describe('App', () => {
       await press('Enter');
       await press('Enter');
       expect(store.state?.activePlayer).toBe(1);
-      expect(text('turn')).toMatch(/^Kolo 1\s*na tahu\s*Kartágo$/);
+      expect(text('turn')).toMatch(/^Kolo 1 z 20\s*na tahu\s*Kartágo$/);
     });
 
     it('ends the turn at once when the player does not want to be asked', async () => {
@@ -352,6 +352,15 @@ describe('App', () => {
 
       expect(text('result')).toContain('Vítězství: Kartágo');
       expect(text('result')).toContain('armáda soupeře je zlomena');
+    });
+
+    it('announces a draw', async () => {
+      const { store } = await startBattle(true);
+      store.state = { ...store.state!, phase: 'ended', draw: true };
+      await nextTick();
+
+      expect(text('result')).toContain('Remíza');
+      expect(text('result')).toContain('po 20 kolech nikdo nezvítězil');
     });
   });
 });

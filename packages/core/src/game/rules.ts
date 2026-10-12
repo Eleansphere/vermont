@@ -61,6 +61,8 @@ export interface FogRules {
 }
 
 export interface BattleRules {
+  /** The battle is a draw when this many rounds were played and nobody won. */
+  readonly roundLimit: number;
   readonly combat: CombatRules;
   readonly morale: MoraleRules;
   readonly fog: FogRules;

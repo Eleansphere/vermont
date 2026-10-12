@@ -57,6 +57,9 @@ function readState(state: unknown): BattleState {
     throw invalid('state.activePlayer', `one of ${PLAYER_SLOTS.join(', ')}`);
   }
   const winner = readWinner(state.winner);
+  if (state.draw !== undefined && state.draw !== true) {
+    throw invalid('state.draw', 'true or left out');
+  }
   return {
     scenarioId,
     phase: phase as Phase,
@@ -64,6 +67,7 @@ function readState(state: unknown): BattleState {
     activePlayer: activePlayer as PlayerSlot,
     units: readUnits(state.units),
     ...(winner && { winner }),
+    ...(state.draw && { draw: true as const }),
     rng: readRng(state.rng),
   };
 }

@@ -2,6 +2,7 @@ import type { BattleRules } from '../game/rules';
 
 /** Starting values from the design notes; expected to change during balancing. */
 export const RULES: BattleRules = {
+  roundLimit: 20,
   combat: {
     baseDamage: 3,
     damageSpread: 0.1,

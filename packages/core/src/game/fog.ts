@@ -114,6 +114,7 @@ export function eventsSeenBy(
       case 'TurnEnded':
       case 'TurnStarted':
       case 'BattleEnded':
+      case 'BattleDrawn':
         seen.push(event);
         break;
       case 'UnitMoved':

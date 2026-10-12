@@ -145,6 +145,13 @@ export function describeEvents(events: readonly GameEvent[], context: LogContext
           }),
         });
         break;
+      case 'BattleDrawn':
+        entries.push({
+          tone: 'result',
+          player: null,
+          text: t('log.battleDrawn', { rounds: defs.rules.roundLimit }),
+        });
+        break;
       case 'UnitDeployed':
       case 'TurnEnded':
       case 'UnitDamaged':

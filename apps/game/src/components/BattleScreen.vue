@@ -28,17 +28,27 @@ const overlay = ref<Overlay | null>(null);
 const resultDismissed = ref(false);
 const pointer = ref({ x: 0, y: 0 });
 
-const winner = computed(() => {
-  const { state, scenario } = store;
-  if (!state?.winner || !scenario) return null;
+/** How the battle ended, in words: a victory of one side, or a draw. */
+const result = computed(() => {
+  const { state, scenario, defs } = store;
+  if (!state || !scenario || !defs) return null;
+  if (state.draw) {
+    return {
+      title: t('draw.title'),
+      text: t('log.battleDrawn', { rounds: defs.rules.roundLimit }),
+      color: 'var(--panel-border)',
+    };
+  }
+  if (!state.winner) return null;
+  const side = sideName(scenario, state.winner.player);
   return {
-    side: sideName(scenario, state.winner.player),
+    title: t('victory.title', { side }),
+    text: t('log.battleEnded', { side, reason: victoryReasonText(state.winner.reason) }),
     color: sideColor(state.winner.player),
-    reason: victoryReasonText(state.winner.reason),
   };
 });
 const showResult = computed(
-  () => winner.value !== null && !resultDismissed.value && !overlay.value
+  () => result.value !== null && !resultDismissed.value && !overlay.value
 );
 
 /** The player asked to the screen; until they sit down the battle is covered and takes no orders. */
@@ -55,7 +65,7 @@ const handover = computed(() => {
 });
 
 watch(
-  () => store.state?.winner,
+  () => store.state?.phase,
   () => (resultDismissed.value = false)
 );
 
@@ -226,13 +236,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
     </GameDialog>
 
     <GameDialog
-      v-else-if="showResult && winner"
+      v-else-if="showResult && result"
       class="battle__result"
-      :title="t('victory.title', { side: winner.side })"
+      :title="result.title"
       data-test="result"
     >
-      <p class="battle__text" :style="{ borderColor: winner.color }">
-        {{ t('log.battleEnded', { side: winner.side, reason: winner.reason }) }}
+      <p class="battle__text" :style="{ borderColor: result.color }">
+        {{ result.text }}
       </p>
       <button class="button button--primary button--wide" type="button" @click="restart">
         {{ t('menu.restart') }}

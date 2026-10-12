@@ -26,6 +26,15 @@ export const endTurn: CommandHandler<EndTurnCommand> = {
   apply(state, _command, defs) {
     const nextPlayer = opponentOf(state.activePlayer);
     const nextTurn = nextPlayer === ROUND_OPENER ? state.turn + 1 : state.turn;
+    if (nextTurn > defs.rules.roundLimit) {
+      return {
+        state: { ...state, phase: 'ended', draw: true },
+        events: [
+          { type: 'TurnEnded', player: state.activePlayer, turn: state.turn },
+          { type: 'BattleDrawn' },
+        ],
+      };
+    }
 
     let next: BattleState = { ...state, activePlayer: nextPlayer, turn: nextTurn };
     const events: GameEvent[] = [

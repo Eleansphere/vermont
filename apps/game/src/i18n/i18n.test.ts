@@ -5,13 +5,13 @@ import { factionName, plural, scenarioName, t, unitTypeName } from './index';
 
 describe('i18n', () => {
   it('fills the placeholders in', () => {
-    expect(t('hud.round', { turn: 4 })).toBe('Kolo 4');
+    expect(t('hud.round', { turn: 4, limit: 20 })).toBe('Kolo 4 z 20');
     expect(t('hud.army.fighting', { count: 9, total: 12 })).toBe('v boji 9 z 12');
   });
 
   it('leaves a placeholder it has no value for', () => {
-    expect(t('hud.round')).toBe('Kolo {turn}');
-    expect(t('hud.round', { other: 1 })).toBe('Kolo {turn}');
+    expect(t('hud.round')).toBe('Kolo {turn} z {limit}');
+    expect(t('hud.round', { other: 1 })).toBe('Kolo {turn} z {limit}');
   });
 
   it.each([

@@ -97,6 +97,14 @@ describe('serialization of units', () => {
     expect(deserializeBattle(serializeBattle(fought))).not.toHaveProperty('winner');
   });
 
+  it('keeps a draw and rejects a damaged one', () => {
+    const drawn = { ...fought, phase: 'ended', draw: true } as const;
+
+    expect(deserializeBattle(serializeBattle(drawn))).toEqual(drawn);
+    expect(deserializeBattle(serializeBattle(fought))).not.toHaveProperty('draw');
+    expect(() => deserializeBattle(saveWith({ draw: 'yes' }))).toThrow('state.draw');
+  });
+
   it('rejects a save without units or with a damaged winner', () => {
     expect(() => deserializeBattle(saveWith({ units: undefined }))).toThrow('state.units');
     expect(() => deserializeBattle(saveWith({ units: [] }))).toThrow('state.units');

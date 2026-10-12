@@ -52,7 +52,7 @@ export const cs = {
     'settings.confirmEndTurn': 'Potvrzovat konec tahu, když jednotky ještě mohou jednat',
     'settings.showLog': 'Zobrazovat log událostí',
 
-    'hud.round': 'Kolo {turn}',
+    'hud.round': 'Kolo {turn} z {limit}',
     'hud.deployment': 'Rozestavení',
     'hud.onTurn': 'na tahu',
     'hud.aiOnTurn': 'počítač táhne…',
@@ -131,7 +131,10 @@ export const cs = {
     'log.fled': '{unit}: opustila bojiště.',
     'log.battleEnded': '{side} vítězí: {reason}.',
 
+    'log.battleDrawn': 'Remíza: po {rounds} kolech nikdo nezvítězil.',
+
     'victory.title': 'Vítězství: {side}',
+    'draw.title': 'Remíza',
 
     'keys.title': 'Ovládání',
     'keys.click': 'Klik: výběr jednotky, pohyb, útok',

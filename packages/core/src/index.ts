@@ -109,6 +109,7 @@ export type {
   AttackCommand,
   AttackKind,
   AttackResolvedEvent,
+  BattleDrawnEvent,
   BattleEndedEvent,
   Command,
   CommandHandler,
