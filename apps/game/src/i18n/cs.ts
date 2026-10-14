@@ -27,6 +27,13 @@ export const cs = {
     'app.subtitle': 'Tahová bitva na hexech',
     'app.version': 'pravidla v{version}',
 
+    'perf.title': 'Výkon (F3)',
+    'perf.fps': '{fps} FPS, snímek {ms} ms',
+    'perf.drawCalls': 'draw cally {count}',
+    'perf.triangles': 'trojúhelníky {count}',
+    'perf.memory': 'geometrie {geometries}, textury {textures}',
+    'perf.loading': 'Načítám modely…',
+
     'menu.newBattle': 'Nová bitva',
     'menu.continue': 'Pokračovat v bitvě',
     'menu.settings': 'Nastavení',

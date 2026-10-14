@@ -1,4 +1,4 @@
-import type { BufferGeometry, Object3D } from 'three';
+import type { BufferGeometry, Material, Object3D } from 'three';
 import {
   BoxGeometry,
   ConeGeometry,
@@ -11,11 +11,24 @@ import {
 import type { Archetype, PlayerSlot, UnitTypeDef } from '@vermont/core';
 import { PLAYER_COLORS } from './palette';
 
-/**
- * Builds what a unit looks like. The model stands on the ground at its origin, faces +z and
- * fits on one hex. This is the one place to swap the placeholders for loaded glTF models.
- */
-export type UnitModelFactory = (type: UnitTypeDef, owner: PlayerSlot) => Object3D;
+/** What a unit's figures are doing; a model without clips ignores it. */
+export type UnitPose = 'idle' | 'walk' | 'attack' | 'shoot' | 'hit' | 'death';
+
+/** A unit as drawn. The object stands on the ground at its origin, faces +z and fits on a hex. */
+export interface UnitModel {
+  readonly object: Object3D;
+  /** Idle and walk loop; attack, shoot and hit play once and go back to idle; death stays. */
+  pose?(pose: UnitPose): void;
+  /** Moves the clips forward. */
+  update?(seconds: number): void;
+  /** Shows how much of the unit is left, 0 to 1, e.g. by the number of figures. */
+  setStrength?(share: number): void;
+  /** Frees what belongs to this unit alone. */
+  dispose(): void;
+}
+
+/** Builds what a unit looks like: placeholders, or figures made from loaded glTF models. */
+export type UnitModelFactory = (type: UnitTypeDef, owner: PlayerSlot) => UnitModel;
 
 const GEAR_COLOR = 0x3a3d45;
 const MOUNT_COLOR = 0x8a6a4a;
@@ -103,5 +116,15 @@ export const placeholderUnitModel: UnitModelFactory = (type, owner) => {
     part.castShadow = true;
     model.add(part);
   }
-  return model;
+  return { object: model, dispose: () => disposeMeshes(model) };
 };
+
+/** Frees the geometries and materials of every mesh under the object. */
+export function disposeMeshes(object: Object3D): void {
+  object.traverse((part) => {
+    if (!(part instanceof Mesh)) return;
+    part.geometry.dispose();
+    const materials: Material[] = Array.isArray(part.material) ? part.material : [part.material];
+    for (const material of new Set(materials)) material.dispose();
+  });
+}

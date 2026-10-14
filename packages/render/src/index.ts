@@ -1,7 +1,11 @@
 export { createBattleScene } from './scene';
-export type { BattleScene, BattleSceneOptions, VisibleHexes } from './scene';
+export type { BattleScene, BattleSceneOptions, RenderStats, VisibleHexes } from './scene';
 export type { Highlights } from './highlights';
 export type { MapPick } from './picking';
 export { PLAYER_COLORS } from './palette';
 export { placeholderUnitModel } from './unitModels';
-export type { UnitModelFactory } from './unitModels';
+export type { UnitModel, UnitModelFactory, UnitPose } from './unitModels';
+export { kitFiles, loadModelKit } from './kit/load';
+export type { LoadedModel, ModelKit, ModelLoader } from './kit/load';
+export { gltfModelLoader } from './kit/gltf';
+export { figureUnitModels } from './kit/figures';

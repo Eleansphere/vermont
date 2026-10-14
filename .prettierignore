@@ -1,3 +1,5 @@
 dist
 coverage
 pnpm-lock.yaml
+# Model files exactly as their authors exported them
+apps/game/public/models/**/*.gltf

@@ -6,6 +6,8 @@ import { eventSteps } from './eventSteps';
 import { createTerrainLayer } from './terrain';
 import { deployedTrebia } from './testSupport';
 import { Timeline } from './timeline';
+import type { UnitModel, UnitModelFactory, UnitPose } from './unitModels';
+import { placeholderUnitModel } from './unitModels';
 import { UnitLayer } from './units';
 
 function setUp(): {
@@ -200,5 +202,102 @@ describe('event animations', () => {
     );
 
     expect(() => timeline.finish()).not.toThrow();
+  });
+
+  describe('with figures that have clips', () => {
+    /** Placeholders that write down what the layer asks of them. */
+    function recording() {
+      const poses = new Map<string, UnitPose[]>();
+      const strengths = new Map<string, number[]>();
+      let next = 0;
+      const factory: UnitModelFactory = (type, owner) => {
+        const key = String(next++);
+        const placeholder = placeholderUnitModel(type, owner);
+        const model: UnitModel = {
+          ...placeholder,
+          pose: (pose) => poses.set(key, [...(poses.get(key) ?? []), pose]),
+          update: () => undefined,
+          setStrength: (share) => strengths.set(key, [...(strengths.get(key) ?? []), share]),
+        };
+        placeholder.object.userData.key = key;
+        return model;
+      };
+      const { state, defs } = deployedTrebia();
+      const units = new UnitLayer(defs, createTerrainLayer(defs).surfaceHeight, factory);
+      units.sync(state);
+      const keyOf = (unitId: string) => units.view(unitId)!.model.userData.key as string;
+      return { state, defs, units, poses, strengths, keyOf };
+    }
+
+    it('walks the figures along a move and stands them still at the end', () => {
+      const { state, defs, units, poses, keyOf } = recording();
+      const { unit, path } = longestWalk(state, defs);
+      const result = dispatch(state, { type: 'MoveUnit', unitId: unit.id, path }, defs);
+      if (!result.ok) throw new Error(result.rejection.message);
+      const timeline = new Timeline();
+
+      timeline.enqueue(
+        ...result.events.flatMap((event) =>
+          eventSteps(event, { units, state: result.state, effects: new Group() })
+        )
+      );
+      timeline.finish();
+
+      expect(poses.get(keyOf(unit.id))).toEqual(['walk', 'idle']);
+    });
+
+    it('strikes, flinches and falls with the clips of its figures', () => {
+      const { state, units, poses, keyOf } = recording();
+      const attacker = fieldedUnits(state, 0)[0]!;
+      const target = fieldedUnits(state, 1)[0]!;
+      const attackerKey = keyOf(attacker.id);
+      const targetKey = keyOf(target.id);
+      const timeline = new Timeline();
+
+      const events: GameEvent[] = [
+        {
+          type: 'AttackResolved',
+          attackerId: attacker.id,
+          targetId: target.id,
+          kind: 'melee',
+          damage: target.hp,
+          counterDamage: null,
+        },
+        { type: 'UnitDamaged', unitId: target.id, damage: target.hp, hp: 0 },
+        { type: 'UnitDied', unitId: target.id, hex: target.pos },
+      ];
+      timeline.enqueue(
+        ...events.flatMap((event) => eventSteps(event, { units, state, effects: new Group() }))
+      );
+      timeline.update(1);
+
+      expect(poses.get(attackerKey)).toEqual(['attack']);
+      expect(poses.get(targetKey)).toEqual(['hit', 'death']);
+      // A fallen unit lies a moment before it sinks away.
+      expect(units.view(target.id)!.object.scale.x).toBe(1);
+      timeline.finish();
+      expect(units.view(target.id)).toBeUndefined();
+    });
+
+    it('tells the figures how much of the unit is left', () => {
+      const { state, units, strengths, keyOf } = recording();
+      const unit = fieldedUnits(state)[0]!;
+
+      units.setHealth(unit.id, unit.hp / 2);
+
+      expect(strengths.get(keyOf(unit.id))?.at(-1)).toBeCloseTo(0.5);
+    });
+
+    it('shows a marker while the unit is shaken or routs', () => {
+      const { state, units } = recording();
+      const unit = fieldedUnits(state)[0]!;
+      const marker = () => units.view(unit.id)!.object.children.at(-1)!;
+
+      expect(marker().visible).toBe(false);
+      units.setMorale(unit.id, 'shaken');
+      expect(marker().visible).toBe(true);
+      units.sync(state);
+      expect(marker().visible).toBe(false);
+    });
   });
 });

@@ -31,6 +31,8 @@ import type { MapPick, ScreenPoint } from './picking';
 import { Picker } from './picking';
 import { createTerrainLayer } from './terrain';
 import { Timeline } from './timeline';
+import type { ModelKit } from './kit/load';
+import { figureUnitModels } from './kit/figures';
 import type { UnitModelFactory } from './unitModels';
 import { UnitLayer } from './units';
 
@@ -49,6 +51,8 @@ const KEY_PAN_STEP = 2;
 const TURN_SPEED = 10;
 /** Longest time one frame may move the animations forward, so a background tab does not jump. */
 const MAX_FRAME_SECONDS = 0.1;
+/** How long the frame rate is averaged over. */
+const STATS_WINDOW_MS = 1000;
 
 export interface BattleSceneOptions {
   /** The battle's definitions: the map to draw and what the units are. */
@@ -57,8 +61,21 @@ export interface BattleSceneOptions {
   onPick?(pick: MapPick | null): void;
   /** The pointer moved to another hex, or off the map (`null`). */
   onHover?(pick: MapPick | null): void;
-  /** Builds the units' models; placeholders when left out. */
+  /** Builds the units' models; figures from the kit, or placeholders without one. */
   readonly unitModel?: UnitModelFactory;
+  /** Loaded models for the terrain and the units; plain shapes when left out. */
+  readonly kit?: ModelKit;
+}
+
+/** What drawing a frame costs, for the performance panel. */
+export interface RenderStats {
+  readonly fps: number;
+  /** Average time between frames over the last second, in milliseconds. */
+  readonly frameMs: number;
+  readonly drawCalls: number;
+  readonly triangles: number;
+  readonly geometries: number;
+  readonly textures: number;
 }
 
 /** Hexes the player looking at the scene sees; `null` when nothing lies in the fog of war. */
@@ -81,6 +98,8 @@ export interface BattleScene {
   zoom(factor: number): void;
   /** Call when the canvas element changes size. */
   resize(): void;
+  /** What the last second of frames cost. */
+  stats(): RenderStats;
   /** Stops rendering and frees GPU resources. */
   dispose(): void;
 }
@@ -101,8 +120,10 @@ export function createBattleScene(
 
   const scene = new Scene();
   scene.background = new Color(BACKGROUND_COLOR);
-  const terrain = createTerrainLayer(defs);
-  const units = new UnitLayer(defs, terrain.surfaceHeight, options.unitModel);
+  const terrain = createTerrainLayer(defs, options.kit?.terrain);
+  const unitModel =
+    options.unitModel ?? (options.kit ? figureUnitModels(options.kit.units) : undefined);
+  const units = new UnitLayer(defs, terrain.surfaceHeight, unitModel);
   const highlights = new HighlightLayer(hexes.length, terrain.surfaceHeight);
   const effects = new Group();
   const sun = createSun();
@@ -196,10 +217,27 @@ export function createBattleScene(
   }
 
   let lastTime: number | null = null;
+  let frames = 0;
+  let windowStart: number | null = null;
+  let measured = { fps: 0, frameMs: 0, drawCalls: 0, triangles: 0 };
   function frame(time: number): void {
     const seconds = Math.min(lastTime === null ? 0 : (time - lastTime) / 1000, MAX_FRAME_SECONDS);
     lastTime = time;
+    windowStart ??= time;
+    frames++;
+    if (time - windowStart >= STATS_WINDOW_MS) {
+      const elapsed = time - windowStart;
+      measured = {
+        fps: (frames * 1000) / elapsed,
+        frameMs: elapsed / frames,
+        drawCalls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+      };
+      frames = 0;
+      windowStart = time;
+    }
     timeline.update(seconds);
+    units.update(seconds);
     azimuth += (azimuthOf(view.rotation) - azimuth) * Math.min(1, TURN_SPEED * seconds);
     placeCamera(camera, view, azimuth);
     renderer.render(scene, camera);
@@ -234,6 +272,11 @@ export function createBattleScene(
       view = zoomView(view, factor);
     },
     resize,
+    stats: () => ({
+      ...measured,
+      geometries: renderer.info.memory.geometries,
+      textures: renderer.info.memory.textures,
+    }),
     dispose() {
       renderer.setAnimationLoop(null);
       detachControls();

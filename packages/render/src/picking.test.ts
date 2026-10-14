@@ -45,6 +45,16 @@ describe('picking', () => {
     }
   });
 
+  it('finds a unit by its figures, above the hex it stands on', () => {
+    lookFrom(0);
+
+    for (const unit of fieldedUnits(state)) {
+      const { x, z } = hexToWorld(unit.pos);
+      const chest = new Vector3(x, terrain.surfaceHeight(unit.pos) + 0.5, z).project(camera);
+      expect(picker.pick({ x: chest.x, y: chest.y }, camera)?.unitId).toBe(unit.id);
+    }
+  });
+
   it('finds nothing beside the map', () => {
     lookFrom(0);
 

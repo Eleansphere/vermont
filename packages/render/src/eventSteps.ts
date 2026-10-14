@@ -16,7 +16,10 @@ const SHOT_START_HEIGHT = 0.7;
 const SHOT_RADIUS = 0.09;
 const SHOT_COLOR = 0x22252b;
 const HIT_SECONDS = 0.22;
-const DEATH_SECONDS = 0.45;
+/** Long enough for a figure's fall; placeholders tip over meanwhile. */
+const DEATH_SECONDS = 0.9;
+/** Share of a death the fallen figures lie still before they sink away. */
+const DEATH_LIE = 0.6;
 const FLEE_SECONDS = 0.35;
 const SWAP_SECONDS = 0.3;
 const DEPLOY_START_SCALE = 0.6;
@@ -58,6 +61,8 @@ export function eventSteps(event: GameEvent, context: StepContext): Step[] {
       return [die(event.unitId, units)];
     case 'UnitFled':
       return [flee(event.unitId, units)];
+    case 'MoraleChanged':
+      return [{ duration: 0, begin: () => units.setMorale(event.unitId, event.moraleState) }];
     default:
       return [];
   }
@@ -79,7 +84,8 @@ function deploy(unitId: string, target: Hex, { units, state }: StepContext): Ste
 }
 
 function walk(unitId: string, path: readonly Hex[], units: UnitLayer): Step[] {
-  return path.slice(1).map((target) => {
+  const steps = path.slice(1);
+  return steps.map((target, index) => {
     let view: UnitView | undefined;
     const from = new Vector3();
     const to = new Vector3();
@@ -91,12 +97,15 @@ function walk(unitId: string, path: readonly Hex[], units: UnitLayer): Step[] {
         from.copy(view.object.position);
         to.copy(units.standPoint(target));
         units.face(view, to);
+        if (index === 0) units.pose(view, 'walk');
       },
       update(progress) {
         view?.object.position.lerpVectors(from, to, progress);
       },
       end() {
-        if (view) units.place(view, target);
+        if (!view) return;
+        units.place(view, target);
+        if (index === steps.length - 1) units.pose(view, 'idle');
       },
     };
   });
@@ -147,6 +156,7 @@ function lunge(strikerId: string, targetId: string, { units }: StepContext): Ste
       home.copy(striker.object.position);
       reach.copy(target.object.position).sub(home).multiplyScalar(LUNGE_REACH);
       units.face(striker, target.object.position);
+      units.pose(striker, 'attack');
     },
     update(progress) {
       striker?.object.position.copy(home).addScaledVector(reach, Math.sin(Math.PI * progress));
@@ -169,6 +179,7 @@ function shot(shooterId: string, targetId: string, { units, effects }: StepConte
       const target = units.view(targetId);
       if (!shooter || !target) return;
       units.face(shooter, target.object.position);
+      units.pose(shooter, 'shoot');
       from.copy(shooter.object.position).setY(shooter.object.position.y + SHOT_START_HEIGHT);
       to.copy(target.object.position).setY(target.object.position.y + SHOT_START_HEIGHT);
       missile = new Mesh(
@@ -200,6 +211,7 @@ function hit(unitId: string, hp: number, units: UnitLayer): Step {
     begin() {
       view = units.view(unitId);
       units.setHealth(unitId, hp);
+      if (view) units.pose(view, 'hit');
     },
     update(progress) {
       if (view) units.setGlow(view, 1 - progress);
@@ -207,18 +219,22 @@ function hit(unitId: string, hp: number, units: UnitLayer): Step {
   };
 }
 
-/** The unit falls over and sinks, then it is gone. */
+/** The figures fall, lie a moment and sink away; a placeholder tips over. */
 function die(unitId: string, units: UnitLayer): Step {
   let view: UnitView | undefined;
+  let animated = false;
   return {
     duration: DEATH_SECONDS,
     begin() {
       view = units.view(unitId);
+      animated = view !== undefined && units.animated(view);
+      if (view && animated) units.pose(view, 'death');
     },
     update(progress) {
       if (!view) return;
-      view.model.rotation.z = (Math.PI / 2) * progress;
-      view.object.scale.setScalar(1 - progress / 2);
+      if (!animated) view.model.rotation.z = (Math.PI / 2) * Math.min(1, progress / DEATH_LIE);
+      const sinking = Math.max(0, (progress - DEATH_LIE) / (1 - DEATH_LIE));
+      view.object.scale.setScalar(1 - sinking / 2);
     },
     end() {
       units.remove(unitId);
@@ -233,6 +249,7 @@ function flee(unitId: string, units: UnitLayer): Step {
     duration: FLEE_SECONDS,
     begin() {
       view = units.view(unitId);
+      if (view) units.pose(view, 'walk');
     },
     update(progress) {
       view?.object.scale.setScalar(1 - progress);
