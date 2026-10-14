@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AnimationClip, SkinnedMesh } from 'three';
+import { AnimationClip, Mesh, SkinnedMesh } from 'three';
 import type { Object3D } from 'three';
 import { UNIT_TYPES } from '@vermont/core';
 import { FIGURE_RECIPES, figureUnitModels, figuresLeft, findClip, formation } from './figures';
@@ -19,10 +19,10 @@ function figuresIn(object: Object3D, visibleOnly = false): SkinnedMesh[] {
 }
 
 describe('unit figures', () => {
-  it('has a recipe for every unit type but the elephants', () => {
+  it('has a recipe for every unit type', () => {
     const missing = Object.keys(UNIT_TYPES).filter((typeId) => !FIGURE_RECIPES[typeId]);
 
-    expect(missing).toEqual(['war-elephants']);
+    expect(missing).toEqual([]);
   });
 
   it.each([
@@ -67,6 +67,39 @@ describe('unit figures', () => {
     expect(figuresIn(equites.object)).toHaveLength(4);
   });
 
+  it('gives every unit a standard and seats the mahout on his elephant', () => {
+    const models = figureUnitModels(fakeUnitKit());
+    const elephants = models(UNIT_TYPES['war-elephants']!, 1);
+    const meshes = (object: Object3D) => {
+      const found: Mesh[] = [];
+      object.traverse((node) => {
+        if (node instanceof Mesh && !(node instanceof SkinnedMesh)) found.push(node);
+      });
+      return found;
+    };
+
+    // the standard and the elephant
+    expect(meshes(elephants.object)).toHaveLength(2);
+    expect(figuresIn(elephants.object)).toHaveLength(1);
+    expect(meshes(models(UNIT_TYPES.velites!, 0).object)).toHaveLength(1);
+  });
+
+  it('rocks the elephant while it walks and topples it when it dies', () => {
+    const model = figureUnitModels(fakeUnitKit())(UNIT_TYPES['war-elephants']!, 0);
+    let body: Object3D | undefined;
+    model.object.traverse((node) => {
+      if (node instanceof Mesh && node.children.length > 0) body = node;
+    });
+
+    model.pose?.('walk');
+    model.update?.(0.08);
+    expect(body!.rotation.z).not.toBe(0);
+
+    model.pose?.('death');
+    model.update?.(1);
+    expect(body!.rotation.z).toBeCloseTo(Math.PI / 2);
+  });
+
   it('lets figures fall as the unit loses health', () => {
     const model = figureUnitModels(fakeUnitKit())(UNIT_TYPES.principes!, 1);
 
@@ -99,7 +132,8 @@ describe('unit figures', () => {
   });
 
   it('falls back to the placeholder for a type without a recipe', () => {
-    const model = figureUnitModels(fakeUnitKit())(UNIT_TYPES['war-elephants']!, 1);
+    const unknown = { ...UNIT_TYPES.hastati!, id: 'unknown' };
+    const model = figureUnitModels(fakeUnitKit())(unknown, 1);
 
     expect(figuresIn(model.object)).toHaveLength(0);
     expect(model.pose).toBeUndefined();

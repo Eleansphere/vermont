@@ -24,6 +24,6 @@ By **Quaternius** (quaternius.com), downloaded from poly.pizza, licence CC0 1.0.
 | `hooded.glb`     | Hooded Adventurer (Ultimate Modular Women) | https://poly.pizza/m/y9KWOVG21R |
 | `horse.glb`      | White Horse (Ultimate Animated Animals)    | https://poly.pizza/m/bEdE4rmZy9 |
 
-The files are unchanged. The game recolours them, leaves parts out (the king's crown, the
+The files are trimmed to the clips the game plays and quantized with glTF-Transform (KHR_mesh_quantization); the models themselves are unchanged. The game recolours them, leaves parts out (the king's crown, the
 adventurer's backpack, the riders' legs) and adds shields, spears and helmets built in code
-(`packages/render/src/kit/gear.ts`).
+(`packages/render/src/kit/gear.ts`). The war elephant is built in code there as well; no CC0 elephant in glTF was found.

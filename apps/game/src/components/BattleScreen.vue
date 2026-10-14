@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { sideColor, sideName } from '../battle/labels';
 import type { ShortcutAction } from '../battle/shortcuts';
 import { shortcutFor } from '../battle/shortcuts';
@@ -7,13 +7,15 @@ import { rejectionText, t, victoryReasonText } from '../i18n';
 import { downloadSave } from '../save/storage';
 import { useBattleStore } from '../stores/battle';
 import { useSettingsStore } from '../stores/settings';
-import BattleCanvas from './BattleCanvas.vue';
 import BattleHud from './BattleHud.vue';
 import DeploymentPanel from './DeploymentPanel.vue';
 import EventLog from './EventLog.vue';
 import GameDialog from './GameDialog.vue';
 import HexTooltip from './HexTooltip.vue';
 import SettingsPanel from './SettingsPanel.vue';
+
+// The canvas brings Three.js and the renderer, so they load when the first battle starts.
+const BattleCanvas = defineAsyncComponent(() => import('./BattleCanvas.vue'));
 import ShortcutList from './ShortcutList.vue';
 import UnitPanel from './UnitPanel.vue';
 

@@ -68,14 +68,14 @@ export interface TerrainKit {
 
 /** Tints of the kit's grass and water tiles, so the terrains tell apart. */
 const KIT_TINTS: Readonly<Record<TerrainId, number>> = {
-  plain: 0xc2dcac,
-  forest: 0xa9c995,
+  plain: 0xb6d6a0,
+  forest: 0x9fc28a,
   hill: 0xd9d8a6,
   mountain: 0xb4b2a4,
   marsh: 0x8fa074,
   ford: 0xcff0ff,
   bridge: 0xffffff,
-  road: 0xc2dcac,
+  road: 0xb6d6a0,
   river: 0xffffff,
   sea: 0x9cbbe0,
   camp: 0xd8cca6,

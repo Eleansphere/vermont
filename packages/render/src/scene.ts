@@ -37,11 +37,12 @@ import type { UnitModelFactory } from './unitModels';
 import { UnitLayer } from './units';
 
 const MAX_PIXEL_RATIO = 2;
-const SKY_COLOR = 0xdfe9ff;
-const GROUND_LIGHT_COLOR = 0x4a4436;
-const AMBIENT_INTENSITY = 1.1;
-const SUN_COLOR = 0xfff3dc;
-const SUN_INTENSITY = 2.2;
+const SKY_COLOR = 0xd7e4ff;
+/** Light thrown back from the grass, a little green. */
+const GROUND_LIGHT_COLOR = 0x3c4a30;
+const AMBIENT_INTENSITY = 1;
+const SUN_COLOR = 0xffffff;
+const SUN_INTENSITY = 2.3;
 /** Where the sun stands from the middle of the map, as a direction. */
 const SUN_DIRECTION = { x: -0.55, y: 1, z: 0.35 } as const;
 const SHADOW_MAP_SIZE = 2048;
@@ -53,6 +54,8 @@ const TURN_SPEED = 10;
 const MAX_FRAME_SECONDS = 0.1;
 /** How long the frame rate is averaged over. */
 const STATS_WINDOW_MS = 1000;
+/** How often shadows follow the idling figures while nothing else moves. */
+const IDLE_SHADOW_SECONDS = 0.25;
 
 export interface BattleSceneOptions {
   /** The battle's definitions: the map to draw and what the units are. */
@@ -114,6 +117,10 @@ export function createBattleScene(
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFSoftShadowMap;
+  // Shadows are drawn again only while something moves across the map, and now and then for
+  // the figures idling in place; that roughly halves the cost of a quiet frame.
+  renderer.shadowMap.autoUpdate = false;
+  renderer.shadowMap.needsUpdate = true;
 
   const hexes = mapHexes(defs.map);
   const bounds = groundBounds(hexes);
@@ -212,11 +219,13 @@ export function createBattleScene(
   });
 
   function show(state: BattleState, visible: VisibleHexes): void {
+    renderer.shadowMap.needsUpdate = true;
     units.sync(state);
     terrain.setFog(visible);
   }
 
   let lastTime: number | null = null;
+  let shadowAge = 0;
   let frames = 0;
   let windowStart: number | null = null;
   let measured = { fps: 0, frameMs: 0, drawCalls: 0, triangles: 0 };
@@ -235,6 +244,11 @@ export function createBattleScene(
       };
       frames = 0;
       windowStart = time;
+    }
+    shadowAge += seconds;
+    if (!timeline.idle || shadowAge >= IDLE_SHADOW_SECONDS) {
+      renderer.shadowMap.needsUpdate = true;
+      shadowAge = 0;
     }
     timeline.update(seconds);
     units.update(seconds);

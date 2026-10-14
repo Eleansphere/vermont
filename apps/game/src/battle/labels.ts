@@ -1,6 +1,7 @@
 import { FACTIONS, isFielded, isFighting, unitTypeOf } from '@vermont/core';
 import type { BattleDefs, BattleState, PlayerSlot, ScenarioDef, Unit } from '@vermont/core';
-import { PLAYER_COLORS } from '@vermont/render';
+// From the palette alone, so the menu does not pull in Three.js.
+import { PLAYER_COLORS } from '@vermont/render/palette';
 import { factionName, unitTypeName } from '../i18n';
 
 /** The name of the side that plays in the slot: its faction. */

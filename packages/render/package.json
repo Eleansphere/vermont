@@ -5,7 +5,9 @@
   "description": "Vermont renderer: the Three.js scene, camera and picking",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./gltf": "./src/kit/gltf.ts",
+    "./palette": "./src/palette.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

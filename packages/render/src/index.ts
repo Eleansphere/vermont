@@ -7,5 +7,4 @@ export { placeholderUnitModel } from './unitModels';
 export type { UnitModel, UnitModelFactory, UnitPose } from './unitModels';
 export { kitFiles, loadModelKit } from './kit/load';
 export type { LoadedModel, ModelKit, ModelLoader } from './kit/load';
-export { gltfModelLoader } from './kit/gltf';
 export { figureUnitModels } from './kit/figures';

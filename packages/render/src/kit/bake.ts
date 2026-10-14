@@ -10,7 +10,7 @@ import {
   Uint16BufferAttribute,
   Vector3,
 } from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 /** A loaded glTF character: its scene and the clips that move its bones. */
@@ -71,6 +71,26 @@ function colorOf(material: Material, filter: PartFilter): Color {
   return color ? color.clone() : new Color(0xffffff);
 }
 
+/**
+ * A copy of the geometry with plain float positions and normals. Quantized files store them as
+ * normalized integers, which would clip once the copy is moved into another space.
+ */
+function withFloatAttributes(source: BufferGeometry): BufferGeometry {
+  const geometry = source.index ? source.toNonIndexed() : source.clone();
+  for (const name of ['position', 'normal'] as const) {
+    const attribute = geometry.getAttribute(name);
+    if (!attribute || (attribute.array instanceof Float32Array && !attribute.normalized)) continue;
+    const values = new Float32Array(attribute.count * attribute.itemSize);
+    for (let i = 0; i < attribute.count; i++) {
+      for (let c = 0; c < attribute.itemSize; c++) {
+        values[i * attribute.itemSize + c] = attribute.getComponent(i, c);
+      }
+    }
+    geometry.setAttribute(name, new BufferAttribute(values, attribute.itemSize));
+  }
+  return geometry;
+}
+
 /** Copies a geometry with only the baked attributes, non-indexed, in one flat colour. */
 function bakedPart(
   source: BufferGeometry,
@@ -78,9 +98,7 @@ function bakedPart(
   color: Color,
   remapBone: (index: number) => number
 ): BufferGeometry {
-  const geometry = (source.index ? source.toNonIndexed() : source.clone()).applyMatrix4(
-    toBindSpace
-  );
+  const geometry = withFloatAttributes(source).applyMatrix4(toBindSpace);
   for (const name of Object.keys(geometry.attributes)) {
     if (!(BAKED_ATTRIBUTES as readonly string[]).includes(name)) geometry.deleteAttribute(name);
   }
@@ -177,8 +195,19 @@ export function bakeFigure(
         const bone = mesh.skeleton.bones[index];
         return (bone && boneIndexByName.get(sanitize(bone.name))) ?? 0;
       };
-      // From the part's own bind space into the anchor's, so all parts share one bind matrix.
-      const toBindSpace = new Matrix4().multiplyMatrices(meshFromWorld, mesh.bindMatrix);
+      // From the part's own bind space into the anchor's, so all parts share one bind matrix
+      // and one set of inverse bind matrices. Quantized files fold each part's dequantization
+      // into its inverse bind matrices; the difference to the anchor's is the same for every
+      // bone, so one bone tells it.
+      const shared = mesh.skeleton.bones.findIndex((bone) =>
+        boneIndexByName.has(sanitize(bone.name))
+      );
+      const toAnchor = new Matrix4();
+      if (shared >= 0) {
+        const anchorInverse = skeleton.boneInverses[remap(shared)]!;
+        toAnchor.copy(anchorInverse).invert().multiply(mesh.skeleton.boneInverses[shared]!);
+      }
+      const toBindSpace = meshFromWorld.clone().multiply(toAnchor).multiply(mesh.bindMatrix);
       parts.push(bakedPart(mesh.geometry, toBindSpace, colorOf(material, filter), remap));
     }
   }
@@ -200,9 +229,14 @@ export function bakeFigure(
     parts.push(bakedGear(piece, boneIndex, toMesh));
   }
 
-  const geometry = mergeGeometries(parts);
+  const loose = mergeGeometries(parts);
   for (const part of parts) part.dispose();
-  if (!geometry) throw new Error('The figure parts could not be merged');
+  if (!loose) throw new Error('The figure parts could not be merged');
+  // Flat shading takes its normals from the faces, so the vertices need none; without them
+  // the corners that faces share become one vertex each, and far fewer are skinned per frame.
+  loose.deleteAttribute('normal');
+  const geometry = mergeVertices(loose);
+  loose.dispose();
   geometry.computeBoundingSphere();
 
   const merged = new SkinnedMesh(

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { BoxGeometry, Color, MeshStandardMaterial, SkinnedMesh, Vector3 } from 'three';
+import {
+  BoxGeometry,
+  Color,
+  Matrix4,
+  MeshStandardMaterial,
+  Skeleton,
+  SkinnedMesh,
+  Vector3,
+} from 'three';
 import type { Object3D } from 'three';
 import { bakeFigure, instantiate, standingHeight } from './bake';
 import { fakeCharacter } from './testKit';
@@ -26,11 +34,25 @@ describe('baking a figure', () => {
       { name: 'Crown', material: 'Gold', bone: 'Head' },
       { name: 'Backpack', material: 'Brown' },
     ]);
-  const vertices = (object: Object3D) =>
-    skinnedIn(object).reduce((sum, mesh) => sum + mesh.geometry.getAttribute('position').count, 0);
+  const triangles = (object: Object3D) =>
+    skinnedIn(object).reduce(
+      (sum, mesh) =>
+        sum + (mesh.geometry.index?.count ?? mesh.geometry.getAttribute('position').count) / 3,
+      0
+    );
 
   it('measures how tall a character stands, through its scaled rig', () => {
     expect(standingHeight(character().scene)).toBeCloseTo(2);
+  });
+
+  it('shares the corners of faces, so each is skinned once', () => {
+    const baked = bakeFigure([
+      { source: character(), filter: { withoutMeshes: /Crown|Backpack/ } },
+    ]);
+
+    // A box has 8 corners; its 12 triangles share them.
+    expect(baked.geometry.getAttribute('position').count).toBe(8);
+    expect(baked.geometry.index!.count).toBe(36);
   });
 
   it('merges the parts into one skinned mesh and leaves out what the filter drops', () => {
@@ -41,8 +63,8 @@ describe('baking a figure', () => {
     ]);
 
     expect(skinnedIn(all.template)).toHaveLength(1);
-    expect(vertices(all.template)).toBe(3 * 36);
-    expect(vertices(trimmed.template)).toBe(36);
+    expect(triangles(all.template)).toBe(3 * 12);
+    expect(triangles(trimmed.template)).toBe(12);
   });
 
   it('paints each part in its material colour, or in the colour the filter gives', () => {
@@ -66,6 +88,27 @@ describe('baking a figure', () => {
 
     const index = original.geometry.index!.getX(0);
     expect(drawnAt(merged, 0).distanceTo(drawnAt(original, index))).toBeLessThan(1e-6);
+  });
+
+  it('keeps a part in place whose inverse bind matrices differ, as quantized files have them', () => {
+    const source = character();
+    const crown = skinnedIn(source.scene)[1];
+    // The crown stores its vertices halved and makes up for it in its inverse bind matrices.
+    const halve = new Matrix4().makeScale(0.5, 0.5, 0.5);
+    crown!.geometry.applyMatrix4(halve);
+    crown!.skeleton = new Skeleton(
+      crown!.skeleton.bones,
+      crown!.skeleton.boneInverses.map((inverse) =>
+        inverse.clone().multiply(halve.clone().invert())
+      )
+    );
+    const index = crown!.geometry.index!.getX(0);
+    const expected = drawnAt(crown!, index);
+
+    const baked = bakeFigure([{ source, filter: { withoutMeshes: /Body|Backpack/ } }]);
+    const merged = skinnedIn(baked.template)[0]!;
+
+    expect(drawnAt(merged, 0).distanceTo(expected)).toBeLessThan(1e-6);
   });
 
   it('glues the gear to its bone, so it moves with it', () => {
