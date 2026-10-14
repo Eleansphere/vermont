@@ -82,9 +82,9 @@ const CANNAE_CARTHAGE_COLUMNS = [3, 14] as const;
 
 /**
  * Loosely after Cannae (216 BC), fourteen units a side. Rome packs its army deep: eight units
- * and a band of velites in front, the triarii with more skirmishers behind their middle. Carthage has no elephants
- * and stands in one longer line, the Gauls in its centre and the stronger cavalry on both
- * wings, with the slingers behind.
+ * and a band of velites in front, the triarii with more skirmishers behind their middle.
+ * Carthage has no elephants and stands in one longer line, the Gauls in its centre and the
+ * stronger cavalry on both wings, with the slingers behind.
  */
 const CANNAE: ScenarioDef = {
   id: 'cannae',
