@@ -5,9 +5,18 @@ import {
   HemisphereLight,
   PCFSoftShadowMap,
   Scene,
+  Vector3,
   WebGLRenderer,
 } from 'three';
-import type { BattleDefs, BattleState, GameEvent, Hex, HexKey } from '@vermont/core';
+import type {
+  Archetype,
+  BattleDefs,
+  BattleState,
+  GameEvent,
+  Hex,
+  HexKey,
+  PlayerSlot,
+} from '@vermont/core';
 import { hexEquals, mapHexes } from '@vermont/core';
 import type { CameraView } from './camera';
 import {
@@ -22,6 +31,7 @@ import {
   zoomView,
 } from './camera';
 import { attachControls } from './controls';
+import type { CueKind } from './eventSteps';
 import { eventSteps } from './eventSteps';
 import type { Highlights } from './highlights';
 import { HighlightLayer } from './highlights';
@@ -34,6 +44,7 @@ import { Timeline } from './timeline';
 import type { ModelKit } from './kit/load';
 import { figureUnitModels } from './kit/figures';
 import type { UnitModelFactory } from './unitModels';
+import type { UnitView } from './units';
 import { UnitLayer } from './units';
 
 const MAX_PIXEL_RATIO = 2;
@@ -68,6 +79,19 @@ export interface BattleSceneOptions {
   readonly unitModel?: UnitModelFactory;
   /** Loaded models for the terrain and the units; plain shapes when left out. */
   readonly kit?: ModelKit;
+  /** A moment of an animation came, such as a blow landing; for the sounds. */
+  onCue?(cue: AnimationCue): void;
+}
+
+/** A moment of an animation, and where on the screen it happens. */
+export interface AnimationCue {
+  readonly kind: CueKind;
+  /** The event being animated. */
+  readonly event: GameEvent;
+  /** The unit the cue is about, if any. */
+  readonly unit?: { readonly archetype: Archetype; readonly owner: PlayerSlot };
+  /** Where across the screen it happens, from -1 at the left edge to 1 at the right one. */
+  readonly pan: number;
 }
 
 /** What drawing a frame costs, for the performance panel. */
@@ -151,6 +175,26 @@ export function createBattleScene(
   let azimuth = azimuthOf(view.rotation);
   let framed = false;
   let hovered: Hex | null = null;
+  /** Set while animations are skipped to their end, which nobody should hear. */
+  let skipping = false;
+  const projected = new Vector3();
+
+  function cue(kind: CueKind, event: GameEvent, view?: UnitView): void {
+    if (skipping || !options.onCue) return;
+    let pan = 0;
+    if (view) {
+      projected.copy(view.object.position).project(camera);
+      pan = Math.max(-1, Math.min(1, projected.x));
+    }
+    const unit = view && { archetype: view.archetype, owner: view.owner };
+    options.onCue({ kind, event, pan, ...(unit && { unit }) });
+  }
+
+  function skipAnimations(): void {
+    skipping = true;
+    timeline.finish();
+    skipping = false;
+  }
 
   function createSun(): DirectionalLight {
     const center = boundsCenter(bounds);
@@ -263,11 +307,11 @@ export function createBattleScene(
 
   return {
     sync(state, visible = null) {
-      timeline.finish();
+      skipAnimations();
       show(state, visible);
     },
     play(events, state, visible = null) {
-      const context = { units, state, effects };
+      const context = { units, state, effects, cue };
       timeline.enqueue(
         ...events.flatMap((event) => eventSteps(event, context)),
         // Whatever the animation left slightly off is put right at its end, and what the
@@ -294,7 +338,7 @@ export function createBattleScene(
     dispose() {
       renderer.setAnimationLoop(null);
       detachControls();
-      timeline.finish();
+      skipAnimations();
       units.dispose();
       highlights.dispose();
       terrain.dispose();

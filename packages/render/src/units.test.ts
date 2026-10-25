@@ -161,6 +161,66 @@ describe('event animations', () => {
     expect(effects.children).toHaveLength(0);
   });
 
+  it('cues the moments of an attack as they come', () => {
+    const { state, units, effects, timeline } = setUp();
+    const attacker = fieldedUnits(state, 0)[0]!;
+    const target = fieldedUnits(state, 1)[0]!;
+    const cues: string[] = [];
+    const events: GameEvent[] = [
+      {
+        type: 'AttackResolved',
+        attackerId: attacker.id,
+        targetId: target.id,
+        kind: 'melee',
+        damage: target.hp,
+        counterDamage: null,
+      },
+      { type: 'UnitDamaged', unitId: target.id, damage: target.hp, hp: 0 },
+      { type: 'UnitDied', unitId: target.id, hex: target.pos },
+      { type: 'BattleEnded', winner: 0, reason: 'armyBroken' },
+    ];
+    timeline.enqueue(
+      ...events.flatMap((event) =>
+        eventSteps(event, {
+          units,
+          state,
+          effects,
+          cue: (kind, _event, view) => cues.push(`${kind} ${view?.unitId ?? '-'}`),
+        })
+      )
+    );
+
+    // The blow lands at the furthest lean, not when the strike begins.
+    timeline.update(0.1);
+    expect(cues).toEqual([]);
+    timeline.update(0.05);
+    expect(cues).toEqual([`strike ${attacker.id}`]);
+
+    timeline.finish();
+    expect(cues).toEqual([
+      `strike ${attacker.id}`,
+      `hurt ${target.id}`,
+      `death ${target.id}`,
+      'end -',
+    ]);
+  });
+
+  it('cues the start of a march and every step of it', () => {
+    const { state, defs, units, effects, timeline } = setUp();
+    const { unit, path } = longestWalk(state, defs);
+    const cues: string[] = [];
+    timeline.enqueue(
+      ...eventSteps(
+        { type: 'UnitMoved', unitId: unit.id, path, cost: path.length - 1 },
+        { units, state, effects, cue: (kind) => cues.push(kind) }
+      )
+    );
+
+    timeline.finish();
+
+    expect(cues).toEqual(['march', ...path.slice(1).map(() => 'step')]);
+  });
+
   it('swaps two units and puts a deployed one on its hex', () => {
     const { state, units, timeline, play } = setUp();
     const [first, second] = fieldedUnits(state, 0) as [FieldedUnit, FieldedUnit];

@@ -11,7 +11,15 @@ import {
   SpriteMaterial,
   Vector3,
 } from 'three';
-import type { BattleDefs, BattleState, Hex, MoraleState, PlayerSlot, Unit } from '@vermont/core';
+import type {
+  Archetype,
+  BattleDefs,
+  BattleState,
+  Hex,
+  MoraleState,
+  PlayerSlot,
+  Unit,
+} from '@vermont/core';
 import { hexEquals, isFielded, unitTypeOf } from '@vermont/core';
 import { hexToWorld } from './layout';
 import type { UnitModel, UnitModelFactory, UnitPose } from './unitModels';
@@ -44,6 +52,7 @@ const NO_GLOW = new Color(0x000000);
 export interface UnitView {
   readonly unitId: string;
   readonly owner: PlayerSlot;
+  readonly archetype: Archetype;
   /** Moves over the map; never turns, so the health bar stays level. */
   readonly object: Group;
   /** Turns to face where the unit goes or strikes. */
@@ -129,6 +138,7 @@ export class UnitLayer {
     const view: UnitView = {
       unitId: unit.id,
       owner: unit.owner,
+      archetype: type.archetype,
       object,
       model,
       figures,

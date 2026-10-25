@@ -24,12 +24,33 @@ const FLEE_SECONDS = 0.35;
 const SWAP_SECONDS = 0.3;
 const DEPLOY_START_SCALE = 0.6;
 
+/**
+ * A moment of an animation that something outside the renderer may want to follow, such as a
+ * sound: a blow lands, a missile hits, a unit falls.
+ */
+export type CueKind =
+  | 'march'
+  | 'step'
+  | 'strike'
+  | 'shoot'
+  | 'land'
+  | 'rampage'
+  | 'hurt'
+  | 'death'
+  | 'flee'
+  | 'rally'
+  | 'ambush'
+  | 'turn'
+  | 'end';
+
 export interface StepContext {
   readonly units: UnitLayer;
   /** The state after the events; tells what the units that appear are. */
   readonly state: BattleState;
   /** Where short-lived things such as missiles are put. */
   readonly effects: Object3D;
+  /** Told when a cue of the animation comes, with the unit it is about, if any. */
+  cue?(kind: CueKind, event: GameEvent, view?: UnitView): void;
 }
 
 /**
@@ -38,34 +59,53 @@ export interface StepContext {
  */
 export function eventSteps(event: GameEvent, context: StepContext): Step[] {
   const { units } = context;
+  const cue: Cue = (kind, view) => context.cue?.(kind, event, view);
   switch (event.type) {
     case 'UnitDeployed':
       return [deploy(event.unitId, event.hex, context)];
     case 'UnitMoved':
     case 'UnitRetreated':
-      return walk(event.unitId, event.path, units);
+      return walk(event.unitId, event.path, units, cue);
     case 'UnitsSwapped':
       return [swap(event.unitId, event.targetId, units)];
     case 'AttackResolved': {
-      const strike = event.kind === 'melee' ? lunge : shot;
-      const steps = [strike(event.attackerId, event.targetId, context)];
+      const steps =
+        event.kind === 'melee'
+          ? [lunge(event.attackerId, event.targetId, units, cue, 'strike')]
+          : [shot(event.attackerId, event.targetId, context, cue)];
       if (event.counterDamage !== null)
-        steps.push(lunge(event.targetId, event.attackerId, context));
+        steps.push(lunge(event.targetId, event.attackerId, units, cue, 'strike'));
       return steps;
     }
     case 'UnitRampaged':
-      return [lunge(event.unitId, event.targetId, context)];
+      return [lunge(event.unitId, event.targetId, units, cue, 'rampage')];
     case 'UnitDamaged':
-      return [hit(event.unitId, event.hp, units)];
+      return [hit(event.unitId, event.hp, units, cue)];
     case 'UnitDied':
-      return [die(event.unitId, units)];
+      return [die(event.unitId, units, cue)];
     case 'UnitFled':
-      return [flee(event.unitId, units)];
+      return [flee(event.unitId, units, cue)];
     case 'MoraleChanged':
       return [{ duration: 0, begin: () => units.setMorale(event.unitId, event.moraleState) }];
+    case 'UnitRallied':
+      return [unitCue('rally', event.unitId, units, cue)];
+    case 'UnitAmbushed':
+      return [unitCue('ambush', event.unitId, units, cue)];
+    case 'TurnStarted':
+      return [{ duration: 0, begin: () => cue('turn') }];
+    case 'BattleEnded':
+    case 'BattleDrawn':
+      return [{ duration: 0, begin: () => cue('end') }];
     default:
       return [];
   }
+}
+
+type Cue = (kind: CueKind, view?: UnitView) => void;
+
+/** Only tells that something happened to the unit; the scene shows it otherwise. */
+function unitCue(kind: CueKind, unitId: string, units: UnitLayer, cue: Cue): Step {
+  return { duration: 0, begin: () => cue(kind, units.view(unitId)) };
 }
 
 function deploy(unitId: string, target: Hex, { units, state }: StepContext): Step {
@@ -83,7 +123,7 @@ function deploy(unitId: string, target: Hex, { units, state }: StepContext): Ste
   };
 }
 
-function walk(unitId: string, path: readonly Hex[], units: UnitLayer): Step[] {
+function walk(unitId: string, path: readonly Hex[], units: UnitLayer, cue: Cue): Step[] {
   const steps = path.slice(1);
   return steps.map((target, index) => {
     let view: UnitView | undefined;
@@ -97,7 +137,11 @@ function walk(unitId: string, path: readonly Hex[], units: UnitLayer): Step[] {
         from.copy(view.object.position);
         to.copy(units.standPoint(target));
         units.face(view, to);
-        if (index === 0) units.pose(view, 'walk');
+        if (index === 0) {
+          units.pose(view, 'walk');
+          cue('march', view);
+        }
+        cue('step', view);
       },
       update(progress) {
         view?.object.position.lerpVectors(from, to, progress);
@@ -139,9 +183,16 @@ function swap(unitId: string, targetId: string, units: UnitLayer): Step {
   };
 }
 
-/** The striker leans towards its target and back. */
-function lunge(strikerId: string, targetId: string, { units }: StepContext): Step {
+/** The striker leans towards its target and back; the blow lands at the furthest lean. */
+function lunge(
+  strikerId: string,
+  targetId: string,
+  units: UnitLayer,
+  cue: Cue,
+  kind: CueKind
+): Step {
   let striker: UnitView | undefined;
+  let landed = false;
   const home = new Vector3();
   const reach = new Vector3();
   return {
@@ -159,7 +210,12 @@ function lunge(strikerId: string, targetId: string, { units }: StepContext): Ste
       units.pose(striker, 'attack');
     },
     update(progress) {
-      striker?.object.position.copy(home).addScaledVector(reach, Math.sin(Math.PI * progress));
+      if (!striker) return;
+      striker.object.position.copy(home).addScaledVector(reach, Math.sin(Math.PI * progress));
+      if (!landed && progress >= 0.5) {
+        landed = true;
+        cue(kind, striker);
+      }
     },
     end() {
       striker?.object.position.copy(home);
@@ -168,18 +224,25 @@ function lunge(strikerId: string, targetId: string, { units }: StepContext): Ste
 }
 
 /** A missile flies in an arc from the shooter to its target. */
-function shot(shooterId: string, targetId: string, { units, effects }: StepContext): Step {
+function shot(
+  shooterId: string,
+  targetId: string,
+  { units, effects }: StepContext,
+  cue: Cue
+): Step {
   let missile: Mesh<SphereGeometry, MeshBasicMaterial> | undefined;
+  let target: UnitView | undefined;
   const from = new Vector3();
   const to = new Vector3();
   return {
     duration: SHOT_SECONDS,
     begin() {
       const shooter = units.view(shooterId);
-      const target = units.view(targetId);
+      target = units.view(targetId);
       if (!shooter || !target) return;
       units.face(shooter, target.object.position);
       units.pose(shooter, 'shoot');
+      cue('shoot', shooter);
       from.copy(shooter.object.position).setY(shooter.object.position.y + SHOT_START_HEIGHT);
       to.copy(target.object.position).setY(target.object.position.y + SHOT_START_HEIGHT);
       missile = new Mesh(
@@ -196,6 +259,7 @@ function shot(shooterId: string, targetId: string, { units, effects }: StepConte
     },
     end() {
       if (!missile) return;
+      cue('land', target);
       effects.remove(missile);
       missile.geometry.dispose();
       missile.material.dispose();
@@ -204,14 +268,16 @@ function shot(shooterId: string, targetId: string, { units, effects }: StepConte
 }
 
 /** The unit flashes and its health bar drops. */
-function hit(unitId: string, hp: number, units: UnitLayer): Step {
+function hit(unitId: string, hp: number, units: UnitLayer, cue: Cue): Step {
   let view: UnitView | undefined;
   return {
     duration: HIT_SECONDS,
     begin() {
       view = units.view(unitId);
       units.setHealth(unitId, hp);
-      if (view) units.pose(view, 'hit');
+      if (!view) return;
+      units.pose(view, 'hit');
+      cue('hurt', view);
     },
     update(progress) {
       if (view) units.setGlow(view, 1 - progress);
@@ -220,15 +286,17 @@ function hit(unitId: string, hp: number, units: UnitLayer): Step {
 }
 
 /** The figures fall, lie a moment and sink away; a placeholder tips over. */
-function die(unitId: string, units: UnitLayer): Step {
+function die(unitId: string, units: UnitLayer, cue: Cue): Step {
   let view: UnitView | undefined;
   let animated = false;
   return {
     duration: DEATH_SECONDS,
     begin() {
       view = units.view(unitId);
-      animated = view !== undefined && units.animated(view);
-      if (view && animated) units.pose(view, 'death');
+      if (!view) return;
+      animated = units.animated(view);
+      if (animated) units.pose(view, 'death');
+      cue('death', view);
     },
     update(progress) {
       if (!view) return;
@@ -243,13 +311,15 @@ function die(unitId: string, units: UnitLayer): Step {
 }
 
 /** The unit shrinks away as it leaves the field. */
-function flee(unitId: string, units: UnitLayer): Step {
+function flee(unitId: string, units: UnitLayer, cue: Cue): Step {
   let view: UnitView | undefined;
   return {
     duration: FLEE_SECONDS,
     begin() {
       view = units.view(unitId);
-      if (view) units.pose(view, 'walk');
+      if (!view) return;
+      units.pose(view, 'walk');
+      cue('flee', view);
     },
     update(progress) {
       view?.object.scale.setScalar(1 - progress);

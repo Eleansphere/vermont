@@ -1,5 +1,12 @@
 export { createBattleScene } from './scene';
-export type { BattleScene, BattleSceneOptions, RenderStats, VisibleHexes } from './scene';
+export type {
+  AnimationCue,
+  BattleScene,
+  BattleSceneOptions,
+  RenderStats,
+  VisibleHexes,
+} from './scene';
+export type { CueKind } from './eventSteps';
 export type { Highlights } from './highlights';
 export type { MapPick } from './picking';
 export { PLAYER_COLORS } from './palette';
