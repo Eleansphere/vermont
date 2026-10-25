@@ -14,6 +14,7 @@ const LINES: readonly UiKey[] = [
   'keys.log',
   'keys.escape',
   'keys.help',
+  'keys.mute',
 ];
 </script>
 

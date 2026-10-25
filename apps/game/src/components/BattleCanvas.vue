@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue';
 import { createBattleScene } from '@vermont/render';
 import type { BattleScene, ModelKit, RenderStats } from '@vermont/render';
+import { playCue } from '../audio/gameAudio';
 import { modelKit } from '../battle/modelKit';
 import { t } from '../i18n';
 import { useBattleStore } from '../stores/battle';
@@ -31,6 +32,7 @@ function buildScene(): void {
     kit: kit ?? undefined,
     onPick: (pick) => store.pick(pick),
     onHover: (pick) => store.hover(pick?.hex ?? null),
+    onCue: playCue,
   });
   scene.sync(store.shown.state, store.shown.visible);
   scene.setHighlights(store.highlights);

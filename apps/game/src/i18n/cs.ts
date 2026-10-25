@@ -61,6 +61,12 @@ export const cs = {
     'settings.title': 'Nastavení',
     'settings.confirmEndTurn': 'Potvrzovat konec tahu, když jednotky ještě mohou jednat',
     'settings.showLog': 'Zobrazovat log událostí',
+    'settings.sound': 'Zvuk',
+    'settings.masterVolume': 'Celková hlasitost',
+    'settings.effectsVolume': 'Efekty',
+    'settings.musicVolume': 'Hudba',
+    'settings.ambientVolume': 'Zvuky bojiště',
+    'settings.muted': 'Ztlumit vše (M)',
 
     'hud.round': 'Kolo {turn} z {limit}',
     'hud.deployment': 'Rozestavení',
@@ -159,6 +165,7 @@ export const cs = {
     'keys.log': 'L: zobrazit nebo skrýt log',
     'keys.escape': 'Esc: zrušit výběr, pak menu',
     'keys.help': 'H: tato nápověda',
+    'keys.mute': 'M: ztlumit nebo zapnout zvuk',
   },
 
   difficulties: {

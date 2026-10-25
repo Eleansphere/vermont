@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import BattleScreen from './components/BattleScreen.vue';
 import MainMenu from './components/MainMenu.vue';
 import ScenarioSelect from './components/ScenarioSelect.vue';
+import { useGameAudio } from './audio/gameAudio';
 import type { SaveProblem } from './save/savedGame';
 import { SaveError, parseSavedGame } from './save/savedGame';
 import { storeSave, storedSave } from './save/storage';
@@ -15,6 +16,7 @@ const store = useBattleStore();
 const screen = ref<Screen>('menu');
 /** Why the last save the player wanted loaded could not be. */
 const saveProblem = ref<SaveProblem | null>(null);
+useGameAudio(() => (screen.value === 'battle' ? 'battle' : 'menu'));
 
 /** Loads the save; returns whether it could be loaded, and tells the player when not. */
 function loadSave(json: string): boolean {

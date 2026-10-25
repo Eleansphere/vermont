@@ -14,6 +14,10 @@ describe('settings store', () => {
 
     expect(settings.confirmEndTurn).toBe(true);
     expect(settings.showLog).toBe(true);
+    expect(settings.effectsVolume).toBe(80);
+    expect(settings.musicVolume).toBe(50);
+    expect(settings.ambientVolume).toBe(60);
+    expect(settings.muted).toBe(false);
   });
 
   it('keeps a change for the next visit', async () => {
@@ -37,4 +41,18 @@ describe('settings store', () => {
       expect(settings.showLog).toBe(true);
     }
   );
+
+  it('keeps volumes within 0 to 100 and drops ones of the wrong type', () => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ masterVolume: 140, musicVolume: -5, effectsVolume: 'loud', muted: true })
+    );
+
+    const settings = useSettingsStore();
+
+    expect(settings.masterVolume).toBe(100);
+    expect(settings.musicVolume).toBe(0);
+    expect(settings.effectsVolume).toBe(80);
+    expect(settings.muted).toBe(true);
+  });
 });

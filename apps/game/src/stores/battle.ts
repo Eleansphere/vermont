@@ -346,6 +346,7 @@ export const useBattleStore = defineStore('battle', () => {
   });
 
   const canUndo = computed(() => undoSteps.value.length > 0);
+  const againstComputer = computed(() => computer.value !== null);
 
   /** The battle as it is saved: how it was started and what was ordered since. */
   const savedGame = computed<SavedGame | null>(() => {
@@ -773,6 +774,7 @@ export const useBattleStore = defineStore('battle', () => {
     viewer,
     handover,
     aiOnTurn,
+    againstComputer,
     played,
     rejection,
     log,
