@@ -43,6 +43,102 @@ export const cs = {
     'menu.pause': 'Pauza',
     'menu.resume': 'Zpět do bitvy',
     'menu.shortcuts': 'Ovládání',
+    'menu.help': 'Nápověda',
+    'result.rounds': 'Bitva trvala {rounds} {word}.',
+    'result.standing': 'Na poli',
+    'result.dead': 'Padlo',
+    'result.fled': 'Uteklo',
+    'menu.training': 'Výcvik',
+    'menu.trainingHint': 'Krátká bitva, ve které tě hra naučí ovládání a pravidla.',
+    'tutorial.title': 'Výcvik',
+    'tutorial.progress': 'krok {step} z {count}',
+    'tutorial.next': 'Další',
+    'tutorial.skip': 'Skrýt výcvik',
+    'tutorial.welcome':
+      'Vítej ve výcviku. Velíš Římu (červené kruhy) proti Kartágu (fialové). Vyhraješ, když vstoupíš do tábora soupeře nebo rozeženeš celou jeho armádu. Projdeme to krok po kroku.',
+    'tutorial.select':
+      'Klikni na svou jednotku (nebo stiskni Tab). Vlevo dole se ukáže její panel: zdraví, morálka, pohyb a schopnosti.',
+    'tutorial.move':
+      'Bílá čára ohraničuje, kam se jednotka v tomto tahu dostane. Klikni na hex uvnitř a jednotka tam dojde. Kopec před tebou dává obranu a výhled navíc.',
+    'tutorial.endTurn':
+      'Každá jednotka se může v tahu jednou pohnout a jednou zaútočit. Pohni i ostatními a pak ukonči tah tlačítkem vpravo nahoře nebo Enterem. Ztmavené jednotky už nemůžou nic.',
+    'tutorial.contact':
+      'Soupeř se blíží. Oranžový kroužek značí zónu kontroly: hex vedle nepřítele, kde se jednotka musí zastavit. Postav se k nepříteli.',
+    'tutorial.attack':
+      'Červeně označení nepřátelé jsou na dosah. Najeď na cíl myší: karta ukáže ztráty obou stran a co útok zesiluje nebo oslabuje. Klikni a zaútoč.',
+    'tutorial.morale':
+      'Zásah bere zdraví i morálku (modrá linka pod zdravím). Otřesená jednotka (žlutý vykřičník) útočí slabší, zlomená (červený znak) utíká a neposlouchá. Útoč víc jednotkami na jeden cíl: obklíčení přidává sílu a bere víc morálky.',
+    'tutorial.abilities':
+      'Schopnosti najdeš v panelu jednotky. Hastáti mají pilum, silnější první útok. Principes umí střídání linie (R): vymění se s unavenou sousední jednotkou.',
+    'tutorial.log':
+      'Vpravo dole je log: co se v každém tahu stalo, starší tahy se sbalí. Klávesa L ho schová, H otevře nápovědu s pravidly.',
+    'tutorial.finish': 'Teď dobojuj sám. Hodně štěstí!',
+    'tutorial.done': 'Výcvik je za tebou. Vyzkoušej skutečnou bitvu: Trebia je dobrý začátek.',
+    'tutorial.toMenu': 'Hlavní menu',
+    'help.title': 'Nápověda',
+    'help.tab.basics': 'Základy',
+    'help.tab.movement': 'Pohyb',
+    'help.tab.combat': 'Boj',
+    'help.tab.morale': 'Morálka',
+    'help.tab.units': 'Jednotky',
+    'help.tab.terrain': 'Terén',
+    'help.tab.controls': 'Ovládání',
+    'help.basics.goal':
+      'Vyhraješ, když tvoje bojující jednotka vstoupí do tábora soupeře, nebo když soupeři na bojišti nezůstane žádná jednotka (padly nebo utekly).',
+    'help.basics.turns':
+      'Strany se střídají v tazích. Ve svém tahu může každá jednotka jednou pohnout a jednou zaútočit, v libovolném pořadí. Tah ukončíš tlačítkem Ukončit tah nebo klávesou Enter.',
+    'help.basics.deploy':
+      'Před bitvou rozestavíš armádu ve své zóně. Na jednom hexu stojí vždy jen jedna jednotka.',
+    'help.basics.limit':
+      'Bitva trvá nejvýš {limit} kol. Když do té doby nikdo nezvítězí, končí remízou.',
+    'help.basics.fog':
+      'Mlha války: terén vidíš celý, ale nepřátele jen v dohledu svých jednotek a tábora (tábor vidí {campSight} hexy daleko).',
+    'help.movement.points':
+      'Každá jednotka má body pohybu. Vstup na hex stojí tolik, kolik ukazuje tabulka terénu. Řeka a moře jsou neprůchodné, přejít se dá jen po mostě nebo brodem.',
+    'help.movement.zoc':
+      'Zóna kontroly: hexy hned vedle nepřítele. Jednotka, která do nich vstoupí, musí zastavit. Na mapě je značí oranžový kroužek.',
+    'help.movement.hill':
+      'Z kopce je vidět a střílí se o 1 hex dál. Les, kopec a hory zakrývají výhled.',
+    'help.movement.ambush': 'Když jednotka při pohybu narazí na skrytého nepřítele, zastaví se.',
+    'help.combat.attack':
+      'Na sousední jednotku útočíš zblízka, střelci a vrhači i na dálku podle dostřelu, pokud na cíl vidí a vedle nich nestojí nepřítel.',
+    'help.combat.damage':
+      'Ztráty závisí na poměru útoku a obrany a na zdraví útočníka (zraněná jednotka bije slaběji). Výsledek se náhodně liší o ±{spread} %.',
+    'help.combat.counter':
+      'Napadená jednotka v boji zblízka vrací protiútok poloviční silou. Střelba a jednotky s udeř a ustup protiútok nedostanou.',
+    'help.combat.types':
+      'Typ proti typu: některé typy mají proti jiným výhodu ×{advantage}. Které to jsou, ukazuje sloupec Silná proti v záložce Jednotky.',
+    'help.combat.flank':
+      'Obklíčení: každý další tvůj bojující voják vedle cíle přidá útoku {flank} %. Natočení jednotek hra nezná.',
+    'help.combat.terrain':
+      'Útok z kopce dolů má +{downhill}. Jízda a sloni v lese bojují s postihem {hindered}. Obranu cíle zvedá jeho terén.',
+    'help.combat.preview':
+      'Najeď myší na cíl a karta Odhad útoku ukáže ztráty obou stran, ztrátu morálky cíle a všechno, co útok zesiluje nebo oslabuje.',
+    'help.morale.states':
+      'Morálka má {max} bodů. Na {shaken} a méně je jednotka otřesená a útočí o {penalty} % slabší. Na {routing} a méně se dá na útěk.',
+    'help.morale.loss':
+      'Zásah stojí {hit} body morálky, o {encircled} víc při obklíčení ({encircledAt} a více nepřátel kolem), o {worn} víc, když jednotce zbude polovina zdraví nebo méně. Když vedle padne spojenec, ztrácí {allyDies}.',
+    'help.morale.gain':
+      'Za útok, ve kterém způsobí víc ztrát, než dostane, získá jednotka {won}. Každý tah bez nepřítele vedle sebe se vzpamatuje o {recovery}.',
+    'help.morale.rout':
+      'Zlomená jednotka hned utíká co nejdál od nepřítele a neposlouchá rozkazy. Na začátku tvého tahu opustí bojiště, pokud stojí vedle nepřítele; jinak se vzpamatuje, ale ten tah stojí.',
+    'help.morale.camp': 'Jednotka ve vlastním táboře morálku neztrácí.',
+    'help.morale.elephants':
+      'Sloni na útěku nejdřív zběsile zaútočí na náhodnou sousední jednotku, i vlastní.',
+    'help.units.intro':
+      'Čísla jsou výchozí hodnoty typu. Výhodu typu proti typu ukazuje sloupec Silná proti.',
+    'help.terrain.intro':
+      'Pohyb je cena vstupu na hex, obrana a útok jsou bonusy jednotky, která na hexu stojí.',
+    'help.col.unit': 'Jednotka',
+    'help.col.type': 'Typ',
+    'help.col.strong': 'Silná proti',
+    'help.col.terrain': 'Terén',
+    'help.col.notes': 'Poznámka',
+    'help.note.hill': 'výhled a dostřel +1',
+    'help.note.blocksSight': 'kryje výhled',
+    'help.note.impassable': 'neprůchodné',
+    'help.note.impassableFor': 'neprojde: {archetypes}',
+    'help.note.hinders': 'postih pro: {archetypes}',
     'menu.loadFile': 'Načíst bitvu ze souboru',
     'menu.saveFile': 'Uložit bitvu do souboru',
 
@@ -57,6 +153,12 @@ export const cs = {
     'scenarios.autoDeploy': 'Rozestavit armády automaticky',
     'scenarios.fog': 'Mlha války: každý vidí jen to, co jeho jednotky',
     'scenarios.start': 'Začít bitvu',
+    'scenarios.about.trebia':
+      'Zimní ráno u řeky Trebie: Hannibal vylákal Římany přes řeku. Bažina uprostřed dělí pole, přes řeku vedou dva brody, otevřený východní okraj láká jízdu. Kartágo má slony a lepší jízdu, Řím o jednotku víc.',
+    'scenarios.about.cannae':
+      'Široká rovina u Kann, kde Hannibal obklíčil přesilu. Řeka na západním okraji s mostem a brodem, za ní cesta podél křídla. Obě armády mají před sebou kopec. Ideální na obchvat a obklíčení.',
+    'scenarios.about.zama':
+      'Rozhodující bitva druhé punské války. Scipio proti Hannibalovi a jeho slonům na otevřeném poli s několika kopci a lesy. Jízda tu rozhoduje víc než kdekoli jinde.',
 
     'settings.title': 'Nastavení',
     'settings.confirmEndTurn': 'Potvrzovat konec tahu, když jednotky ještě mohou jednat',
@@ -70,6 +172,7 @@ export const cs = {
 
     'hud.round': 'Kolo {turn} z {limit}',
     'hud.deployment': 'Rozestavení',
+    'hud.roundLimit': 'Po posledním kole končí bitva remízou.',
     'hud.onTurn': 'na tahu',
     'hud.aiOnTurn': 'počítač táhne…',
     'hud.endTurn': 'Ukončit tah',
@@ -106,6 +209,8 @@ export const cs = {
     'unit.abilities': 'Schopnosti',
     'unit.hasAttacked': 'Už útočila',
     'unit.canAttack': 'Může útočit',
+    'unit.hasMoved': 'Pohnula se',
+    'unit.strongAgainst': 'Silná proti:',
     'unit.inReserve': 'V záloze',
     'unit.spent': 'použito',
     'unit.relief': 'Střídání linie',
@@ -121,14 +226,30 @@ export const cs = {
     'tip.camp': 'tábor: {side}',
     'tip.fogged': 'mimo dohled',
     'tip.preview': 'Odhad útoku',
-    'tip.damage': 'ztráty soupeře {min}–{max}',
-    'tip.counter': 'protiútok {min}–{max}',
-    'tip.noCounter': 'bez protiútoku',
     'tip.kind.melee': 'boj zblízka',
     'tip.kind.ranged': 'střelba',
+    'tip.dealt': 'Způsobíš',
+    'tip.taken': 'Protiútok',
+    'tip.none': 'žádný',
+    'tip.targetMorale': 'Morálka cíle {loss}',
+    'tip.encircled': 'cíl je obklíčen',
+    'tip.mustStop': 'vedle nepřítele: tady se zastavíš',
+    'tip.factor.terrainAttack': 'terén útočníka {value}',
+    'tip.factor.downhill': 'útok z kopce {value}',
+    'tip.factor.hindered': 'nevhodný terén {value}',
+    'tip.factor.pilum': 'pilum {value}',
+    'tip.factor.furiousCharge': 'zuřivý útok {value}',
+    'tip.factor.fear': 'strach ze slonů {value}',
+    'tip.factor.terrainDefense': 'terén cíle: obrana {value}',
+    'tip.factor.shieldWall': 'štítová hradba: obrana {value}',
+    'tip.factor.advantage': 'výhoda typu ×{value}',
+    'tip.factor.flank': 'obklíčení: {count} {units} u cíle, +{percent} %',
+    'tip.factor.wounded': 'útočník je oslabený',
+    'tip.factor.shaken': 'útočník je otřesený',
 
     'log.title': 'Události',
     'log.empty': 'Zatím se nic nestalo.',
+    'log.folded': '{count} ▸',
     'log.battleStarts': 'Bitva začíná.',
     'log.deploymentEnded': '{side}: rozestavení dokončeno.',
     'log.turnStarted': 'Kolo {turn}, na tahu {side}.',
@@ -164,7 +285,7 @@ export const cs = {
     'keys.relief': 'R: střídání linie',
     'keys.log': 'L: zobrazit nebo skrýt log',
     'keys.escape': 'Esc: zrušit výběr, pak menu',
-    'keys.help': 'H: tato nápověda',
+    'keys.help': 'H: nápověda s pravidly',
     'keys.mute': 'M: ztlumit nebo zapnout zvuk',
   },
 
@@ -177,6 +298,7 @@ export const cs = {
   plurals: {
     hexes: ['hex', 'hexy', 'hexů'],
     units: ['jednotka', 'jednotky', 'jednotek'],
+    rounds: ['kolo', 'kola', 'kol'],
   } satisfies Record<string, PluralForms>,
 
   /** By the id from the game data; an id missing here shows the name from the data. */
@@ -189,6 +311,7 @@ export const cs = {
     trebia: 'Trebia (218 př. n. l.)',
     cannae: 'Kanny (216 př. n. l.)',
     zama: 'Zama (202 př. n. l.)',
+    training: 'Výcvik',
   } as Readonly<Record<string, string>>,
 
   unitTypes: {

@@ -118,6 +118,8 @@ export interface BattleScene {
   /** Animates what happened and ends up showing `state`, the state after the events. */
   play(events: readonly GameEvent[], state: BattleState, visible?: VisibleHexes): void;
   setHighlights(highlights: Highlights): void;
+  /** Draws these units as spent for the turn: darker, with faded bars. */
+  setSpent(unitIds: Iterable<string>): void;
   /** True while events are still being animated; clicks are ignored meanwhile. */
   readonly animating: boolean;
   /** Turns the camera by quarter turns. */
@@ -320,6 +322,7 @@ export function createBattleScene(
       );
     },
     setHighlights: (marks) => highlights.set(marks),
+    setSpent: (unitIds) => units.setSpent(unitIds),
     get animating() {
       return !timeline.idle;
     },

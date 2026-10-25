@@ -5,8 +5,10 @@ import { createAi, fallbackCommands } from '@vermont/ai';
 import {
   PLAYER_SLOTS,
   SCENARIOS,
+  TRAINING,
   abilityOf,
   adjacentUnits,
+  attackFactors,
   attackTargets,
   autoDeployment,
   deploymentHexes,
@@ -18,6 +20,7 @@ import {
   isFielded,
   isFighting,
   isFogLifted,
+  moveContextFor,
   opponentOf,
   pathFromReach,
   playerView,
@@ -29,6 +32,7 @@ import {
   unitReach,
 } from '@vermont/core';
 import type {
+  AttackFactors,
   AttackPreview,
   BattleDefs,
   BattleState,
@@ -37,6 +41,7 @@ import type {
   FieldedUnit,
   GameEvent,
   Hex,
+  HexKey,
   PlayerSlot,
   PlayerView,
   Reach,
@@ -114,6 +119,8 @@ export interface HoverInfo {
   readonly campOf: PlayerSlot | null;
   /** What attacking `unit` with the selected unit would do; `null` when it cannot be attacked. */
   readonly preview: AttackPreview | null;
+  /** Why the attack would do what the preview says; set together with `preview`. */
+  readonly factors: AttackFactors | null;
   /** The hex lies in the fog: whatever stands there is not shown. */
   readonly fogged: boolean;
 }
@@ -244,6 +251,13 @@ export const useBattleStore = defineStore('battle', () => {
       : null
   );
 
+  /** Hexes next to an enemy, where the selected unit would have to stop. */
+  const zoneOfCommanded = computed<ReadonlySet<HexKey> | null>(() =>
+    known.value && defs.value && commandedUnit.value
+      ? (moveContextFor(known.value, defs.value, commandedUnit.value).zoneOfControl ?? null)
+      : null
+  );
+
   const targets = computed<FieldedUnit[]>(() => {
     const unit = commandedUnit.value;
     if (!known.value || !defs.value || !unit || unit.hasAttacked) return [];
@@ -311,14 +325,27 @@ export const useBattleStore = defineStore('battle', () => {
         targets: [],
       };
     }
+    const stops = [...(reach.value?.values() ?? [])]
+      .filter((node) => node.canStop && node.cost > 0)
+      .map((node) => node.hex);
+    const zone = zoneOfCommanded.value;
     return {
       selected,
-      reach: [...(reach.value?.values() ?? [])]
-        .filter((node) => node.canStop && node.cost > 0)
-        .map((node) => node.hex),
+      reach: stops,
       path: hoveredPath.value,
       targets: targets.value.map((target) => target.pos),
+      zoc: zone ? stops.filter((stop) => zone.has(hexKey(stop))) : [],
     };
+  });
+
+  /** Units of the side on turn that cannot do anything more this turn; drawn dimmed. */
+  const spentUnitIds = computed<string[]>(() => {
+    const battle = known.value;
+    if (!battle || battle.phase !== 'battle' || aiOnTurn.value) return [];
+    const ready = new Set(readyUnits.value.map((unit) => unit.id));
+    return fieldedUnits(battle, battle.activePlayer)
+      .filter((unit) => !ready.has(unit.id))
+      .map((unit) => unit.id);
   });
 
   const hoverInfo = computed<HoverInfo | null>(() => {
@@ -333,6 +360,7 @@ export const useBattleStore = defineStore('battle', () => {
     const attackable = unit && targets.value.some((candidate) => candidate.id === unit.id);
     const preview =
       attacker && attackable ? previewAttack(battle, battleDefs, attacker, unit) : null;
+    const shownPreview = preview && 'kind' in preview ? preview : null;
     const camps = Object.entries(battleDefs.camps) as [`${PlayerSlot}`, Hex][];
     const camp = camps.find(([, campHex]) => hexEquals(campHex, target));
     return {
@@ -340,7 +368,9 @@ export const useBattleStore = defineStore('battle', () => {
       terrain,
       unit,
       campOf: camp ? (Number(camp[0]) as PlayerSlot) : null,
-      preview: preview && 'kind' in preview ? preview : null,
+      preview: shownPreview,
+      factors:
+        shownPreview && attacker && unit ? attackFactors(battle, battleDefs, attacker, unit) : null,
       fogged: shown.value?.visible ? !shown.value.visible.has(hexKey(target)) : false,
     };
   });
@@ -405,7 +435,7 @@ export const useBattleStore = defineStore('battle', () => {
     scenarioId: string = DEFAULT_SCENARIO_ID,
     options: StartOptions = {}
   ): void {
-    const chosen = Object.hasOwn(SCENARIOS, scenarioId) ? SCENARIOS[scenarioId] : undefined;
+    const chosen = findScenario(scenarioId);
     if (!chosen) throw new Error(`Unknown scenario: "${scenarioId}"`);
 
     const begun = begin(chosen, battleSeed, options.fog);
@@ -443,9 +473,7 @@ export const useBattleStore = defineStore('battle', () => {
    * Throws a `SaveError`, and leaves the battle on the screen alone, when that cannot be done.
    */
   function load(saved: SavedGame, hooks: Pick<ComputerPlayer, 'brain' | 'stepDelayMs'> = {}): void {
-    const chosen = Object.hasOwn(SCENARIOS, saved.scenarioId)
-      ? SCENARIOS[saved.scenarioId]
-      : undefined;
+    const chosen = findScenario(saved.scenarioId);
     if (!chosen) throw new SaveError('damaged', `Unknown scenario: "${saved.scenarioId}"`);
 
     const replayed = replay(chosen, saved);
@@ -785,6 +813,7 @@ export const useBattleStore = defineStore('battle', () => {
     reliefPartners,
     reserve,
     readyUnits,
+    spentUnitIds,
     highlights,
     hoverInfo,
     canUndo,
@@ -806,6 +835,12 @@ export const useBattleStore = defineStore('battle', () => {
     endDeployment,
   };
 });
+
+/** A scenario of the list, or the training, by its id. */
+function findScenario(id: string): ScenarioDef | undefined {
+  if (id === TRAINING.id) return TRAINING;
+  return Object.hasOwn(SCENARIOS, id) ? SCENARIOS[id] : undefined;
+}
 
 /** The scenario ready to be played from `seed`, with the fog as the players chose it. */
 function begin(scenario: ScenarioDef, seed: number, fog: boolean | undefined): StartedBattle {

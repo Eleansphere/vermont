@@ -2,7 +2,7 @@ import type { Hex } from '../hex/hex';
 import type { GridSize } from '../map/mapGrid';
 import { rectangleHex } from '../map/shapes';
 import type { ScenarioDef, ScenarioTable } from '../scenario/scenario';
-import { CANNAE_SIZE, TREBIA_SIZE, ZAMA_SIZE } from './maps';
+import { CANNAE_SIZE, TRAINING_SIZE, TREBIA_SIZE, ZAMA_SIZE } from './maps';
 
 /** Columns left free on either edge of a deployment zone. */
 const ZONE_MARGIN = 1;
@@ -171,6 +171,41 @@ const ZAMA: ScenarioDef = {
       ],
       camp: rectangleHex(7, ZAMA_SIZE.height - 1),
       deploymentZone: rowsZone(ZAMA_SIZE, southRows(ZAMA_SIZE)),
+    },
+  ],
+};
+
+/**
+ * The training: four units a side on a small field, for learning the game. Each side lines up
+ * on one row, in the order the army is listed, so the training always starts the same way.
+ * It is kept out of `SCENARIOS`: it is not a battle to pick from the list.
+ */
+export const TRAINING: ScenarioDef = {
+  id: 'training',
+  name: 'Training',
+  mapId: 'training',
+  sides: [
+    {
+      factionId: 'rome',
+      army: [
+        { typeId: 'equites', count: 1 },
+        { typeId: 'hastati', count: 1 },
+        { typeId: 'principes', count: 1 },
+        { typeId: 'velites', count: 1 },
+      ],
+      camp: rectangleHex(4, 0),
+      deploymentZone: rowHexes(1, 2, 5),
+    },
+    {
+      factionId: 'carthage',
+      army: [
+        { typeId: 'numidian-cavalry', count: 1 },
+        { typeId: 'libyan-spearmen', count: 1 },
+        { typeId: 'gallic-mercenaries', count: 1 },
+        { typeId: 'balearic-slingers', count: 1 },
+      ],
+      camp: rectangleHex(4, TRAINING_SIZE.height - 1),
+      deploymentZone: rowHexes(TRAINING_SIZE.height - 2, 2, 5),
     },
   ],
 };

@@ -7,6 +7,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
+  RingGeometry,
   Sprite,
   SpriteMaterial,
   Vector3,
@@ -21,7 +22,8 @@ import type {
   Unit,
 } from '@vermont/core';
 import { hexEquals, isFielded, unitTypeOf } from '@vermont/core';
-import { hexToWorld } from './layout';
+import { HEX_SIZE, hexToWorld } from './layout';
+import { PLAYER_COLORS } from './palette';
 import type { UnitModel, UnitModelFactory, UnitPose } from './unitModels';
 import { placeholderUnitModel } from './unitModels';
 
@@ -34,6 +36,27 @@ const PICK_RADIUS = 0.5;
 const PICK_HEIGHT = 0.85;
 const HEALTH_BAR_BACK_COLOR = 0x15171c;
 const HEALTH_COLORS = { good: 0x6fd35a, hurt: 0xf0c13c, bad: 0xe5533d } as const;
+/** The thin strip under the health bar that shows the unit's morale. */
+const MORALE_BAR_HEIGHT = 0.05;
+const MORALE_BAR_GAP = 0.03;
+const MORALE_COLOR = 0x8fc3ff;
+/** How thick the frame in the side's colour around the bars is. */
+const BADGE_FRAME = 0.05;
+/** How much a unit that cannot do anything more this turn is darkened, and its badge faded. */
+const SPENT_SHADE = 0.5;
+const SPENT_BADGE_OPACITY = 0.45;
+/** The ring in the side's colour on the ground around each unit, so the sides tell apart. */
+const OWNER_RING_INNER = 0.66;
+const OWNER_RING_OUTER = 0.78;
+const OWNER_RING_OPACITY = 0.85;
+const OWNER_RING_LIFT = 0.025;
+/** Turns a ring so that its corners match a pointy-top hex. */
+const POINTY_TOP = Math.PI / 6;
+/** A number that rises from a unit when it is hit, and fades away. */
+const FLOAT_SECONDS = 1.2;
+const FLOAT_RISE = 0.7;
+const FLOAT_LIFT = HEALTH_BAR_LIFT + 0.25;
+const FLOAT_HEIGHT = 0.42;
 const HURT_BELOW = 0.66;
 const BAD_BELOW = 0.33;
 /** Space between the health bar and the morale marker beside it. */
@@ -67,7 +90,25 @@ export interface UnitView {
 export class UnitLayer {
   readonly object = new Group();
   private readonly views = new Map<string, UnitView>();
-  private readonly bars = new Map<string, HealthBar>();
+  private readonly bars = new Map<string, UnitBadge>();
+  private readonly spent = new Set<string>();
+  private readonly floaters: Floater[] = [];
+  private readonly ownerRing = new RingGeometry(
+    HEX_SIZE * OWNER_RING_INNER,
+    HEX_SIZE * OWNER_RING_OUTER,
+    6,
+    1,
+    POINTY_TOP
+  ).rotateX(-Math.PI / 2);
+  private readonly ownerRingMaterials = ([0, 1] as const).map(
+    (owner) =>
+      new MeshBasicMaterial({
+        color: PLAYER_COLORS[owner],
+        opacity: OWNER_RING_OPACITY,
+        transparent: true,
+        depthWrite: false,
+      })
+  );
   private readonly markers = new Map<string, MoraleMarker>();
   private readonly pickables = new Map<string, Mesh>();
   // Never drawn, only hit: raycasting a column is cheap and does not depend on the figures.
@@ -99,8 +140,30 @@ export class UnitLayer {
       view.model.rotation.set(0, view.model.rotation.y, 0);
       this.setGlow(view, 0);
       this.setHealth(unit.id, unit.hp);
-      this.setMorale(unit.id, unit.moraleState);
+      this.setMorale(unit.id, unit.moraleState, unit.morale);
     }
+  }
+
+  /**
+   * Darkens the units that cannot do anything more this turn and fades their badges; every
+   * other unit is drawn as usual.
+   */
+  setSpent(unitIds: Iterable<string>): void {
+    const spent = new Set(unitIds);
+    for (const view of this.views.values()) {
+      const isSpent = spent.has(view.unitId);
+      if (isSpent === this.spent.has(view.unitId)) continue;
+      if (isSpent) this.spent.add(view.unitId);
+      else this.spent.delete(view.unitId);
+      this.shade(view, isSpent ? SPENT_SHADE : 1);
+      this.bars.get(view.unitId)?.setOpacity(isSpent ? SPENT_BADGE_OPACITY : 1);
+      this.markers.get(view.unitId)?.setOpacity(isSpent ? SPENT_BADGE_OPACITY : 1);
+    }
+  }
+
+  /** Whether the unit is drawn as spent for this turn. */
+  isSpent(unitId: string): boolean {
+    return this.spent.has(unitId);
   }
 
   view(unitId: string): UnitView | undefined {
@@ -128,7 +191,11 @@ export class UnitLayer {
     const pickable = new Mesh(this.pickGeometry, this.pickMaterial);
     object.add(pickable);
     this.pickables.set(unit.id, pickable);
-    const bar = new HealthBar(type.hp);
+    const ring = new Mesh(this.ownerRing, this.ownerRingMaterials[unit.owner]);
+    ring.position.y = OWNER_RING_LIFT;
+    ring.renderOrder = 1;
+    object.add(ring);
+    const bar = new UnitBadge(type.hp, this.defs.rules.morale.max, PLAYER_COLORS[unit.owner]);
     bar.object.position.y = HEALTH_BAR_LIFT;
     object.add(bar.object);
     const marker = new MoraleMarker();
@@ -151,6 +218,7 @@ export class UnitLayer {
     this.object.add(object);
     this.place(view, target);
     bar.set(unit.hp);
+    bar.setMorale(unit.morale);
     return view;
   }
 
@@ -165,11 +233,50 @@ export class UnitLayer {
     this.bars.delete(unitId);
     this.markers.delete(unitId);
     this.pickables.delete(unitId);
+    this.spent.delete(unitId);
   }
 
-  /** Moves the figures' clips forward; called every frame. */
+  /** Moves the figures' clips and the rising numbers forward; called every frame. */
   update(seconds: number): void {
     for (const view of this.views.values()) view.figures.update?.(seconds);
+    for (const floater of [...this.floaters]) {
+      floater.age += seconds;
+      const progress = Math.min(1, floater.age / FLOAT_SECONDS);
+      floater.sprite.position.y = floater.startY + FLOAT_RISE * progress;
+      floater.sprite.material.opacity = progress < 0.6 ? 1 : 1 - (progress - 0.6) / 0.4;
+      if (progress >= 1) this.dropFloater(floater);
+    }
+  }
+
+  /**
+   * Lets a short text such as the damage taken rise from the unit and fade. It lives on its
+   * own clock, so it never holds up the next step of an animation.
+   */
+  float(unitId: string, text: string, color: string): void {
+    const view = this.views.get(unitId);
+    const texture = view && textTexture(text, color);
+    if (!view || !texture) return;
+    const material = new SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+    const sprite = new Sprite(material);
+    const aspect = texture.image.width / texture.image.height;
+    sprite.scale.set(FLOAT_HEIGHT * aspect, FLOAT_HEIGHT, 1);
+    sprite.renderOrder = 13;
+    const startY = view.object.position.y + FLOAT_LIFT;
+    sprite.position.set(view.object.position.x, startY, view.object.position.z);
+    this.object.add(sprite);
+    this.floaters.push({ sprite, age: 0, startY });
+  }
+
+  /** How many rising numbers are on the screen. */
+  get floating(): number {
+    return this.floaters.length;
+  }
+
+  private dropFloater(floater: Floater): void {
+    this.object.remove(floater.sprite);
+    floater.sprite.material.map?.dispose();
+    floater.sprite.material.dispose();
+    this.floaters.splice(this.floaters.indexOf(floater), 1);
   }
 
   /** Sets what the unit's figures are doing. */
@@ -182,8 +289,10 @@ export class UnitLayer {
     return view.figures.pose !== undefined;
   }
 
-  setMorale(unitId: string, state: MoraleState): void {
+  /** Shows the unit's morale state, and its morale when it is known. */
+  setMorale(unitId: string, state: MoraleState, morale?: number): void {
     this.markers.get(unitId)?.set(state);
+    if (morale !== undefined) this.bars.get(unitId)?.setMorale(morale);
   }
 
   /** Where a unit stands on the hex, in world coordinates. */
@@ -209,6 +318,18 @@ export class UnitLayer {
     if (!bar) return;
     bar.set(hp);
     this.views.get(unitId)?.figures.setStrength?.(bar.share(hp));
+  }
+
+  /** Multiplies the colours of the model's materials; 1 draws the unit as it was made. */
+  private shade(view: UnitView, factor: number): void {
+    view.model.traverse((part) => {
+      if (!(part instanceof Mesh)) return;
+      for (const material of materialsOf(part)) {
+        if (!(material instanceof MeshStandardMaterial)) continue;
+        const base = (material.userData.baseColor ??= material.color.clone()) as Color;
+        material.color.copy(base).multiplyScalar(factor);
+      }
+    });
   }
 
   /** Lights the model up, 0 to 1; used to show a hit. */
@@ -238,32 +359,86 @@ export class UnitLayer {
 
   dispose(): void {
     for (const unitId of [...this.views.keys()]) this.remove(unitId);
+    for (const floater of [...this.floaters]) this.dropFloater(floater);
     this.pickGeometry.dispose();
     this.pickMaterial.dispose();
+    this.ownerRing.dispose();
+    for (const material of this.ownerRingMaterials) material.dispose();
   }
+}
+
+interface Floater {
+  readonly sprite: Sprite;
+  age: number;
+  readonly startY: number;
+}
+
+/** Bold text with a dark edge, drawn on a canvas; `null` where there is no canvas. */
+function textTexture(text: string, color: string): CanvasTexture | null {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context) return null;
+  const height = 64;
+  const font = 'bold 48px system-ui, sans-serif';
+  context.font = font;
+  canvas.width = Math.ceil(context.measureText(text).width) + 16;
+  canvas.height = height;
+  context.font = font;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.lineWidth = 8;
+  context.strokeStyle = '#15171c';
+  context.strokeText(text, canvas.width / 2, height / 2);
+  context.fillStyle = color;
+  context.fillText(text, canvas.width / 2, height / 2);
+  return new CanvasTexture(canvas);
 }
 
 function materialsOf(mesh: Mesh): Material[] {
   return Array.isArray(mesh.material) ? mesh.material : [mesh.material];
 }
 
-/** A bar above the unit that always faces the screen. */
-class HealthBar {
+/**
+ * The bars above the unit that always face the screen: health, and morale in a thin strip
+ * under it, both framed in the colour of the unit's side.
+ */
+class UnitBadge {
   readonly object = new Group();
   private readonly fill: Sprite;
+  private readonly moraleFill: Sprite;
   private readonly materials: SpriteMaterial[];
 
-  constructor(private readonly maxHp: number) {
+  constructor(
+    private readonly maxHp: number,
+    private readonly maxMorale: number,
+    sideColor: number
+  ) {
+    const frameMaterial = new SpriteMaterial({ color: sideColor, depthTest: false });
     const backMaterial = new SpriteMaterial({ color: HEALTH_BAR_BACK_COLOR, depthTest: false });
     const fillMaterial = new SpriteMaterial({ color: HEALTH_COLORS.good, depthTest: false });
-    this.materials = [backMaterial, fillMaterial];
+    const moraleMaterial = new SpriteMaterial({ color: MORALE_COLOR, depthTest: false });
+    this.materials = [frameMaterial, backMaterial, fillMaterial, moraleMaterial];
 
+    // The health bar sits at the badge's origin, the morale strip under it.
+    const moraleY = -(HEALTH_BAR_HEIGHT + MORALE_BAR_HEIGHT) / 2 - MORALE_BAR_GAP;
+    const innerHeight = HEALTH_BAR_HEIGHT + MORALE_BAR_GAP + MORALE_BAR_HEIGHT;
+    const innerY = (HEALTH_BAR_HEIGHT / 2 + moraleY - MORALE_BAR_HEIGHT / 2) / 2;
+
+    const frame = new Sprite(frameMaterial);
+    frame.scale.set(HEALTH_BAR_WIDTH + 2 * BADGE_FRAME, innerHeight + 2 * BADGE_FRAME, 1);
+    frame.position.y = innerY;
+    frame.renderOrder = 9;
     const back = new Sprite(backMaterial);
-    back.scale.set(HEALTH_BAR_WIDTH + 0.06, HEALTH_BAR_HEIGHT + 0.06, 1);
+    back.scale.set(HEALTH_BAR_WIDTH + 0.02, innerHeight + 0.02, 1);
+    back.position.y = innerY;
     back.renderOrder = 10;
     this.fill = new Sprite(fillMaterial);
     this.fill.renderOrder = 11;
-    this.object.add(back, this.fill);
+    this.moraleFill = new Sprite(moraleMaterial);
+    this.moraleFill.position.y = moraleY;
+    this.moraleFill.renderOrder = 11;
+    this.object.add(frame, back, this.fill, this.moraleFill);
   }
 
   /** How much of the unit is left, 0 to 1. */
@@ -273,12 +448,8 @@ class HealthBar {
 
   set(hp: number): void {
     const share = this.share(hp);
-    this.fill.visible = share > 0;
+    stretch(this.fill, share, HEALTH_BAR_HEIGHT);
     if (share === 0) return;
-
-    this.fill.scale.set(HEALTH_BAR_WIDTH * share, HEALTH_BAR_HEIGHT, 1);
-    // Anchors the shrinking fill to the left end of the bar, whichever way the camera looks.
-    this.fill.center.set(1 / (2 * share), 0.5);
     const color =
       share < BAD_BELOW
         ? HEALTH_COLORS.bad
@@ -288,9 +459,28 @@ class HealthBar {
     this.fill.material.color.set(color);
   }
 
+  setMorale(morale: number): void {
+    stretch(this.moraleFill, Math.min(Math.max(morale / this.maxMorale, 0), 1), MORALE_BAR_HEIGHT);
+  }
+
+  setOpacity(opacity: number): void {
+    for (const material of this.materials) {
+      material.opacity = opacity;
+      material.transparent = opacity < 1;
+    }
+  }
+
   dispose(): void {
     for (const material of this.materials) material.dispose();
   }
+}
+
+/** Fills `share` of a bar, anchored to its left end whichever way the camera looks. */
+function stretch(bar: Sprite, share: number, height: number): void {
+  bar.visible = share > 0;
+  if (share === 0) return;
+  bar.scale.set(HEALTH_BAR_WIDTH * share, height, 1);
+  bar.center.set(1 / (2 * share), 0.5);
 }
 
 /** A round sign beside the health bar: yellow when the unit is shaken, red when it routs. */
@@ -303,6 +493,11 @@ class MoraleMarker {
     this.object.scale.set(MARKER_SIZE, MARKER_SIZE, 1);
     this.object.renderOrder = 12;
     this.object.visible = false;
+  }
+
+  setOpacity(opacity: number): void {
+    this.object.material.opacity = opacity;
+    this.object.material.transparent = true;
   }
 
   set(state: MoraleState): void {

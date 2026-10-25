@@ -18,18 +18,26 @@ const label = (volume: VolumeSetting): UiKey => `settings.${volume}`;
 
 <template>
   <div class="settings">
-    <label class="settings__option">
-      <input v-model="settings.confirmEndTurn" type="checkbox" name="confirmEndTurn" />
+    <label class="settings__option toggle">
+      <input
+        v-model="settings.confirmEndTurn"
+        class="toggle__input"
+        type="checkbox"
+        name="confirmEndTurn"
+      />
+      <span class="toggle__switch" aria-hidden="true" />
       {{ t('settings.confirmEndTurn') }}
     </label>
-    <label class="settings__option">
-      <input v-model="settings.showLog" type="checkbox" name="showLog" />
+    <label class="settings__option toggle">
+      <input v-model="settings.showLog" class="toggle__input" type="checkbox" name="showLog" />
+      <span class="toggle__switch" aria-hidden="true" />
       {{ t('settings.showLog') }}
     </label>
 
     <h3 class="settings__heading">{{ t('settings.sound') }}</h3>
-    <label class="settings__option">
-      <input v-model="settings.muted" type="checkbox" name="muted" />
+    <label class="settings__option toggle">
+      <input v-model="settings.muted" class="toggle__input" type="checkbox" name="muted" />
+      <span class="toggle__switch" aria-hidden="true" />
       {{ t('settings.muted') }}
     </label>
     <label v-for="volume in VOLUMES" :key="volume" class="settings__volume">
@@ -75,6 +83,7 @@ const label = (volume: VolumeSetting): UiKey => `settings.${volume}`;
 }
 
 .settings__volume input {
+  accent-color: var(--accent);
   accent-color: var(--accent);
 }
 

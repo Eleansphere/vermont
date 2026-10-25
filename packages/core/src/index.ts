@@ -62,7 +62,7 @@ export type { StartedBattle } from './scenario/startScenario';
 export { FACTIONS } from './data/factions';
 export { GAME_DATA } from './data/gameData';
 export { MAPS } from './data/maps';
-export { SCENARIOS } from './data/scenarios';
+export { SCENARIOS, TRAINING } from './data/scenarios';
 
 export {
   FIRST_PLAYER,
@@ -100,8 +100,14 @@ export { checkWalk, marchAlong, moveContextFor, unitReach } from './game/unitMov
 export type { March, Walk } from './game/unitMovement';
 export { eventsSeenBy, isFogLifted, playerSight, playerView, seesUnit } from './game/fog';
 export type { PlayerView } from './game/fog';
-export { attackKindFor, attackTargets, previewAttack } from './game/combat';
-export type { AttackPreview, DamageRange } from './game/combat';
+export { attackFactors, attackKindFor, attackTargets, previewAttack } from './game/combat';
+export type {
+  AttackFactor,
+  AttackFactorId,
+  AttackFactors,
+  AttackPreview,
+  DamageRange,
+} from './game/combat';
 export { holdsOwnCamp, isEncircled, isWorn, moraleLossWhenHit } from './game/morale';
 export { findWinner } from './game/victory';
 export { autoDeployment, checkDeployment, deploymentHexes, reserveUnits } from './game/deployment';

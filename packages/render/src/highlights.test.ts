@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { InstancedMesh } from 'three';
-import { Matrix4, Vector3 } from 'three';
+import { InstancedMesh, Matrix4, Vector3 } from 'three';
 import { hex } from '@vermont/core';
 import { HighlightLayer } from './highlights';
 import { hexToWorld } from './layout';
@@ -8,14 +7,16 @@ import { hexToWorld } from './layout';
 const SURFACE = 0.3;
 
 function shownCounts(layer: HighlightLayer): number[] {
-  return layer.object.children.map((child) => (child as InstancedMesh).count);
+  return layer.object.children
+    .filter((child): child is InstancedMesh => child instanceof InstancedMesh)
+    .map((child) => child.count);
 }
 
 describe('highlight layer', () => {
   it('shows nothing until told to', () => {
     const layer = new HighlightLayer(10, () => SURFACE);
 
-    expect(shownCounts(layer)).toEqual([0, 0, 0, 0, 0]);
+    expect(shownCounts(layer)).toEqual([0, 0, 0, 0, 0, 0, 0]);
   });
 
   it('marks the reach, path, targets, selection and hovered hex', () => {
@@ -26,10 +27,12 @@ describe('highlight layer', () => {
       reach: [hex(1, 0), hex(2, 0), hex(0, 1)],
       path: [hex(1, 0), hex(2, 0)],
       targets: [hex(3, 0)],
+      zoc: [hex(2, 0)],
     });
     layer.setHover(hex(2, 0));
 
-    expect(shownCounts(layer)).toEqual([3, 2, 1, 1, 1]);
+    // Reach, stops in enemy zones, path, targets (filled and ringed), selection, hover.
+    expect(shownCounts(layer)).toEqual([3, 1, 2, 1, 1, 1, 1]);
   });
 
   it('puts a mark just above the top of its hex', () => {
@@ -49,9 +52,20 @@ describe('highlight layer', () => {
     const layer = new HighlightLayer(2, () => SURFACE);
 
     layer.set({ selected: hex(0, 0), reach: [hex(1, 0), hex(2, 0), hex(3, 0)] });
-    expect(shownCounts(layer)).toEqual([2, 0, 0, 1, 0]);
+    expect(shownCounts(layer)).toEqual([2, 0, 0, 0, 0, 1, 0]);
 
     layer.set({});
-    expect(shownCounts(layer)).toEqual([0, 0, 0, 0, 0]);
+    expect(shownCounts(layer)).toEqual([0, 0, 0, 0, 0, 0, 0]);
+  });
+
+  it('draws a line around the reach and the selected hex, not between them', () => {
+    const layer = new HighlightLayer(10, () => SURFACE);
+
+    layer.set({ selected: hex(0, 0), reach: [hex(1, 0)] });
+    // Two neighbouring hexes have twelve sides, two of them shared.
+    expect(layer.outlineSides).toBe(10);
+
+    layer.set({ selected: hex(0, 0) });
+    expect(layer.outlineSides).toBe(0);
   });
 });

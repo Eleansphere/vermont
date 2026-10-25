@@ -3,13 +3,21 @@ import { ref } from 'vue';
 import { RULES_VERSION } from '@vermont/core';
 import { saveProblemText, t } from '../i18n';
 import type { SaveProblem } from '../save/savedGame';
+import { useSettingsStore } from '../stores/settings';
 import SettingsPanel from './SettingsPanel.vue';
-import ShortcutList from './ShortcutList.vue';
+import RulesHelp from './RulesHelp.vue';
 
 defineProps<{ canContinue: boolean; saveProblem: SaveProblem | null }>();
-const emit = defineEmits<{ newBattle: []; continue: []; loadFile: [file: File] }>();
+const emit = defineEmits<{
+  newBattle: [];
+  continue: [];
+  training: [];
+  loadFile: [file: File];
+}>();
 
-type Page = 'main' | 'settings' | 'shortcuts';
+const settings = useSettingsStore();
+
+type Page = 'main' | 'settings' | 'help';
 const page = ref<Page>('main');
 const fileInput = ref<HTMLInputElement | null>(null);
 
@@ -41,8 +49,19 @@ function onFileChosen(): void {
         {{ t('menu.continue') }}
       </button>
       <button
-        class="button button--wide"
+        v-if="!settings.trainingDone"
+        class="button button--wide menu__training"
         :class="{ 'button--primary': !canContinue }"
+        type="button"
+        data-test="training"
+        @click="$emit('training')"
+      >
+        {{ t('menu.training') }}
+        <span class="menu__hint">{{ t('menu.trainingHint') }}</span>
+      </button>
+      <button
+        class="button button--wide"
+        :class="{ 'button--primary': !canContinue && settings.trainingDone }"
         type="button"
         data-test="new-battle"
         @click="$emit('newBattle')"
@@ -76,15 +95,24 @@ function onFileChosen(): void {
       >
         {{ t('menu.settings') }}
       </button>
-      <button class="button button--wide" type="button" @click="page = 'shortcuts'">
-        {{ t('menu.shortcuts') }}
+      <button class="button button--wide" type="button" data-test="help" @click="page = 'help'">
+        {{ t('menu.help') }}
+      </button>
+      <button
+        v-if="settings.trainingDone"
+        class="button button--wide"
+        type="button"
+        data-test="training"
+        @click="$emit('training')"
+      >
+        {{ t('menu.training') }}
       </button>
     </nav>
 
-    <section v-else class="menu__box panel">
-      <h2>{{ t(page === 'settings' ? 'settings.title' : 'keys.title') }}</h2>
+    <section v-else class="menu__box panel" :class="{ 'menu__box--wide': page === 'help' }">
+      <h2>{{ t(page === 'settings' ? 'settings.title' : 'help.title') }}</h2>
       <SettingsPanel v-if="page === 'settings'" />
-      <ShortcutList v-else />
+      <RulesHelp v-else />
       <button class="button" type="button" data-test="back" @click="page = 'main'">
         {{ t('menu.back') }}
       </button>
@@ -126,6 +154,20 @@ function onFileChosen(): void {
   gap: 10px;
   width: min(360px, calc(100% - 32px));
   padding: 16px;
+}
+
+.menu__box--wide {
+  width: min(820px, calc(100% - 32px));
+}
+
+.menu__training {
+  display: grid;
+  gap: 2px;
+}
+
+.menu__hint {
+  font-size: 12px;
+  opacity: 0.75;
 }
 
 .menu__file {

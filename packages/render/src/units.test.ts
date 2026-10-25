@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Group } from 'three';
+import type { MeshBasicMaterial, Color } from 'three';
+import { Group, Mesh, MeshStandardMaterial, RingGeometry } from 'three';
 import type { BattleDefs, BattleState, FieldedUnit, GameEvent } from '@vermont/core';
 import { dispatch, fieldedUnits, hexEquals, pathFromReach, unitReach } from '@vermont/core';
 import { eventSteps } from './eventSteps';
@@ -7,6 +8,7 @@ import { createTerrainLayer } from './terrain';
 import { deployedTrebia } from './testSupport';
 import { Timeline } from './timeline';
 import type { UnitModel, UnitModelFactory, UnitPose } from './unitModels';
+import { PLAYER_COLORS } from './palette';
 import { placeholderUnitModel } from './unitModels';
 import { UnitLayer } from './units';
 
@@ -358,6 +360,50 @@ describe('event animations', () => {
       expect(marker().visible).toBe(true);
       units.sync(state);
       expect(marker().visible).toBe(false);
+    });
+  });
+  describe('marks', () => {
+    /** The colour of the first standard material of the unit's model. */
+    function modelColor(units: UnitLayer, unitId: string): Color {
+      let color: Color | undefined;
+      units.view(unitId)!.model.traverse((part) => {
+        if (!color && part instanceof Mesh && part.material instanceof MeshStandardMaterial) {
+          color = part.material.color;
+        }
+      });
+      return color!.clone();
+    }
+
+    it('darkens the units that are spent for the turn and lights them up again', () => {
+      const { state, units } = setUp();
+      const [spent, ready] = fieldedUnits(state);
+      const before = modelColor(units, spent!.id);
+
+      units.setSpent([spent!.id]);
+
+      expect(units.isSpent(spent!.id)).toBe(true);
+      expect(units.isSpent(ready!.id)).toBe(false);
+      expect(modelColor(units, spent!.id).r).toBeCloseTo(before.r / 2);
+
+      units.setSpent([]);
+
+      expect(units.isSpent(spent!.id)).toBe(false);
+      expect(modelColor(units, spent!.id).equals(before)).toBe(true);
+    });
+
+    it('rings each unit in the colour of its side', () => {
+      const { state, units } = setUp();
+
+      for (const unit of fieldedUnits(state)) {
+        const rings = units
+          .view(unit.id)!
+          .object.children.filter(
+            (child): child is Mesh<RingGeometry, MeshBasicMaterial> =>
+              child instanceof Mesh && child.geometry instanceof RingGeometry
+          );
+        expect(rings).toHaveLength(1);
+        expect(rings[0]!.material.color.getHex()).toBe(PLAYER_COLORS[unit.owner]);
+      }
     });
   });
 });

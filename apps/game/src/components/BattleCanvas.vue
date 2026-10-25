@@ -36,6 +36,7 @@ function buildScene(): void {
   });
   scene.sync(store.shown.state, store.shown.visible);
   scene.setHighlights(store.highlights);
+  scene.setSpent(store.spentUnitIds);
 }
 
 function toggleStats(event: KeyboardEvent): void {
@@ -72,6 +73,10 @@ watch(
 watch(
   () => store.highlights,
   (highlights) => scene?.setHighlights(highlights)
+);
+watch(
+  () => store.spentUnitIds,
+  (spent) => scene?.setSpent(spent)
 );
 
 onBeforeUnmount(() => {

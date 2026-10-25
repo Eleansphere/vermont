@@ -7,7 +7,7 @@ import type { AbilityId } from '../units/unitType';
 import type { BattleState } from './battleState';
 import { opponentOf } from './battleState';
 import type { AttackKind, GameEvent, Outcome, Rejection } from './command';
-import { holdsOwnCamp, moraleChanged, moraleLossWhenHit, shiftMorale } from './morale';
+import { holdsOwnCamp, isEncircled, moraleChanged, moraleLossWhenHit, shiftMorale } from './morale';
 import { nextRandom, nextRandomInt } from './rng';
 import { retreat } from './rout';
 import type { BattleDefs } from './rules';
@@ -125,6 +125,93 @@ export function previewAttack(
       expected: counterAfter(damage.expected, AVERAGE_ROLL),
       max: counterAfter(damage.min, 1),
     },
+  };
+}
+
+/** Something that makes an attack stronger or weaker, for explaining a preview to the player. */
+export type AttackFactorId =
+  | 'terrainAttack'
+  | 'downhill'
+  | 'hindered'
+  | 'pilum'
+  | 'furiousCharge'
+  | 'fear'
+  | 'terrainDefense'
+  | 'shieldWall'
+  | 'advantage'
+  | 'flank'
+  | 'wounded'
+  | 'shaken';
+
+export interface AttackFactor {
+  readonly id: AttackFactorId;
+  /** Points added to attack or defence, or the number of flanking units. */
+  readonly value?: number;
+  /** Whether it helps the attacker. */
+  readonly helps: boolean;
+}
+
+/** Why an attack would do what `previewAttack` says, and what it would cost the target's morale. */
+export interface AttackFactors {
+  readonly factors: readonly AttackFactor[];
+  /** Morale the target loses when hit. */
+  readonly moraleLoss: number;
+  /** Whether the target counts as encircled, which costs it more morale. */
+  readonly encircled: boolean;
+}
+
+/** The reasons behind an attack's strength, in the order the rules apply them. */
+export function attackFactors(
+  state: BattleState,
+  defs: BattleDefs,
+  attacker: FieldedUnit,
+  target: FieldedUnit
+): AttackFactors {
+  const rules = defs.rules.combat;
+  const type = unitTypeOf(defs, attacker);
+  const targetType = unitTypeOf(defs, target);
+  const ground = terrainAt(defs.map, defs.terrains, attacker.pos);
+  const targetGround = terrainAt(defs.map, defs.terrains, target.pos);
+  const factors: AttackFactor[] = [];
+  const add = (id: AttackFactorId, value: number | undefined, helps: boolean) =>
+    factors.push(value === undefined ? { id, helps } : { id, value, helps });
+
+  if (ground?.attackBonus) add('terrainAttack', ground.attackBonus, ground.attackBonus > 0);
+  if (ground?.isHill && !targetGround?.isHill) add('downhill', rules.downhillAttack, true);
+  if (isHindered(ground, type.archetype)) add('hindered', rules.hinderedAttack, false);
+  if (hasUnspent(defs, attacker, 'pilum')) {
+    add('pilum', defs.abilities.pilum.params.attack ?? 0, true);
+  }
+  const charge = abilityOf(defs, attacker, 'furiousCharge')?.params.attack;
+  if (charge) add('furiousCharge', charge, true);
+  if (isFrightened(state, defs, attacker)) {
+    add('fear', defs.abilities.fear.params.attack ?? 0, false);
+  }
+
+  const groundBonus = targetGround?.defenseBonus ?? 0;
+  const defenseBonus = isHindered(targetGround, targetType.archetype)
+    ? Math.min(0, groundBonus)
+    : groundBonus;
+  if (defenseBonus !== 0) add('terrainDefense', defenseBonus, defenseBonus < 0);
+  const shieldWall = abilityOf(defs, target, 'shieldWall');
+  if (shieldWall?.against?.includes(type.archetype)) {
+    add('shieldWall', shieldWall.params.defense ?? 0, false);
+  }
+
+  if (rules.advantages[type.archetype].includes(targetType.archetype)) {
+    add('advantage', undefined, true);
+  }
+  const flankers = adjacentUnits(state, target.pos, attacker.owner).filter(
+    (unit) => unit.id !== attacker.id && isFighting(unit)
+  ).length;
+  if (flankers > 0) add('flank', flankers, true);
+  if (attacker.hp < type.hp) add('wounded', undefined, false);
+  if (attacker.moraleState === 'shaken') add('shaken', undefined, false);
+
+  return {
+    factors,
+    moraleLoss: moraleLossWhenHit(state, defs, target, attacker),
+    encircled: isEncircled(state, defs, target),
   };
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FACTIONS, SCENARIOS, UNIT_TYPES } from '@vermont/core';
+import { FACTIONS, SCENARIOS, TRAINING, UNIT_TYPES } from '@vermont/core';
 import { cs } from './cs';
 import { factionName, plural, scenarioName, t, unitTypeName } from './index';
 
@@ -27,7 +27,9 @@ describe('i18n', () => {
   it('has a name for everything in the game data', () => {
     expect(Object.keys(cs.unitTypes).sort()).toEqual(Object.keys(UNIT_TYPES).sort());
     expect(Object.keys(cs.factions).sort()).toEqual(Object.keys(FACTIONS).sort());
-    expect(Object.keys(cs.scenarios).sort()).toEqual(Object.keys(SCENARIOS).sort());
+    expect(Object.keys(cs.scenarios).sort()).toEqual(
+      [...Object.keys(SCENARIOS), TRAINING.id].sort()
+    );
   });
 
   it('translates names by id and falls back to the name in the data', () => {

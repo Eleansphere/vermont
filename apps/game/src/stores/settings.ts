@@ -13,6 +13,8 @@ export interface Settings {
   ambientVolume: number;
   /** Silences everything without losing the volumes. */
   muted: boolean;
+  /** The player went through the training to its end; the menu stops offering it first. */
+  trainingDone: boolean;
 }
 
 export const SETTINGS_STORAGE_KEY = 'vermont.settings';
@@ -25,6 +27,7 @@ const DEFAULTS: Readonly<Settings> = {
   musicVolume: 50,
   ambientVolume: 60,
   muted: false,
+  trainingDone: false,
 };
 
 const MAX_VOLUME = 100;
@@ -55,6 +58,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const musicVolume = ref(loaded.musicVolume);
   const ambientVolume = ref(loaded.ambientVolume);
   const muted = ref(loaded.muted);
+  const trainingDone = ref(loaded.trainingDone);
 
   const current = (): Settings => ({
     confirmEndTurn: confirmEndTurn.value,
@@ -64,6 +68,7 @@ export const useSettingsStore = defineStore('settings', () => {
     musicVolume: musicVolume.value,
     ambientVolume: ambientVolume.value,
     muted: muted.value,
+    trainingDone: trainingDone.value,
   });
 
   watch(current, (settings) => {
@@ -82,5 +87,6 @@ export const useSettingsStore = defineStore('settings', () => {
     musicVolume,
     ambientVolume,
     muted,
+    trainingDone,
   };
 });

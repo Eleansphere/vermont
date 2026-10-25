@@ -9,10 +9,12 @@ import { SaveError, parseSavedGame } from './save/savedGame';
 import { storeSave, storedSave } from './save/storage';
 import type { StartOptions } from './stores/battle';
 import { useBattleStore } from './stores/battle';
+import { useTutorialStore } from './stores/tutorial';
 
 type Screen = 'menu' | 'scenarios' | 'battle';
 
 const store = useBattleStore();
+const tutorial = useTutorialStore();
 const screen = ref<Screen>('menu');
 /** Why the last save the player wanted loaded could not be. */
 const saveProblem = ref<SaveProblem | null>(null);
@@ -50,6 +52,12 @@ function startBattle(scenarioId: string, options: StartOptions): void {
   screen.value = 'battle';
 }
 
+function startTraining(): void {
+  tutorial.start();
+  saveProblem.value = null;
+  screen.value = 'battle';
+}
+
 async function loadFile(file: File): Promise<void> {
   if (loadSave(await file.text())) screen.value = 'battle';
 }
@@ -62,6 +70,7 @@ async function loadFile(file: File): Promise<void> {
     :save-problem="saveProblem"
     @new-battle="screen = 'scenarios'"
     @continue="screen = 'battle'"
+    @training="startTraining"
     @load-file="loadFile"
   />
   <ScenarioSelect v-else-if="screen === 'scenarios'" @start="startBattle" @back="screen = 'menu'" />

@@ -61,12 +61,30 @@ const ZAMA_GRID: MapGrid = [
   ' . . . . . . . . . . . . . . . .',
 ];
 
+/**
+ * The small field of the training: a low hill in the middle of the western half and a wood on
+ * the eastern side, open ground between the two camps.
+ */
+// prettier-ignore
+const TRAINING_GRID: MapGrid = [
+  '. . . . . . . . .',
+  ' . . . . . . . . .',
+  '. . . . . . . . .',
+  ' . . h h . . f f .',
+  '. . . h . . f . .',
+  ' . . . . . . . . .',
+  '. . . . . . . . .',
+  ' . . . . . . . . .',
+];
+
 export const TREBIA_SIZE = gridSize('trebia', TREBIA_GRID);
 export const CANNAE_SIZE = gridSize('cannae', CANNAE_GRID);
 export const ZAMA_SIZE = gridSize('zama', ZAMA_GRID);
+export const TRAINING_SIZE = gridSize('training', TRAINING_GRID);
 
 export const MAPS: MapTable = {
   trebia: mapFromGrid('trebia', TREBIA_GRID),
   cannae: mapFromGrid('cannae', CANNAE_GRID),
   zama: mapFromGrid('zama', ZAMA_GRID),
+  training: mapFromGrid('training', TRAINING_GRID),
 };

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { sideColor, sideName } from '../battle/labels';
+import { PLAYER_SLOTS } from '@vermont/core';
+import { battleSummary, sideColor, sideName } from '../battle/labels';
 import type { ShortcutAction } from '../battle/shortcuts';
 import { shortcutFor } from '../battle/shortcuts';
-import { rejectionText, t, victoryReasonText } from '../i18n';
+import { plural, rejectionText, t, victoryReasonText } from '../i18n';
 import { downloadSave } from '../save/storage';
 import { useBattleStore } from '../stores/battle';
 import { useSettingsStore } from '../stores/settings';
@@ -16,7 +17,8 @@ import SettingsPanel from './SettingsPanel.vue';
 
 // The canvas brings Three.js and the renderer, so they load when the first battle starts.
 const BattleCanvas = defineAsyncComponent(() => import('./BattleCanvas.vue'));
-import ShortcutList from './ShortcutList.vue';
+import RulesHelp from './RulesHelp.vue';
+import TutorialCoach from './TutorialCoach.vue';
 import UnitPanel from './UnitPanel.vue';
 
 const emit = defineEmits<{ mainMenu: [] }>();
@@ -50,6 +52,17 @@ const result = computed(() => {
     color: sideColor(state.winner.player),
   };
 });
+/** What the battle cost both sides, for the result dialog. */
+const summary = computed(() => {
+  const { state, scenario } = store;
+  if (!state || !scenario || state.phase !== 'ended') return [];
+  return PLAYER_SLOTS.map((player) => ({
+    ...battleSummary(state, player),
+    name: sideName(scenario, player),
+    color: sideColor(player),
+  }));
+});
+
 const showResult = computed(
   () => result.value !== null && !resultDismissed.value && !overlay.value
 );
@@ -163,6 +176,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
     <DeploymentPanel v-if="store.state?.phase === 'deployment'" />
     <UnitPanel />
     <EventLog v-if="settings.showLog" />
+    <TutorialCoach v-if="!overlay && !handover" @main-menu="emit('mainMenu')" />
     <HexTooltip v-if="!overlay && !handover" :x="pointer.x" :y="pointer.y" />
 
     <p v-if="store.rejection" class="battle__rejection panel" role="alert" data-test="rejection">
@@ -221,7 +235,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
         {{ t('menu.settings') }}
       </button>
       <button class="button button--wide" type="button" @click="overlay = 'help'">
-        {{ t('menu.shortcuts') }}
+        {{ t('menu.help') }}
       </button>
       <button class="button button--wide" type="button" data-test="save-file" @click="saveToFile">
         {{ t('menu.saveFile') }}
@@ -244,8 +258,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
       <button class="button" type="button" @click="overlay = 'pause'">{{ t('menu.back') }}</button>
     </GameDialog>
 
-    <GameDialog v-else-if="overlay === 'help'" :title="t('keys.title')">
-      <ShortcutList />
+    <GameDialog v-else-if="overlay === 'help'" :title="t('help.title')" wide>
+      <RulesHelp />
       <button class="button" type="button" @click="overlay = null">{{ t('menu.resume') }}</button>
     </GameDialog>
 
@@ -255,9 +269,38 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
       :title="result.title"
       data-test="result"
     >
-      <p class="battle__text" :style="{ borderColor: result.color }">
+      <p class="battle__text battle__side" :style="{ borderColor: result.color }">
         {{ result.text }}
       </p>
+      <p class="battle__text muted">
+        {{
+          t('result.rounds', {
+            rounds: store.state?.turn ?? 0,
+            word: plural('rounds', store.state?.turn ?? 0),
+          })
+        }}
+      </p>
+      <table class="summary" data-test="summary">
+        <thead>
+          <tr>
+            <th />
+            <th>{{ t('result.standing') }}</th>
+            <th>{{ t('result.dead') }}</th>
+            <th>{{ t('result.fled') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="side in summary" :key="side.player">
+            <th scope="row">
+              <span class="summary__dot" :style="{ background: side.color }" />
+              {{ side.name }}
+            </th>
+            <td>{{ side.standing }} / {{ side.total }}</td>
+            <td>{{ side.dead }}</td>
+            <td>{{ side.fled }}</td>
+          </tr>
+        </tbody>
+      </table>
       <button class="button button--primary button--wide" type="button" @click="restart">
         {{ t('menu.restart') }}
       </button>
@@ -305,6 +348,36 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
   display: flex;
   justify-content: space-between;
   gap: 8px;
+}
+
+.summary {
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.summary th,
+.summary td {
+  padding: 4px 8px;
+  border-bottom: 1px solid rgb(255 255 255 / 8%);
+  text-align: center;
+  font-weight: normal;
+}
+
+.summary thead th {
+  color: var(--muted);
+}
+
+.summary tbody th {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+}
+
+.summary__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
 }
 
 /* The last blows are still being played out when the battle is decided. */

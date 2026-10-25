@@ -3,7 +3,7 @@ import { hex } from '../hex/hex';
 import { createMap, paintTerrain } from '../map/battleMap';
 import { hexagonHexes } from '../map/shapes';
 import type { TerrainId } from '../map/terrain';
-import { attackTargets, previewAttack } from './combat';
+import { attackFactors, attackTargets, previewAttack } from './combat';
 import type { AttackResolvedEvent, Command, GameEvent } from './command';
 import type { TestBattle } from './testSupport';
 import {
@@ -502,5 +502,44 @@ describe('previewAttack', () => {
 
     expect(preview('near')).toMatchObject({ kind: 'ranged', counterDamage: null });
     expect(preview('far')).toMatchObject({ code: 'outOfRange' });
+  });
+});
+
+describe('attackFactors', () => {
+  it('names what makes the attack stronger or weaker', () => {
+    const { state, defs } = terrainDuel('equites', 'principes', 'hill', 'forest');
+    const result = attackFactors(
+      state,
+      defs,
+      unitOf({ state, defs }, 'attacker') as FieldedUnit,
+      unitOf({ state, defs }, 'target') as FieldedUnit
+    );
+
+    expect(result.factors.map((factor) => [factor.id, factor.helps])).toEqual([
+      ['downhill', true],
+      ['terrainDefense', false],
+    ]);
+    expect(result.moraleLoss).toBe(2);
+    expect(result.encircled).toBe(false);
+  });
+
+  it('counts the flanking units and the cost to the morale of an encircled target', () => {
+    const battle = battleWith([
+      place('attacker', 'equites', 0, 0, 0),
+      place('left', 'hastati', 0, 1, -1),
+      place('right', 'hastati', 0, 2, -1),
+      place('target', 'velites', 1, 1, 0),
+    ]);
+    const result = attackFactors(
+      battle.state,
+      battle.defs,
+      unitOf(battle, 'attacker') as FieldedUnit,
+      unitOf(battle, 'target') as FieldedUnit
+    );
+
+    expect(result.factors).toContainEqual({ id: 'advantage', helps: true });
+    expect(result.factors).toContainEqual({ id: 'flank', value: 2, helps: true });
+    expect(result.encircled).toBe(true);
+    expect(result.moraleLoss).toBe(3);
   });
 });

@@ -168,6 +168,43 @@ describe('App', () => {
       expect(wrapper.find('input[name="difficulty"]').exists()).toBe(false);
     });
 
+    it('offers the training first until it is done', async () => {
+      const { settings } = mountApp();
+
+      expect(wrapper.find('nav button').attributes('data-test')).toBe('training');
+
+      settings.trainingDone = true;
+      await nextTick();
+
+      expect(wrapper.find('nav button').attributes('data-test')).toBe('new-battle');
+      expect(has('training')).toBe(true);
+    });
+
+    it('starts the training with its guide', async () => {
+      const { store } = mountApp();
+
+      await click('training');
+
+      expect(store.scenario?.id).toBe('training');
+      expect(has('coach')).toBe(true);
+      expect(has('coach-welcome')).toBe(true);
+      await click('coach-next');
+      expect(has('coach-select')).toBe(true);
+    });
+
+    it('explains the rules with the numbers of the game data', async () => {
+      mountApp();
+
+      await click('help');
+      expect(text('help')).toContain('nejvýš 20 kol');
+
+      await wrapper.find('[data-test="help-tab-units"]').trigger('click');
+      expect(text('help-unit-hastati')).toContain('Pilum');
+
+      await wrapper.find('[data-test="help-tab-terrain"]').trigger('click');
+      expect(text('help-terrain-river')).toContain('neprůchodné');
+    });
+
     it('changes the settings', async () => {
       const { settings } = mountApp();
 
@@ -425,6 +462,9 @@ describe('App', () => {
 
       expect(text('result')).toContain('Vítězství: Kartágo');
       expect(text('result')).toContain('armáda soupeře je zlomena');
+      expect(text('result')).toContain('Bitva trvala 1 kolo.');
+      expect(text('summary')).toContain('Řím');
+      expect(text('summary')).toContain('13 / 13');
     });
 
     it('announces a draw', async () => {

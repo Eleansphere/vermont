@@ -35,6 +35,7 @@ export const HIGHLIGHT_COLORS = {
   reach: 0xffffff,
   path: 0xffd84a,
   targets: 0xff4a3d,
+  zoc: 0xff9a3d,
   selected: 0xffd84a,
   hover: 0xffffff,
 } as const;

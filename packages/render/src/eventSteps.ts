@@ -23,6 +23,7 @@ const DEATH_LIE = 0.6;
 const FLEE_SECONDS = 0.35;
 const SWAP_SECONDS = 0.3;
 const DEPLOY_START_SCALE = 0.6;
+const DAMAGE_TEXT_COLOR = '#ff7a6b';
 
 /**
  * A moment of an animation that something outside the renderer may want to follow, such as a
@@ -80,13 +81,18 @@ export function eventSteps(event: GameEvent, context: StepContext): Step[] {
     case 'UnitRampaged':
       return [lunge(event.unitId, event.targetId, units, cue, 'rampage')];
     case 'UnitDamaged':
-      return [hit(event.unitId, event.hp, units, cue)];
+      return [hit(event.unitId, event.hp, event.damage, units, cue)];
     case 'UnitDied':
       return [die(event.unitId, units, cue)];
     case 'UnitFled':
       return [flee(event.unitId, units, cue)];
     case 'MoraleChanged':
-      return [{ duration: 0, begin: () => units.setMorale(event.unitId, event.moraleState) }];
+      return [
+        {
+          duration: 0,
+          begin: () => units.setMorale(event.unitId, event.moraleState, event.morale),
+        },
+      ];
     case 'UnitRallied':
       return [unitCue('rally', event.unitId, units, cue)];
     case 'UnitAmbushed':
@@ -268,7 +274,7 @@ function shot(
 }
 
 /** The unit flashes and its health bar drops. */
-function hit(unitId: string, hp: number, units: UnitLayer, cue: Cue): Step {
+function hit(unitId: string, hp: number, damage: number, units: UnitLayer, cue: Cue): Step {
   let view: UnitView | undefined;
   return {
     duration: HIT_SECONDS,
@@ -276,6 +282,7 @@ function hit(unitId: string, hp: number, units: UnitLayer, cue: Cue): Step {
       view = units.view(unitId);
       units.setHealth(unitId, hp);
       if (!view) return;
+      if (damage > 0) units.float(unitId, `−${damage}`, DAMAGE_TEXT_COLOR);
       units.pose(view, 'hit');
       cue('hurt', view);
     },

@@ -1,10 +1,16 @@
 <script setup lang="ts">
-defineProps<{ title: string }>();
+defineProps<{ title: string; wide?: boolean }>();
 </script>
 
 <template>
   <div class="dialog">
-    <section class="dialog__box panel" role="dialog" aria-modal="true" :aria-label="title">
+    <section
+      class="dialog__box panel"
+      :class="{ 'dialog__box--wide': wide }"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="title"
+    >
       <h2 class="dialog__title">{{ title }}</h2>
       <slot />
     </section>
@@ -27,6 +33,10 @@ defineProps<{ title: string }>();
   gap: 10px;
   width: min(420px, calc(100% - 32px));
   padding: 18px 20px;
+}
+
+.dialog__box--wide {
+  width: min(820px, calc(100% - 32px));
 }
 
 .dialog__title {

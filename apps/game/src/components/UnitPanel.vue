@@ -5,8 +5,10 @@ import { formatNumber } from '../battle/format';
 import { sideColor, unitLabel } from '../battle/labels';
 import { abilityText, archetypeName, moraleStateName, t } from '../i18n';
 import { useBattleStore } from '../stores/battle';
+import { useTutorialStore } from '../stores/tutorial';
 
 const store = useBattleStore();
+const tutorial = useTutorialStore();
 
 const view = computed(() => {
   const { state, defs, selectedUnit: unit } = store;
@@ -37,6 +39,10 @@ const view = computed(() => {
       spent: unit.spentAbilities.includes(id),
     })),
     hasRelief: state.phase === 'battle' && type.abilities.includes('lineRelief'),
+    strongAgainst: defs.rules.combat.advantages[type.archetype].map((archetype) =>
+      archetypeName(archetype).toLocaleLowerCase('cs')
+    ),
+    moved: unit.movementLeft < type.movement,
   };
 });
 
@@ -46,7 +52,12 @@ function share(value: number, max: number): string {
 </script>
 
 <template>
-  <aside v-if="view" class="unit panel" data-test="unit-panel">
+  <aside
+    v-if="view"
+    class="unit panel"
+    :class="{ spotlight: tutorial.spot === 'unitPanel' }"
+    data-test="unit-panel"
+  >
     <header class="unit__header" :style="{ borderColor: view.color }">
       <h3 class="unit__name">{{ view.label }}</h3>
       <span class="muted">{{ archetypeName(view.type.archetype) }}</span>
@@ -54,12 +65,13 @@ function share(value: number, max: number): string {
 
     <p v-if="view.inReserve" class="unit__state muted">{{ t('unit.inReserve') }}</p>
     <p v-else class="unit__state">
-      <span :class="`unit__morale unit__morale--${view.unit.moraleState}`">
+      <span class="pill" :class="`pill--${view.unit.moraleState}`">
         {{ moraleStateName(view.unit.moraleState) }}
       </span>
-      <span class="muted">
-        · {{ t(view.unit.hasAttacked ? 'unit.hasAttacked' : 'unit.canAttack') }}
+      <span class="pill" :class="{ 'pill--done': view.unit.hasAttacked }">
+        {{ t(view.unit.hasAttacked ? 'unit.hasAttacked' : 'unit.canAttack') }}
       </span>
+      <span v-if="view.moved" class="pill pill--done">{{ t('unit.hasMoved') }}</span>
     </p>
 
     <dl class="unit__bars">
@@ -85,11 +97,22 @@ function share(value: number, max: number): string {
       </div>
     </dl>
 
+    <p v-if="view.strongAgainst.length > 0" class="unit__strong" data-test="strong-against">
+      <span class="muted">{{ t('unit.strongAgainst') }}</span>
+      {{ view.strongAgainst.join(', ') }}
+    </p>
+
     <ul v-if="view.abilities.length > 0" class="unit__abilities">
-      <li v-for="ability in view.abilities" :key="ability.id" :title="ability.description">
-        <strong :class="{ 'unit__ability--spent': ability.spent }">{{ ability.name }}</strong>
+      <li
+        v-for="ability in view.abilities"
+        :key="ability.id"
+        class="ability"
+        :class="{ 'ability--spent': ability.spent }"
+        :title="ability.description"
+      >
+        <strong>{{ ability.name }}</strong>
         <span v-if="ability.spent" class="muted"> ({{ t('unit.spent') }})</span>
-        <span class="unit__ability-text muted">{{ ability.description }}</span>
+        <span class="ability__text muted">{{ ability.description }}</span>
       </li>
     </ul>
 
@@ -134,15 +157,41 @@ function share(value: number, max: number): string {
 }
 
 .unit__state,
-.unit__hint {
+.unit__hint,
+.unit__strong {
   margin: 0;
 }
 
-.unit__morale--shaken {
+.unit__state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.unit__strong {
+  font-size: 13px;
+}
+
+.pill {
+  padding: 1px 7px;
+  border-radius: 9px;
+  background: rgb(134 181 108 / 18%);
+  color: #b7dc9f;
+  font-size: 12px;
+}
+
+.pill--done {
+  background: rgb(255 255 255 / 8%);
+  color: var(--muted);
+}
+
+.pill--shaken {
+  background: rgb(217 180 90 / 20%);
   color: var(--accent);
 }
 
-.unit__morale--routing {
+.pill--routing {
+  background: rgb(224 104 90 / 20%);
   color: var(--danger);
 }
 
@@ -187,7 +236,7 @@ function share(value: number, max: number): string {
 }
 
 .bar__fill--morale {
-  background: var(--accent);
+  background: var(--morale);
 }
 
 .bar__fill--movement {
@@ -222,11 +271,23 @@ function share(value: number, max: number): string {
   list-style: none;
 }
 
-.unit__ability--spent {
+.ability {
+  padding: 4px 8px;
+  border-left: 2px solid var(--accent);
+  border-radius: 3px;
+  background: rgb(255 255 255 / 4%);
+}
+
+.ability--spent {
+  border-left-color: var(--panel-border);
+  opacity: 0.6;
+}
+
+.ability--spent strong {
   text-decoration: line-through;
 }
 
-.unit__ability-text {
+.ability__text {
   display: block;
   font-size: 12px;
 }

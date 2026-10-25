@@ -4,10 +4,12 @@ import { PLAYER_SLOTS } from '@vermont/core';
 import { armyStatus, sideColor, sideName } from '../battle/labels';
 import { t } from '../i18n';
 import { useBattleStore } from '../stores/battle';
+import { useTutorialStore } from '../stores/tutorial';
 
 defineEmits<{ endTurn: []; menu: [] }>();
 
 const store = useBattleStore();
+const tutorial = useTutorialStore();
 
 const armies = computed(() => {
   const { state, defs, scenario } = store;
@@ -19,6 +21,14 @@ const armies = computed(() => {
     active: state.phase !== 'ended' && state.activePlayer === player,
     status: armyStatus(state, defs, player),
   }));
+});
+
+/** How far the battle is towards the round limit, 0 to 1; `null` before it starts. */
+const roundShare = computed(() => {
+  const battle = store.state;
+  const limit = store.defs?.rules.roundLimit;
+  if (!battle || !limit || battle.phase === 'deployment') return null;
+  return Math.min(1, battle.turn / limit);
 });
 
 const phaseText = computed(() => {
@@ -56,6 +66,9 @@ function percent(share: number): string {
         <span class="army__name">
           <span class="army__dot" :style="{ background: army.color }" />
           {{ army.name }}
+          <span class="army__strength" data-test="army-strength">
+            {{ percent(army.status.strength) }}
+          </span>
         </span>
         <span class="army__count muted">
           {{ t('hud.army.fighting', { count: army.status.fighting, total: army.status.total })
@@ -75,17 +88,26 @@ function percent(share: number): string {
       </div>
     </div>
 
-    <div class="hud__turn panel" data-test="turn">
-      <span class="hud__phase">{{ phaseText }}</span>
-      <template v-if="activeSide">
-        <span class="muted">{{ t('hud.onTurn') }}</span>
-        <strong class="hud__side" :style="{ borderColor: activeSide.color }">
-          {{ activeSide.name }}
-        </strong>
-        <span v-if="store.aiOnTurn" class="muted" data-test="ai-on-turn">
-          {{ t('hud.aiOnTurn') }}
-        </span>
-      </template>
+    <div
+      class="hud__turn panel"
+      data-test="turn"
+      :style="{ borderTopColor: activeSide?.color ?? 'var(--panel-border)' }"
+    >
+      <div class="hud__turn-line">
+        <span class="hud__phase">{{ phaseText }}</span>
+        <template v-if="activeSide">
+          <span class="muted">{{ t('hud.onTurn') }}</span>
+          <strong class="hud__side" :style="{ color: activeSide.color }">
+            {{ activeSide.name }}
+          </strong>
+          <span v-if="store.aiOnTurn" class="hud__thinking muted" data-test="ai-on-turn">
+            {{ t('hud.aiOnTurn') }}
+          </span>
+        </template>
+      </div>
+      <span v-if="roundShare !== null" class="hud__rounds" :title="t('hud.roundLimit')">
+        <span class="hud__rounds-fill" :style="{ width: percent(roundShare) }" />
+      </span>
     </div>
 
     <div class="hud__actions panel">
@@ -101,6 +123,7 @@ function percent(share: number): string {
       <button
         v-if="store.state?.phase !== 'deployment'"
         class="button button--primary"
+        :class="{ spotlight: tutorial.spot === 'endTurn' }"
         type="button"
         data-test="end-turn"
         :disabled="store.state?.phase !== 'battle' || store.aiOnTurn"
@@ -159,6 +182,14 @@ function percent(share: number): string {
   font-size: 16px;
 }
 
+.army__strength {
+  margin-left: auto;
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
 .army__dot {
   width: 10px;
   height: 10px;
@@ -183,9 +214,39 @@ function percent(share: number): string {
 }
 
 .hud__turn {
+  display: grid;
+  gap: 6px;
+  border-top-width: 3px;
+}
+
+.hud__turn-line {
   display: flex;
   align-items: baseline;
   gap: 8px;
+}
+
+.hud__rounds {
+  height: 3px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 10%);
+  overflow: hidden;
+}
+
+.hud__rounds-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  opacity: 0.7;
+}
+
+.hud__thinking {
+  animation: thinking 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes thinking {
+  from {
+    opacity: 0.4;
+  }
 }
 
 .hud__phase {
@@ -195,7 +256,7 @@ function percent(share: number): string {
 }
 
 .hud__side {
-  border-bottom: 2px solid;
+  font-size: 15px;
 }
 
 .hud__actions {

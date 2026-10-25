@@ -51,3 +51,25 @@ export function armyStatus(state: BattleState, defs: BattleDefs, player: PlayerS
     strength: fullHealth > 0 ? health / fullHealth : 0,
   };
 }
+
+/** What a battle cost each side, for the result screen. */
+export interface BattleSummary {
+  readonly player: PlayerSlot;
+  readonly dead: number;
+  readonly fled: number;
+  /** Units still on the field at the end. */
+  readonly standing: number;
+  readonly total: number;
+}
+
+export function battleSummary(state: BattleState, player: PlayerSlot): BattleSummary {
+  const army = Object.values(state.units).filter((unit) => unit.owner === player);
+  const count = (status: Unit['status']) => army.filter((unit) => unit.status === status).length;
+  return {
+    player,
+    dead: count('dead'),
+    fled: count('fled'),
+    standing: count('active'),
+    total: army.length,
+  };
+}

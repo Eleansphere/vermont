@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { terrainMoveCost, unitTypeOf } from '@vermont/core';
+import type { AttackFactor, BattleDefs, DamageRange } from '@vermont/core';
+import { hexEquals, terrainMoveCost, unitTypeOf } from '@vermont/core';
 import { formatNumber, formatSigned } from '../battle/format';
 import { sideColor, sideName, unitLabel } from '../battle/labels';
-import { moraleStateName, t, terrainName } from '../i18n';
+import { moraleStateName, plural, t, terrainName } from '../i18n';
 import { useBattleStore } from '../stores/battle';
 
 /** Where the pointer is, in pixels from the corner of the battle screen. */
@@ -13,12 +14,38 @@ const store = useBattleStore();
 
 /** How far from the pointer the tooltip sits, so it never covers the hex it describes. */
 const OFFSET = 18;
+/** Room the tooltip needs; near the right or bottom edge it goes to the other side. */
+const WIDTH = 280;
+const HEIGHT = 260;
+
+function range({ min, max }: DamageRange): string {
+  return min === max ? `${min}` : `${min}–${max}`;
+}
+
+function factorText(factor: AttackFactor, defs: BattleDefs): string {
+  const value = factor.value ?? 0;
+  switch (factor.id) {
+    case 'advantage':
+      return t('tip.factor.advantage', { value: formatNumber(defs.rules.combat.advantageFactor) });
+    case 'flank':
+      return t('tip.factor.flank', {
+        count: value,
+        units: plural('units', value),
+        percent: Math.round(defs.rules.combat.flankBonus * value * 100),
+      });
+    case 'wounded':
+    case 'shaken':
+      return t(`tip.factor.${factor.id}`);
+    default:
+      return t(`tip.factor.${factor.id}`, { value: formatSigned(value) });
+  }
+}
 
 const view = computed(() => {
   const { state, defs, scenario, hoverInfo: info } = store;
   if (!state || !defs || !scenario || !info) return null;
 
-  const { terrain, unit, preview } = info;
+  const { terrain, unit, preview, factors } = info;
   // What the ground costs the selected unit, or anybody when no unit is selected.
   const mover = store.commandedUnit;
   const cost = mover
@@ -31,35 +58,51 @@ const view = computed(() => {
     terrain.isHill && t('tip.hill'),
     terrain.blocksSight && t('tip.blocksSight'),
   ].filter((fact): fact is string => typeof fact === 'string');
+  const type = unit && unitTypeOf(defs, unit);
 
   return {
     terrain: terrainName(terrain.id),
     facts,
     camp: info.campOf === null ? null : t('tip.camp', { side: sideName(scenario, info.campOf) }),
     fogged: info.fogged,
-    unit: unit && {
-      label: unitLabel(state, defs, unit),
-      color: sideColor(unit.owner),
-      hp: `${unit.hp}/${unitTypeOf(defs, unit).hp}`,
-      morale: moraleStateName(unit.moraleState),
-      moraleState: unit.moraleState,
-      attack: unitTypeOf(defs, unit).attack,
-      defense: unitTypeOf(defs, unit).defense,
-    },
+    mustStop: !unit && (store.highlights.zoc ?? []).some((stop) => hexEquals(stop, info.hex)),
+    unit: unit &&
+      type && {
+        label: unitLabel(state, defs, unit),
+        color: sideColor(unit.owner),
+        hp: unit.hp,
+        maxHp: type.hp,
+        morale: unit.morale,
+        maxMorale: defs.rules.morale.max,
+        moraleName: moraleStateName(unit.moraleState),
+        moraleState: unit.moraleState,
+        attack: type.attack,
+        defense: type.defense,
+      },
     preview: preview && {
       kind: t(`tip.kind.${preview.kind}`),
-      damage: t('tip.damage', { min: preview.damage.min, max: preview.damage.max }),
-      counter: preview.counterDamage
-        ? t('tip.counter', { min: preview.counterDamage.min, max: preview.counterDamage.max })
-        : t('tip.noCounter'),
+      dealt: range(preview.damage),
+      taken: preview.counterDamage ? range(preview.counterDamage) : null,
+      targetMorale: factors && t('tip.targetMorale', { loss: formatSigned(-factors.moraleLoss) }),
+      encircled: factors?.encircled ?? false,
+      factors: (factors?.factors ?? []).map((factor) => ({
+        text: factorText(factor, defs),
+        helps: factor.helps,
+      })),
     },
   };
 });
 
-const position = computed(() => ({
-  left: `${props.x + OFFSET}px`,
-  top: `${props.y + OFFSET}px`,
-}));
+const position = computed(() => {
+  const right = props.x + OFFSET + WIDTH > window.innerWidth;
+  const below = props.y + OFFSET + HEIGHT > window.innerHeight;
+  return {
+    left: `${right ? props.x - OFFSET - WIDTH : props.x + OFFSET}px`,
+    top: `${below ? Math.max(8, props.y - OFFSET - HEIGHT) : props.y + OFFSET}px`,
+  };
+});
+
+const percent = (value: number, max: number) => `${Math.round((value / max) * 100)}%`;
 </script>
 
 <template>
@@ -69,14 +112,33 @@ const position = computed(() => ({
       <span class="muted">{{ view.facts.join(' · ') }}</span>
     </div>
     <div v-if="view.camp" class="tip__camp">{{ view.camp }}</div>
+    <div v-if="view.mustStop" class="tip__stop" data-test="tooltip-stop">
+      {{ t('tip.mustStop') }}
+    </div>
     <div v-if="view.fogged" class="muted" data-test="tooltip-fog">{{ t('tip.fogged') }}</div>
 
     <div v-if="view.unit" class="tip__unit" :style="{ borderColor: view.unit.color }">
       <strong>{{ view.unit.label }}</strong>
-      <span>
-        {{ t('unit.hp') }} {{ view.unit.hp }} ·
-        <span :class="`tip__morale--${view.unit.moraleState}`">{{ view.unit.morale }}</span>
-      </span>
+      <div class="tip__meter">
+        <span class="muted">{{ t('unit.hp') }}</span>
+        <span class="tip__bar">
+          <span
+            class="tip__fill tip__fill--hp"
+            :style="{ width: percent(view.unit.hp, view.unit.maxHp) }"
+          />
+        </span>
+        <span>{{ view.unit.hp }}/{{ view.unit.maxHp }}</span>
+      </div>
+      <div class="tip__meter">
+        <span class="muted">{{ t('unit.morale') }}</span>
+        <span class="tip__bar">
+          <span
+            class="tip__fill tip__fill--morale"
+            :style="{ width: percent(view.unit.morale, view.unit.maxMorale) }"
+          />
+        </span>
+        <span :class="`tip__morale--${view.unit.moraleState}`">{{ view.unit.moraleName }}</span>
+      </div>
       <span class="muted">
         {{ t('unit.attack') }} {{ view.unit.attack }} · {{ t('unit.defense') }}
         {{ view.unit.defense }}
@@ -84,9 +146,33 @@ const position = computed(() => ({
     </div>
 
     <div v-if="view.preview" class="tip__preview" data-test="preview">
-      <strong>{{ t('tip.preview') }}</strong> <span class="muted">({{ view.preview.kind }})</span>
-      <span>{{ view.preview.damage }}</span>
-      <span>{{ view.preview.counter }}</span>
+      <div class="tip__preview-title">
+        <strong>{{ t('tip.preview') }}</strong>
+        <span class="muted">{{ view.preview.kind }}</span>
+      </div>
+      <div class="tip__outcome">
+        <div class="tip__number tip__number--dealt">
+          <span class="muted">{{ t('tip.dealt') }}</span>
+          <strong data-test="preview-dealt">{{ view.preview.dealt }}</strong>
+        </div>
+        <div class="tip__number tip__number--taken">
+          <span class="muted">{{ t('tip.taken') }}</span>
+          <strong data-test="preview-taken">{{ view.preview.taken ?? t('tip.none') }}</strong>
+        </div>
+      </div>
+      <div v-if="view.preview.targetMorale" class="tip__morale-loss">
+        {{ view.preview.targetMorale }}
+        <span v-if="view.preview.encircled" class="muted">({{ t('tip.encircled') }})</span>
+      </div>
+      <ul v-if="view.preview.factors.length > 0" class="tip__factors">
+        <li
+          v-for="factor in view.preview.factors"
+          :key="factor.text"
+          :class="factor.helps ? 'tip__factor--good' : 'tip__factor--bad'"
+        >
+          {{ factor.text }}
+        </li>
+      </ul>
     </div>
   </div>
 </template>
@@ -96,8 +182,9 @@ const position = computed(() => ({
   position: absolute;
   z-index: 5;
   display: grid;
-  gap: 6px;
-  max-width: 260px;
+  gap: 8px;
+  width: max-content;
+  max-width: 280px;
   padding: 8px 10px;
   font-size: 13px;
   pointer-events: none;
@@ -107,12 +194,39 @@ const position = computed(() => ({
 .tip__unit,
 .tip__preview {
   display: grid;
-  gap: 1px;
+  gap: 2px;
 }
 
 .tip__unit {
-  padding-left: 6px;
+  padding-left: 7px;
   border-left: 3px solid;
+}
+
+.tip__meter {
+  display: grid;
+  grid-template-columns: 56px 80px auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.tip__bar {
+  height: 5px;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 12%);
+  overflow: hidden;
+}
+
+.tip__fill {
+  display: block;
+  height: 100%;
+}
+
+.tip__fill--hp {
+  background: var(--good);
+}
+
+.tip__fill--morale {
+  background: var(--morale);
 }
 
 .tip__morale--shaken,
@@ -121,7 +235,74 @@ const position = computed(() => ({
 }
 
 .tip__morale--routing,
-.tip__preview strong {
+.tip__stop {
   color: var(--danger);
+}
+
+.tip__preview {
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.tip__preview-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tip__preview-title strong {
+  color: var(--accent);
+}
+
+.tip__outcome {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.tip__number {
+  display: grid;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 5%);
+}
+
+.tip__number strong {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.tip__number--dealt strong {
+  color: var(--good);
+}
+
+.tip__number--taken strong {
+  color: var(--danger);
+}
+
+.tip__factors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tip__factors li {
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.tip__factor--good {
+  background: rgb(134 181 108 / 20%);
+  color: #b7dc9f;
+}
+
+.tip__factor--bad {
+  background: rgb(224 104 90 / 20%);
+  color: #f0a79d;
 }
 </style>
