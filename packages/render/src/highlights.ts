@@ -1,18 +1,15 @@
+import type { BufferGeometry } from 'three';
 import {
-  BufferGeometry,
   CircleGeometry,
-  Float32BufferAttribute,
   Group,
   InstancedMesh,
   Matrix4,
-  DoubleSide,
-  Mesh,
   MeshBasicMaterial,
   RingGeometry,
 } from 'three';
 import type { Hex } from '@vermont/core';
-import { hexKey, hexNeighbors } from '@vermont/core';
 import { HEX_SIZE, hexToWorld } from './layout';
+import { HexOutline } from './outline';
 import { HIGHLIGHT_COLORS } from './palette';
 
 /** What the player should see marked on the map. Anything left out is not marked. */
@@ -34,8 +31,6 @@ const HEX_CORNERS = 6;
 const POINTY_TOP = Math.PI / 6;
 /** How far above the hex's top a mark floats, so it never fights the terrain for depth. */
 const LIFT = 0.03;
-/** Width of the line around the reach, and how far inside the hexes it is drawn. */
-const OUTLINE_WIDTH = 0.07;
 
 function disc(radius: number): BufferGeometry {
   return new CircleGeometry(HEX_SIZE * radius, HEX_CORNERS, POINTY_TOP).rotateX(-Math.PI / 2);
@@ -90,76 +85,6 @@ class HexMarks {
   }
 }
 
-/**
- * A line around a group of hexes: every side of a hex whose neighbour is not in the group.
- * Each side is a thin strip lying just inside its hex, at the height of that hex.
- */
-class HexOutline {
-  readonly mesh: Mesh<BufferGeometry, MeshBasicMaterial>;
-
-  constructor(
-    color: number,
-    opacity: number,
-    order: number,
-    private readonly surfaceHeight: (target: Hex) => number
-  ) {
-    const material = new MeshBasicMaterial({
-      color,
-      opacity,
-      transparent: true,
-      depthWrite: false,
-      side: DoubleSide,
-    });
-    this.mesh = new Mesh(new BufferGeometry(), material);
-    this.mesh.renderOrder = order;
-    this.mesh.frustumCulled = false;
-  }
-
-  /** How many sides the line runs along. */
-  sides = 0;
-
-  show(hexes: readonly Hex[]): void {
-    const inside = new Set(hexes.map(hexKey));
-    const positions: number[] = [];
-    const half = HEX_SIZE / 2;
-    for (const target of hexes) {
-      const center = hexToWorld(target);
-      const y = this.surfaceHeight(target) + LIFT;
-      for (const neighbor of hexNeighbors(target)) {
-        if (inside.has(hexKey(neighbor))) continue;
-        const next = hexToWorld(neighbor);
-        const length = Math.hypot(next.x - center.x, next.z - center.z);
-        // Towards the neighbour, and along the side the two hexes share.
-        const dx = (next.x - center.x) / length;
-        const dz = (next.z - center.z) / length;
-        const sideX = -dz * half;
-        const sideZ = dx * half;
-        const outerX = (center.x + next.x) / 2;
-        const outerZ = (center.z + next.z) / 2;
-        const innerX = outerX - dx * OUTLINE_WIDTH;
-        const innerZ = outerZ - dz * OUTLINE_WIDTH;
-        const a = [outerX - sideX, y, outerZ - sideZ];
-        const b = [outerX + sideX, y, outerZ + sideZ];
-        // The inner edge is a little shorter, so the strips meet at the hex's corners.
-        const shorten = OUTLINE_WIDTH / Math.sqrt(3) / half;
-        const c = [innerX + sideX * (1 - shorten), y, innerZ + sideZ * (1 - shorten)];
-        const d = [innerX - sideX * (1 - shorten), y, innerZ - sideZ * (1 - shorten)];
-        positions.push(...a, ...c, ...b, ...a, ...d, ...c);
-      }
-    }
-    this.sides = positions.length / 18;
-    const geometry = new BufferGeometry();
-    geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
-    this.mesh.geometry.dispose();
-    this.mesh.geometry = geometry;
-  }
-
-  dispose(): void {
-    this.mesh.geometry.dispose();
-    this.mesh.material.dispose();
-  }
-}
-
 /** The marks on the map: selection, reach, path, targets and the hex under the pointer. */
 export class HighlightLayer {
   readonly object = new Group();
@@ -181,9 +106,10 @@ export class HighlightLayer {
       return hexMarks;
     };
     this.reach = marks(disc(0.9), HIGHLIGHT_COLORS.reach, 0.16);
-    this.zoc = marks(ring(0.3, 0.44), HIGHLIGHT_COLORS.zoc, 0.9);
+    // A warm tint over the reach rather than a ring of its own, so it is not taken for a unit.
+    this.zoc = marks(disc(0.9), HIGHLIGHT_COLORS.zoc, 0.3);
     this.path = marks(disc(0.5), HIGHLIGHT_COLORS.path, 0.85);
-    this.targetFill = marks(disc(0.9), HIGHLIGHT_COLORS.targets, 0.3);
+    this.targetFill = marks(disc(0.9), HIGHLIGHT_COLORS.targets, 0.2);
     this.targets = marks(ring(0.7, 0.92), HIGHLIGHT_COLORS.targets, 0.95);
     this.selected = marks(ring(0.74, 0.92), HIGHLIGHT_COLORS.selected, 0.95, 1);
     this.hover = marks(ring(0.84, 0.94), HIGHLIGHT_COLORS.hover, 0.7, 1);

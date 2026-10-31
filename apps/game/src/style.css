@@ -76,6 +76,12 @@ h3 {
   width: 100%;
 }
 
+/* A button that switches something on, while it is on. */
+.button--on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .muted {
   color: var(--muted);
 }

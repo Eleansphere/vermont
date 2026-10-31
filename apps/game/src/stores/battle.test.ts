@@ -137,6 +137,11 @@ describe('battle store', () => {
   });
 
   describe('deployment', () => {
+    it('knows the army of the player at the screen is in their deployment zone', () => {
+      const store = deployingStore();
+      expect(store.armyHexes).toEqual(store.defs!.deploymentZones[store.viewer]);
+    });
+
     it('marks the hexes the selected unit can be put on', () => {
       const store = deployingStore();
       const unit = store.selectedUnit!;
@@ -276,6 +281,22 @@ describe('battle store', () => {
       expect(store.highlights.reach?.some((reachable) => hexEquals(reachable, unit.pos))).toBe(
         false
       );
+    });
+
+    it('sends the camera to the selected unit, or to the whole army without one', () => {
+      const store = startedStore();
+      const own = fieldedUnits(store.state!, store.viewer);
+
+      store.showSelected();
+      expect(store.focusRequest).toEqual({
+        kind: 'group',
+        hexes: own.map((unit) => unit.pos),
+        smooth: true,
+      });
+
+      store.selectAndShow(own[0]!.id);
+      expect(store.selectedUnitId).toBe(own[0]!.id);
+      expect(store.focusRequest).toEqual({ kind: 'hex', hex: own[0]!.pos });
     });
 
     it('does not select a unit of the other player', () => {

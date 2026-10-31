@@ -209,9 +209,11 @@ describe('App', () => {
       const { settings } = mountApp();
 
       await click('settings');
-      await wrapper.find('input[name="showLog"]').setValue(false);
+      await wrapper.find('input[name="logOpen"]').setValue(true);
+      await wrapper.find('input[name="followComputer"]').setValue(false);
 
-      expect(settings.showLog).toBe(false);
+      expect(settings.logOpen).toBe(true);
+      expect(settings.followComputer).toBe(false);
     });
 
     it('comes back to a battle that was left for the menu', async () => {
@@ -267,6 +269,7 @@ describe('App', () => {
       expect(store.state?.phase).toBe('battle');
       expect(has('deployment')).toBe(false);
       expect(text('turn')).toMatch(/^Kolo 1 z 20\s*na tahu\s*Řím$/);
+      await press('KeyL');
       expect(text('log')).toContain('Bitva začíná.');
     });
 
@@ -371,15 +374,15 @@ describe('App', () => {
       expect(store.state).toBe(before);
     });
 
-    it('hides and shows the log with L', async () => {
+    it('opens and closes the log with L and with its button', async () => {
       await startBattle(true);
-      expect(has('log')).toBe(true);
-
-      await press('KeyL');
       expect(has('log')).toBe(false);
 
       await press('KeyL');
       expect(has('log')).toBe(true);
+
+      await click('toggle-log');
+      expect(has('log')).toBe(false);
     });
 
     it('describes the hex under the pointer in a tooltip', async () => {

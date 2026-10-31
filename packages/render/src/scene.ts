@@ -17,12 +17,14 @@ import type {
   HexKey,
   PlayerSlot,
 } from '@vermont/core';
-import { hexEquals, mapHexes } from '@vermont/core';
+import { PLAYER_SLOTS, hexEquals, mapHexes } from '@vermont/core';
 import type { CameraView } from './camera';
 import {
   azimuthOf,
+  closeUpView,
   createIsometricCamera,
   frameView,
+  glideView,
   panView,
   placeCamera,
   resizeIsometricCamera,
@@ -35,10 +37,14 @@ import type { CueKind } from './eventSteps';
 import { eventSteps } from './eventSteps';
 import type { Highlights } from './highlights';
 import { HighlightLayer } from './highlights';
-import { boundsCenter, groundBounds } from './layout';
+import type { TerrainLabelText } from './terrainLabels';
+import { TerrainLabels } from './terrainLabels';
+import type { GroundPoint } from './layout';
+import { boundsCenter, clampToBounds, groundBounds, hexToWorld } from './layout';
 import { BACKGROUND_COLOR } from './palette';
 import type { MapPick, ScreenPoint } from './picking';
 import { Picker } from './picking';
+import { CampMarker } from './plate';
 import { createTerrainLayer } from './terrain';
 import { Timeline } from './timeline';
 import type { ModelKit } from './kit/load';
@@ -65,6 +71,15 @@ const TURN_SPEED = 10;
 const MAX_FRAME_SECONDS = 0.1;
 /** How long the frame rate is averaged over. */
 const STATS_WINDOW_MS = 1000;
+/** How fast the camera glides to a place it is sent to: the share of the rest covered per second. */
+const GLIDE_SPEED = 6;
+/** Close enough to the place the camera glides to, in world units. */
+const GLIDE_DONE = 0.02;
+/**
+ * How close a view of a group of hexes, such as the player's army, comes: a hex about this
+ * many CSS pixels wide, but no closer than this many times the view of the whole map.
+ */
+const CLOSE_UP = { hexPixels: 112, closest: 2 } as const;
 /** How often shadows follow the idling figures while nothing else moves. */
 const IDLE_SHADOW_SECONDS = 0.25;
 
@@ -81,6 +96,8 @@ export interface BattleSceneOptions {
   readonly kit?: ModelKit;
   /** A moment of an animation came, such as a blow landing; for the sounds. */
   onCue?(cue: AnimationCue): void;
+  /** What the terrain labels say about each kind of terrain; without it there are none. */
+  readonly terrainLabel?: TerrainLabelText;
 }
 
 /** A moment of an animation, and where on the screen it happens. */
@@ -118,10 +135,19 @@ export interface BattleScene {
   /** Animates what happened and ends up showing `state`, the state after the events. */
   play(events: readonly GameEvent[], state: BattleState, visible?: VisibleHexes): void;
   setHighlights(highlights: Highlights): void;
-  /** Draws these units as spent for the turn: darker, with faded bars. */
+  /** Draws these units as spent for the turn: darker, with grey plates. */
   setSpent(unitIds: Iterable<string>): void;
   /** True while events are still being animated; clicks are ignored meanwhile. */
   readonly animating: boolean;
+  /** Glides the camera to bring the hex to the middle of the screen. */
+  focus(target: Hex): void;
+  /**
+   * Brings the hexes, such as the player's army, into a closer view: at once, or gliding there
+   * when `smooth`. Asked before the canvas has a size, it happens as soon as it has one.
+   */
+  frame(group: readonly Hex[], smooth?: boolean): void;
+  /** Writes the terrain on the hexes, or takes it off again. */
+  showTerrain(on: boolean): void;
   /** Turns the camera by quarter turns. */
   rotate(steps: number): void;
   zoom(factor: number): void;
@@ -158,16 +184,34 @@ export function createBattleScene(
     options.unitModel ?? (options.kit ? figureUnitModels(options.kit.units) : undefined);
   const units = new UnitLayer(defs, terrain.surfaceHeight, unitModel);
   const highlights = new HighlightLayer(hexes.length, terrain.surfaceHeight);
+  const terrainLabels = new TerrainLabels(
+    defs,
+    terrain.surfaceHeight,
+    options.terrainLabel ?? (() => null)
+  );
   const effects = new Group();
+  const camps = PLAYER_SLOTS.flatMap((player) => {
+    const camp = defs.camps[player];
+    if (!camp) return [];
+    const marker = new CampMarker(player);
+    const { x, z } = hexToWorld(camp);
+    marker.object.position.x = x;
+    marker.object.position.z = z;
+    marker.object.position.y += terrain.surfaceHeight(camp);
+    return [marker];
+  });
   const sun = createSun();
   scene.add(
     new HemisphereLight(SKY_COLOR, GROUND_LIGHT_COLOR, AMBIENT_INTENSITY),
     sun,
     sun.target,
     terrain.object,
+    terrain.fog,
     highlights.object,
     units.object,
-    effects
+    effects,
+    terrainLabels.object,
+    ...camps.map((marker) => marker.object)
   );
 
   const camera = createIsometricCamera(1);
@@ -177,6 +221,10 @@ export function createBattleScene(
   let azimuth = azimuthOf(view.rotation);
   let framed = false;
   let hovered: Hex | null = null;
+  /** The place the camera is gliding to, if any; moving the view by hand stops it. */
+  let glide: { readonly target: GroundPoint; readonly zoom: number | null } | null = null;
+  /** A group to frame once the canvas has a size. */
+  let pendingFrame: readonly Hex[] | null = null;
   /** Set while animations are skipped to their end, which nobody should hear. */
   let skipping = false;
   const projected = new Vector3();
@@ -231,6 +279,30 @@ export function createBattleScene(
     if (!framed) {
       view = frameView(bounds, aspect, view.rotation);
       framed = true;
+      if (pendingFrame) frameGroup(pendingFrame, false);
+      pendingFrame = null;
+    }
+  }
+
+  function frameGroup(group: readonly Hex[], smooth: boolean): void {
+    const { clientWidth, clientHeight } = canvas;
+    if (group.length === 0) return;
+    if (!framed || clientWidth === 0 || clientHeight === 0) {
+      pendingFrame = group;
+      return;
+    }
+    const close = closeUpView(
+      groundBounds(group),
+      bounds,
+      { width: clientWidth, height: clientHeight },
+      view.rotation,
+      CLOSE_UP
+    );
+    if (smooth) {
+      glide = { target: close.target, zoom: close.zoom };
+    } else {
+      glide = null;
+      view = close;
     }
   }
 
@@ -250,16 +322,20 @@ export function createBattleScene(
     },
     hover,
     drag(deltaX, deltaY) {
+      glide = null;
       const scale = worldUnitsPerPixel(canvas.clientHeight || 1);
       view = panView(view, -deltaX * scale, deltaY * scale, bounds);
     },
     zoom(factor) {
+      // Zooming by hand wins over a zoom the camera was gliding to.
+      if (glide) glide = { ...glide, zoom: null };
       view = zoomView(view, factor);
     },
     rotate(steps) {
       view = rotateView(view, steps);
     },
     nudge(right, up) {
+      glide = null;
       view = panView(view, right * KEY_PAN_STEP, up * KEY_PAN_STEP, bounds);
     },
   });
@@ -298,8 +374,18 @@ export function createBattleScene(
     }
     timeline.update(seconds);
     units.update(seconds);
+    if (glide) {
+      const goalZoom = glide.zoom ?? view.zoom;
+      view = glideView(view, glide.target, GLIDE_SPEED * seconds, goalZoom);
+      const left = Math.hypot(glide.target.x - view.target.x, glide.target.z - view.target.z);
+      if (left < GLIDE_DONE && Math.abs(goalZoom - view.zoom) < GLIDE_DONE) glide = null;
+    }
     azimuth += (azimuthOf(view.rotation) - azimuth) * Math.min(1, TURN_SPEED * seconds);
     placeCamera(camera, view, azimuth);
+    const worldPerPixel = worldUnitsPerPixel(canvas.clientHeight || 1) / view.zoom;
+    units.setPixelSize(worldPerPixel);
+    terrainLabels.setPixelSize(worldPerPixel);
+    for (const marker of camps) marker.setPixelSize(worldPerPixel);
     renderer.render(scene, camera);
   }
 
@@ -321,15 +407,33 @@ export function createBattleScene(
         { duration: 0, end: () => show(state, visible) }
       );
     },
-    setHighlights: (marks) => highlights.set(marks),
+    setHighlights(marks) {
+      highlights.set(marks);
+      const unitOn = (target: Hex) => units.viewAt(target)?.unitId;
+      units.setMarks(
+        (marks.selected && unitOn(marks.selected)) ?? null,
+        (marks.targets ?? []).flatMap((target) => unitOn(target) ?? [])
+      );
+    },
     setSpent: (unitIds) => units.setSpent(unitIds),
     get animating() {
       return !timeline.idle;
+    },
+    focus(target) {
+      glide = { target: clampToBounds(hexToWorld(target), bounds), zoom: null };
+    },
+    frame(group, smooth = false) {
+      frameGroup(group, smooth);
+    },
+    showTerrain(on) {
+      terrainLabels.show(on);
     },
     rotate(steps) {
       view = rotateView(view, steps);
     },
     zoom(factor) {
+      // Zooming by hand wins over a zoom the camera was gliding to.
+      if (glide) glide = { ...glide, zoom: null };
       view = zoomView(view, factor);
     },
     resize,
@@ -343,6 +447,8 @@ export function createBattleScene(
       detachControls();
       skipAnimations();
       units.dispose();
+      for (const marker of camps) marker.dispose();
+      terrainLabels.dispose();
       highlights.dispose();
       terrain.dispose();
       sun.dispose();

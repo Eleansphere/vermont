@@ -47,6 +47,11 @@ export interface FigureRecipe {
 
 /** Height of a figure standing on the ground, in world units; a hex is 2 across. */
 export const FIGURE_HEIGHT = 0.72;
+/**
+ * Men on foot stand three to a hex and a fifth taller than riders, so a unit reads as a few
+ * clear figures rather than a crowd.
+ */
+const FOOT_SCALE = 1.2;
 const HORSE_LENGTH = 0.95;
 /** How high a rider's hips sit above the ground. */
 const SADDLE_HEIGHT = 0.34;
@@ -111,7 +116,7 @@ const punicHelmet = (): Gear => ({
 export const FIGURE_RECIPES: Readonly<Record<string, FigureRecipe>> = {
   hastati: {
     body: 'king',
-    count: 4,
+    count: 3,
     filter: kingFilter,
     gear: (side) => [
       ...romanHelmet(CREST_BLACK, 0.05),
@@ -121,7 +126,7 @@ export const FIGURE_RECIPES: Readonly<Record<string, FigureRecipe>> = {
   },
   principes: {
     body: 'king',
-    count: 4,
+    count: 3,
     filter: kingFilter,
     gear: (side) => [
       ...romanHelmet(CREST_RED, 0.09),
@@ -131,17 +136,17 @@ export const FIGURE_RECIPES: Readonly<Record<string, FigureRecipe>> = {
   },
   triarii: {
     body: 'king',
-    count: 4,
+    count: 3,
     filter: kingFilter,
     gear: (side) => [
       ...romanHelmet(CREST_RED, 0.05),
       { bone: LEFT_HAND, geometry: mounted(scutum(), shieldOnArm), color: side },
-      { bone: RIGHT_HAND, geometry: mounted(spear(1.3), spearInHand), color: WOOD },
+      { bone: RIGHT_HAND, geometry: mounted(spear(1.05), spearInHand), color: WOOD },
     ],
   },
   velites: {
     body: 'adventurer',
-    count: 4,
+    count: 3,
     filter: adventurerFilter,
     gear: (side) => [
       { bone: LEFT_HAND, geometry: mounted(roundShield(0.11), shieldOnArm), color: side },
@@ -161,24 +166,24 @@ export const FIGURE_RECIPES: Readonly<Record<string, FigureRecipe>> = {
   },
   'balearic-slingers': {
     body: 'hooded',
-    count: 4,
+    count: 3,
     ranged: true,
     filter: hoodedFilter,
     gear: () => [],
   },
   'libyan-spearmen': {
     body: 'king',
-    count: 4,
+    count: 3,
     filter: kingFilter,
     gear: (side) => [
       punicHelmet(),
       { bone: LEFT_HAND, geometry: mounted(roundShield(0.15), shieldOnArm), color: side },
-      { bone: RIGHT_HAND, geometry: mounted(spear(1.3), spearInHand), color: WOOD },
+      { bone: RIGHT_HAND, geometry: mounted(spear(1.05), spearInHand), color: WOOD },
     ],
   },
   'gallic-mercenaries': {
     body: 'adventurer',
-    count: 4,
+    count: 3,
     filter: adventurerFilter,
     gear: (side) => [
       { bone: LEFT_HAND, geometry: mounted(ovalShield(), shieldOnArm), color: side },
@@ -431,7 +436,9 @@ export function figureUnitModels(
       slot.rotation.y = (jitter - 0.5) * 0.3;
 
       const person = instantiate(figure, material);
-      person.scale.multiplyScalar(FIGURE_HEIGHT / figure.height);
+      person.scale.multiplyScalar(
+        (FIGURE_HEIGHT / figure.height) * (recipe.mount ? 1 : FOOT_SCALE)
+      );
       let seat: Object3D = slot;
       if (horse) {
         const mount = instantiate(horse, material);

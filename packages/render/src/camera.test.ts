@@ -12,8 +12,11 @@ import {
   resizeIsometricCamera,
   rotateView,
   zoomView,
+  glideView,
+  closeUpView,
+  worldUnitsPerPixel,
 } from './camera';
-import { groundBounds } from './layout';
+import { HEX_WIDTH, groundBounds } from './layout';
 
 const WIDE = { minX: -100, maxX: 100, minZ: -100, maxZ: 100 };
 
@@ -107,5 +110,48 @@ describe('isometric camera', () => {
         expect(Math.abs(corner.y)).toBeLessThanOrEqual(1);
       }
     }
+  });
+});
+
+describe('gliding', () => {
+  it('moves the target part of the way and gets there in the end', () => {
+    const goal = { x: 10, z: -4 };
+
+    const half = glideView(DEFAULT_VIEW, goal, 0.5);
+    expect(half.target).toEqual({ x: 5, z: -2 });
+    expect(half.zoom).toBe(DEFAULT_VIEW.zoom);
+    expect(glideView(half, goal, 1).target).toEqual(goal);
+    expect(glideView(DEFAULT_VIEW, goal, 3).target).toEqual(goal);
+  });
+
+  it('glides the zoom too when asked to', () => {
+    const half = glideView(DEFAULT_VIEW, DEFAULT_VIEW.target, 0.5, DEFAULT_VIEW.zoom + 1);
+    expect(half.zoom).toBeCloseTo(DEFAULT_VIEW.zoom + 0.5);
+  });
+});
+
+describe('close-up', () => {
+  const map = groundBounds(mapHexes(MAPS.trebia!));
+  const canvas = { width: 1600, height: 900 };
+  const whole = frameView(map, 16 / 9).zoom;
+  const army = groundBounds([
+    { q: 2, r: 9 },
+    { q: 8, r: 10 },
+  ]);
+
+  it('comes close enough for a hex of the asked size, centred on the part', () => {
+    const view = closeUpView(army, map, canvas, 0, { hexPixels: 112, closest: 2 });
+    const hexPixels = (HEX_WIDTH * view.zoom) / worldUnitsPerPixel(canvas.height);
+
+    expect(hexPixels).toBeCloseTo(112);
+    expect(view.target.x).toBeCloseTo((army.minX + army.maxX) / 2);
+    expect(view.target.z).toBeCloseTo((army.minZ + army.maxZ) / 2);
+  });
+
+  it('stays between the view of the whole map and the closest it may come', () => {
+    expect(closeUpView(army, map, canvas, 0, { hexPixels: 1000, closest: 2 }).zoom).toBeCloseTo(
+      whole * 2
+    );
+    expect(closeUpView(army, map, canvas, 0, { hexPixels: 1, closest: 2 }).zoom).toBeCloseTo(whole);
   });
 });

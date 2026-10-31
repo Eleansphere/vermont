@@ -1,12 +1,14 @@
 import type { BufferGeometry, Material } from 'three';
 import {
   BoxGeometry,
+  CircleGeometry,
   Color,
   ConeGeometry,
   CylinderGeometry,
   Group,
   InstancedMesh,
   Matrix4,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   Quaternion,
   Vector3,
@@ -14,6 +16,7 @@ import {
 import type { BattleDefs, Hex, HexKey, PlayerSlot, TerrainId } from '@vermont/core';
 import { PLAYER_SLOTS, hexKey, hexNeighbors, mapHexes } from '@vermont/core';
 import { HEX_SIZE, hexToWorld } from './layout';
+import { HexOutline } from './outline';
 import { PEAK_COLOR, PLAYER_COLORS, TERRAIN_STYLES, TREE_COLOR } from './palette';
 
 /** Hexes are drawn slightly smaller than they are, so the gaps between them show the grid. */
@@ -35,7 +38,19 @@ const TENT_RADIUS = 0.5;
 const TENT_HEIGHT = 0.7;
 const TENT_SIDES = 4;
 /** How much of its colour a hex keeps while it lies in the fog of war. */
-const FOG_SHADE = 0.42;
+const FOG_SHADE = 0.62;
+/**
+ * The grey-blue haze laid over the hexes in the fog, so they look unseen rather than just
+ * darker grass, and the edge of what the player sees shows as the edge of the haze.
+ */
+const MIST_COLOR = 0x8c97ad;
+const MIST_OPACITY = 0.5;
+const MIST_LIFT = 0.012;
+/** The line along the edge of what the player sees. */
+const SIGHT_LINE_COLOR = 0xe8edf5;
+const SIGHT_LINE_OPACITY = 0.55;
+/** Turns a disc so that its corners match a pointy-top hex. */
+const POINTY_TOP = Math.PI / 6;
 const UNSHADED = 0xffffff;
 
 /** A mesh of the terrain kit: one tile or one decoration, in the kit's own units. */
@@ -95,7 +110,19 @@ export interface TerrainLayer {
   hexOfInstance(mesh: InstancedMesh, instanceId: number): Hex | undefined;
   /** Height of the hex's top, where units and highlights are put; 0 off the map. */
   surfaceHeight(target: Hex): number;
-  /** Darkens the hexes outside `visible`, with all that stands on them; `null` lifts the fog. */
+  /**
+   * The fog: the haze over the hexes in it and a line along its edge. Kept apart from
+   * `object`, whose meshes are all hexes and what stands on them.
+   */
+  readonly fog: Group;
+  /** The haze over the hexes in the fog. */
+  readonly mist: InstancedMesh;
+  /** How many sides of hexes the line along the edge of the fog runs along. */
+  readonly sightLineSides: number;
+  /**
+   * Darkens the hexes outside `visible`, with all that stands on them, and lays the haze over
+   * them; `null` lifts the fog.
+   */
   setFog(visible: ReadonlySet<HexKey> | null): void;
   /** Whether the hex is drawn darkened by the fog. */
   isFogged(target: Hex): boolean;
@@ -346,9 +373,41 @@ export function createTerrainLayer(defs: BattleDefs, kit?: TerrainKit): TerrainL
     );
   }
 
+  const allHexes = mapHexes(defs.map);
+  const mist = new InstancedMesh(
+    new CircleGeometry(HEX_SIZE * HEX_FILL, HEX_CORNERS, POINTY_TOP).rotateX(-Math.PI / 2),
+    new MeshBasicMaterial({
+      color: MIST_COLOR,
+      opacity: MIST_OPACITY,
+      transparent: true,
+      depthWrite: false,
+    }),
+    allHexes.length
+  );
+  mist.count = 0;
+  mist.frustumCulled = false;
+  disposables.push(mist.geometry, mist.material);
+  const sightLine = new HexOutline(SIGHT_LINE_COLOR, SIGHT_LINE_OPACITY, 1, surfaceHeight);
+  disposables.push(sightLine);
+  const fog = new Group();
+  fog.add(mist, sightLine.mesh);
+
   const isFogged = (target: Hex) => fogged !== null && !fogged.has(hexKey(target));
   const setFog = (visible: ReadonlySet<HexKey> | null): void => {
     fogged = visible;
+    const matrix = new Matrix4();
+    const hazy = allHexes.filter(isFogged);
+    hazy.forEach((mapHex, index) => {
+      const { x, z } = hexToWorld(mapHex);
+      mist.setMatrixAt(index, matrix.makeTranslation(x, surfaceHeight(mapHex) + MIST_LIFT, z));
+    });
+    mist.count = hazy.length;
+    mist.instanceMatrix.needsUpdate = true;
+    // The line runs between what is seen and the fog, not along the edge of the map.
+    sightLine.show(
+      visible ? allHexes.filter((mapHex) => !isFogged(mapHex)) : [],
+      new Set(hazy.map(hexKey))
+    );
     const color = new Color();
     for (const { mesh, hexes, colors } of shaded) {
       hexes.forEach((mapHex, index) => {
@@ -366,6 +425,11 @@ export function createTerrainLayer(defs: BattleDefs, kit?: TerrainKit): TerrainL
     pickTargets: [...hexesByMesh.keys()],
     hexOfInstance: (mesh, instanceId) => hexesByMesh.get(mesh)?.[instanceId],
     surfaceHeight,
+    fog,
+    mist,
+    get sightLineSides() {
+      return sightLine.sides;
+    },
     setFog,
     isFogged,
     dispose() {

@@ -7,7 +7,7 @@ export const TRAINING_PLAYER: PlayerSlot = 0;
 export const TRAINING_SEED = 218;
 
 /** What a step points at on the screen, so the player knows where to look. */
-export type TutorialSpot = 'endTurn' | 'unitPanel' | 'log';
+export type TutorialSpot = 'endTurn' | 'unitPanel' | 'armyBar' | 'log';
 
 /** What the training knows when it checks whether a step is done. */
 export interface TutorialContext {
@@ -39,7 +39,7 @@ export const TUTORIAL_STEPS: readonly TutorialStep[] = [
   {
     id: 'select',
     text: 'tutorial.select',
-    spot: 'unitPanel',
+    spot: 'armyBar',
     done: ({ state, selectedUnitId }) => selectedUnitId !== null && ownUnit(state, selectedUnitId),
   },
   {

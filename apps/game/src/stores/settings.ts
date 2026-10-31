@@ -5,7 +5,10 @@ import { defineStore } from 'pinia';
 export interface Settings {
   /** Ask before ending a turn in which some units could still act. */
   confirmEndTurn: boolean;
-  showLog: boolean;
+  /** The event log is open beside the map; closed, the turn summary tells what happened. */
+  logOpen: boolean;
+  /** The camera follows what the computer does on its turn. */
+  followComputer: boolean;
   /** Volumes from 0 to 100; every other volume is a share of the master one. */
   masterVolume: number;
   effectsVolume: number;
@@ -21,7 +24,8 @@ export const SETTINGS_STORAGE_KEY = 'vermont.settings';
 
 const DEFAULTS: Readonly<Settings> = {
   confirmEndTurn: true,
-  showLog: true,
+  logOpen: false,
+  followComputer: true,
   masterVolume: 100,
   effectsVolume: 80,
   musicVolume: 50,
@@ -52,7 +56,8 @@ function loadSettings(): Settings {
 export const useSettingsStore = defineStore('settings', () => {
   const loaded = loadSettings();
   const confirmEndTurn = ref(loaded.confirmEndTurn);
-  const showLog = ref(loaded.showLog);
+  const logOpen = ref(loaded.logOpen);
+  const followComputer = ref(loaded.followComputer);
   const masterVolume = ref(loaded.masterVolume);
   const effectsVolume = ref(loaded.effectsVolume);
   const musicVolume = ref(loaded.musicVolume);
@@ -62,7 +67,8 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const current = (): Settings => ({
     confirmEndTurn: confirmEndTurn.value,
-    showLog: showLog.value,
+    logOpen: logOpen.value,
+    followComputer: followComputer.value,
     masterVolume: masterVolume.value,
     effectsVolume: effectsVolume.value,
     musicVolume: musicVolume.value,
@@ -81,7 +87,8 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     confirmEndTurn,
-    showLog,
+    logOpen,
+    followComputer,
     masterVolume,
     effectsVolume,
     musicVolume,

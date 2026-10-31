@@ -3,13 +3,17 @@ import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue';
 import { createBattleScene } from '@vermont/render';
 import type { BattleScene, ModelKit, RenderStats } from '@vermont/render';
 import { playCue } from '../audio/gameAudio';
+import { eventFocus } from '../battle/focus';
+import { formatSigned } from '../battle/format';
 import { modelKit } from '../battle/modelKit';
-import { t } from '../i18n';
+import { t, terrainName } from '../i18n';
 import { useBattleStore } from '../stores/battle';
+import { useSettingsStore } from '../stores/settings';
 
 const STATS_REFRESH_MS = 500;
 
 const store = useBattleStore();
+const settings = useSettingsStore();
 const canvas = useTemplateRef<HTMLCanvasElement>('canvas');
 
 // The Three.js scene lives outside Vue reactivity on purpose.
@@ -33,10 +37,20 @@ function buildScene(): void {
     onPick: (pick) => store.pick(pick),
     onHover: (pick) => store.hover(pick?.hex ?? null),
     onCue: playCue,
+    // Plain ground goes without a label; the rest say what they are and how they cover.
+    terrainLabel: (terrain) =>
+      terrain.id === 'plain'
+        ? null
+        : terrain.defenseBonus === 0
+          ? terrainName(terrain.id)
+          : `${terrainName(terrain.id)} ${formatSigned(terrain.defenseBonus)}`,
   });
   scene.sync(store.shown.state, store.shown.visible);
   scene.setHighlights(store.highlights);
   scene.setSpent(store.spentUnitIds);
+  scene.showTerrain(store.terrainShown);
+  // The battle opens on the player's own army, close enough to tell the units apart.
+  scene.frame(store.armyHexes);
 }
 
 function toggleStats(event: KeyboardEvent): void {
@@ -68,6 +82,11 @@ watch(
     if (!played) return;
     if (played.from) scene?.sync(played.from.state, played.from.visible);
     scene?.play(played.events, played.state, played.visible);
+    // On the computer's turn the camera goes where it acts, so the player sees what it does.
+    if (store.aiOnTurn && settings.followComputer) {
+      const place = eventFocus(played.events, played.state);
+      if (place) scene?.focus(place);
+    }
   }
 );
 watch(
@@ -75,8 +94,19 @@ watch(
   (highlights) => scene?.setHighlights(highlights)
 );
 watch(
+  () => store.terrainShown,
+  (on) => scene?.showTerrain(on)
+);
+watch(
   () => store.spentUnitIds,
   (spent) => scene?.setSpent(spent)
+);
+watch(
+  () => store.focusRequest,
+  (request) => {
+    if (request?.kind === 'hex') scene?.focus(request.hex);
+    else if (request?.kind === 'group') scene?.frame(request.hexes, request.smooth);
+  }
 );
 
 onBeforeUnmount(() => {

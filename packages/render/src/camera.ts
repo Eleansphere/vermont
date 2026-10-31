@@ -1,6 +1,6 @@
 import { OrthographicCamera } from 'three';
 import type { GroundBounds, GroundPoint } from './layout';
-import { boundsCenter, clampToBounds } from './layout';
+import { HEX_WIDTH, boundsCenter, clampToBounds } from './layout';
 
 /** Half of the world height visible at zoom 1. */
 const VIEW_HALF_HEIGHT = 10;
@@ -128,4 +128,47 @@ export function frameView(bounds: GroundBounds, aspect: number, rotation = 0): C
 /** World units one pixel covers at zoom 1 on a canvas of the given height. */
 export function worldUnitsPerPixel(canvasHeight: number): number {
   return (2 * VIEW_HALF_HEIGHT) / canvasHeight;
+}
+
+/**
+ * Moves the view's target `share` of the way to `goal` (0 to 1), for a camera that glides to
+ * a place instead of jumping there.
+ */
+export function glideView(
+  view: CameraView,
+  goal: GroundPoint,
+  share: number,
+  goalZoom: number = view.zoom
+): CameraView {
+  const step = Math.min(Math.max(share, 0), 1);
+  return {
+    ...view,
+    target: {
+      x: view.target.x + (goal.x - view.target.x) * step,
+      z: view.target.z + (goal.z - view.target.z) * step,
+    },
+    zoom: view.zoom + (goalZoom - view.zoom) * step,
+  };
+}
+
+/**
+ * A closer view of a part of the map, such as the player's army: `part` in the middle, close
+ * enough that a hex is about `hexPixels` wide on a canvas `canvasHeight` pixels tall, but never
+ * further than the view of the whole `map` nor closer than `closest` times it.
+ */
+export function closeUpView(
+  part: GroundBounds,
+  map: GroundBounds,
+  canvas: { readonly width: number; readonly height: number },
+  rotation: number,
+  { hexPixels, closest }: { readonly hexPixels: number; readonly closest: number }
+): CameraView {
+  const whole = frameView(map, canvas.width / canvas.height, rotation).zoom;
+  const wanted = (hexPixels * worldUnitsPerPixel(canvas.height)) / HEX_WIDTH;
+  const zoom = Math.min(Math.max(wanted, whole), whole * closest);
+  return {
+    target: clampToBounds(boundsCenter(part), map),
+    zoom: clampZoom(zoom),
+    rotation,
+  };
 }

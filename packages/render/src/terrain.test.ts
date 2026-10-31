@@ -55,11 +55,17 @@ describe('terrain layer', () => {
     expect(fogged.isFogged(lit)).toBe(false);
     expect(fogged.isFogged(wood)).toBe(true);
     brightness().forEach((sum, index) => expect(sum).toBeLessThan(clear[index]!));
+    // Every hex but the lit one lies under the haze.
+    expect(fogged.mist.count).toBe(mapHexes(defs.map).length - 1);
+    // A line runs between the lit hex in the corner and the fog: two sides, none along the edge.
+    expect(fogged.sightLineSides).toBe(2);
 
     fogged.setFog(null);
 
     expect(fogged.isFogged(wood)).toBe(false);
     expect(brightness()).toEqual(clear);
+    expect(fogged.mist.count).toBe(0);
+    expect(fogged.sightLineSides).toBe(0);
   });
 
   it('has a style for every terrain in the data', () => {

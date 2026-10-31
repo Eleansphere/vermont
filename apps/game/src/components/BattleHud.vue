@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { PLAYER_SLOTS } from '@vermont/core';
-import { armyStatus, sideColor, sideName } from '../battle/labels';
-import { t } from '../i18n';
+import { armyStatus, campDistance, sideColor, sideName } from '../battle/labels';
+import { plural, t } from '../i18n';
 import { useBattleStore } from '../stores/battle';
+import { useSettingsStore } from '../stores/settings';
 import { useTutorialStore } from '../stores/tutorial';
 
 defineEmits<{ endTurn: []; menu: [] }>();
 
 const store = useBattleStore();
+const settings = useSettingsStore();
 const tutorial = useTutorialStore();
 
 const armies = computed(() => {
@@ -46,6 +48,15 @@ const activeSide = computed(() => {
     name: sideName(store.scenario, battle.activePlayer),
     color: sideColor(battle.activePlayer),
   };
+});
+
+/** The goal of the player at the screen: the enemy camp, and how far their nearest unit is. */
+const goal = computed(() => {
+  const { known, defs, viewer } = store;
+  if (!known || !defs || known.phase !== 'battle') return null;
+  const distance = campDistance(known, defs, viewer);
+  if (distance === null) return null;
+  return t('hud.goal', { distance, hexes: plural('hexes', distance) });
 });
 
 function percent(share: number): string {
@@ -90,10 +101,9 @@ function percent(share: number): string {
 
     <div
       class="hud__turn panel"
-      data-test="turn"
       :style="{ borderTopColor: activeSide?.color ?? 'var(--panel-border)' }"
     >
-      <div class="hud__turn-line">
+      <div class="hud__turn-line" data-test="turn">
         <span class="hud__phase">{{ phaseText }}</span>
         <template v-if="activeSide">
           <span class="muted">{{ t('hud.onTurn') }}</span>
@@ -105,6 +115,9 @@ function percent(share: number): string {
           </span>
         </template>
       </div>
+      <span v-if="goal" class="hud__goal muted" data-test="goal" :title="t('hud.goalHint')">
+        {{ goal }}
+      </span>
       <span v-if="roundShare !== null" class="hud__rounds" :title="t('hud.roundLimit')">
         <span class="hud__rounds-fill" :style="{ width: percent(roundShare) }" />
       </span>
@@ -133,6 +146,28 @@ function percent(share: number): string {
         <span v-if="store.readyUnits.length > 0" class="hud__ready">
           {{ store.readyUnits.length }}
         </span>
+      </button>
+      <button
+        class="button"
+        :class="{ 'button--on': settings.logOpen, spotlight: tutorial.spot === 'log' }"
+        type="button"
+        data-test="toggle-log"
+        :aria-pressed="settings.logOpen"
+        :title="t('hud.logHint')"
+        @click="settings.logOpen = !settings.logOpen"
+      >
+        {{ t('hud.log') }}
+      </button>
+      <button
+        class="button"
+        :class="{ 'button--on': store.terrainShown }"
+        type="button"
+        data-test="toggle-terrain"
+        :aria-pressed="store.terrainShown"
+        :title="t('hud.terrainHint')"
+        @click="store.toggleTerrain()"
+      >
+        {{ t('hud.terrain') }}
       </button>
       <button class="button" type="button" data-test="menu" @click="$emit('menu')">
         {{ t('hud.menu') }}
@@ -223,6 +258,10 @@ function percent(share: number): string {
   display: flex;
   align-items: baseline;
   gap: 8px;
+}
+
+.hud__goal {
+  font-size: 12px;
 }
 
 .hud__rounds {

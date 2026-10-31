@@ -1,4 +1,12 @@
-import { FACTIONS, isFielded, isFighting, unitTypeOf } from '@vermont/core';
+import {
+  FACTIONS,
+  fieldedUnits,
+  hexDistance,
+  isFielded,
+  isFighting,
+  opponentOf,
+  unitTypeOf,
+} from '@vermont/core';
 import type { BattleDefs, BattleState, PlayerSlot, ScenarioDef, Unit } from '@vermont/core';
 // From the palette alone, so the menu does not pull in Three.js.
 import { PLAYER_COLORS } from '@vermont/render/palette';
@@ -72,4 +80,21 @@ export function battleSummary(state: BattleState, player: PlayerSlot): BattleSum
     standing: count('active'),
     total: army.length,
   };
+}
+
+/**
+ * How far the side's nearest unit still in the fight is from the opponent's camp, in hexes;
+ * `null` when the opponent has no camp or the side has nobody to send.
+ */
+export function campDistance(
+  state: BattleState,
+  defs: BattleDefs,
+  player: PlayerSlot
+): number | null {
+  const camp = defs.camps[opponentOf(player)];
+  if (!camp) return null;
+  const distances = fieldedUnits(state, player)
+    .filter(isFighting)
+    .map((unit) => hexDistance(unit.pos, camp));
+  return distances.length > 0 ? Math.min(...distances) : null;
 }

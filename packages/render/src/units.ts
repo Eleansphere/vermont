@@ -22,29 +22,21 @@ import type {
   Unit,
 } from '@vermont/core';
 import { hexEquals, isFielded, unitTypeOf } from '@vermont/core';
-import { HEX_SIZE, hexToWorld } from './layout';
+import { HEX_SIZE, HEX_WIDTH, hexToWorld } from './layout';
+import { unitIcon } from './icons';
 import { PLAYER_COLORS } from './palette';
+import type { PlateLook } from './plate';
+import { PLATE_HEIGHT, UnitPlate, healthShare } from './plate';
 import type { UnitModel, UnitModelFactory, UnitPose } from './unitModels';
 import { placeholderUnitModel } from './unitModels';
 
-const HEALTH_BAR_WIDTH = 0.9;
-const HEALTH_BAR_HEIGHT = 0.11;
-/** Height of the health bar above the ground the unit stands on. */
-const HEALTH_BAR_LIFT = 1.55;
+/** Height above the ground the unit stands on where its plate begins. */
+const PLATE_LIFT = 1.25;
 /** The column a click on a unit hits: its figures, whatever shape they have. */
 const PICK_RADIUS = 0.5;
 const PICK_HEIGHT = 0.85;
-const HEALTH_BAR_BACK_COLOR = 0x15171c;
-const HEALTH_COLORS = { good: 0x6fd35a, hurt: 0xf0c13c, bad: 0xe5533d } as const;
-/** The thin strip under the health bar that shows the unit's morale. */
-const MORALE_BAR_HEIGHT = 0.05;
-const MORALE_BAR_GAP = 0.03;
-const MORALE_COLOR = 0x8fc3ff;
-/** How thick the frame in the side's colour around the bars is. */
-const BADGE_FRAME = 0.05;
-/** How much a unit that cannot do anything more this turn is darkened, and its badge faded. */
+/** How much a unit that cannot do anything more this turn is darkened. */
 const SPENT_SHADE = 0.5;
-const SPENT_BADGE_OPACITY = 0.45;
 /** The ring in the side's colour on the ground around each unit, so the sides tell apart. */
 const OWNER_RING_INNER = 0.66;
 const OWNER_RING_OUTER = 0.78;
@@ -52,31 +44,30 @@ const OWNER_RING_OPACITY = 0.85;
 const OWNER_RING_LIFT = 0.025;
 /** Turns a ring so that its corners match a pointy-top hex. */
 const POINTY_TOP = Math.PI / 6;
-/** A number that rises from a unit when it is hit, and fades away. */
+/** A number that rises from above a unit's plate when it is hit, and fades away; in CSS pixels. */
 const FLOAT_SECONDS = 1.2;
-const FLOAT_RISE = 0.7;
-const FLOAT_LIFT = HEALTH_BAR_LIFT + 0.25;
-const FLOAT_HEIGHT = 0.42;
-const HURT_BELOW = 0.66;
-const BAD_BELOW = 0.33;
-/** Space between the health bar and the morale marker beside it. */
-const MARKER_GAP = 0.16;
-const MARKER_SIZE = 0.26;
-const MARKER_LOOKS: Readonly<
-  Record<Exclude<MoraleState, 'steady'>, { color: string; sign: string }>
-> = {
-  shaken: { color: '#f0c13c', sign: '!' },
-  routing: { color: '#e5533d', sign: '»' },
-};
+const FLOAT_RISE = 26;
+const FLOAT_HEIGHT = 22;
+const FLOAT_GAP = 4;
+/** How much shorter a height looks on the screen than across it, seen from the camera's tilt. */
+const UPRIGHT_SHRINK = Math.sqrt(2 / 3);
+/** One CSS pixel in the world until the scene says otherwise: a 900 pixel tall canvas at zoom 1. */
+const DEFAULT_WORLD_PER_PIXEL = 20 / 900;
+/**
+ * Zoomed out so far that a hex is narrower than this on the screen, in CSS pixels, the plates
+ * shrink with the map, down to the smallest share, so they do not pile up into one heap.
+ */
+const PLATES_SHRINK_BELOW = 64;
+const SMALLEST_PLATE = 0.5;
 const FLASH_COLOR = new Color(0xffffff);
 const NO_GLOW = new Color(0x000000);
 
-/** A unit as drawn: the model, its health bar and where the renderer currently shows it. */
+/** A unit as drawn: the model, its plate and where the renderer currently shows it. */
 export interface UnitView {
   readonly unitId: string;
   readonly owner: PlayerSlot;
   readonly archetype: Archetype;
-  /** Moves over the map; never turns, so the health bar stays level. */
+  /** Moves over the map; never turns, so the plate stays level. */
   readonly object: Group;
   /** Turns to face where the unit goes or strikes. */
   readonly model: Object3D;
@@ -90,7 +81,7 @@ export interface UnitView {
 export class UnitLayer {
   readonly object = new Group();
   private readonly views = new Map<string, UnitView>();
-  private readonly bars = new Map<string, UnitBadge>();
+  private readonly plates = new Map<string, UnitPlate>();
   private readonly spent = new Set<string>();
   private readonly floaters: Floater[] = [];
   private readonly ownerRing = new RingGeometry(
@@ -109,7 +100,10 @@ export class UnitLayer {
         depthWrite: false,
       })
   );
-  private readonly markers = new Map<string, MoraleMarker>();
+  /** One CSS pixel in the world, for what keeps its size on the screen at every zoom. */
+  private worldPerPixel = DEFAULT_WORLD_PER_PIXEL;
+  /** The same for the plates, which shrink when the map is zoomed far out. */
+  private plateWorldPerPixel = DEFAULT_WORLD_PER_PIXEL;
   private readonly pickables = new Map<string, Mesh>();
   // Never drawn, only hit: raycasting a column is cheap and does not depend on the figures.
   private readonly pickGeometry = new CylinderGeometry(
@@ -145,7 +139,7 @@ export class UnitLayer {
   }
 
   /**
-   * Darkens the units that cannot do anything more this turn and fades their badges; every
+   * Darkens the units that cannot do anything more this turn and greys their plates; every
    * other unit is drawn as usual.
    */
   setSpent(unitIds: Iterable<string>): void {
@@ -156,9 +150,34 @@ export class UnitLayer {
       if (isSpent) this.spent.add(view.unitId);
       else this.spent.delete(view.unitId);
       this.shade(view, isSpent ? SPENT_SHADE : 1);
-      this.bars.get(view.unitId)?.setOpacity(isSpent ? SPENT_BADGE_OPACITY : 1);
-      this.markers.get(view.unitId)?.setOpacity(isSpent ? SPENT_BADGE_OPACITY : 1);
+      this.plates.get(view.unitId)?.update({ spent: isSpent });
     }
+  }
+
+  /** Rings the plate of the selected unit and of the units it can attack. */
+  setMarks(selectedId: string | null, targetIds: Iterable<string>): void {
+    const targets = new Set(targetIds);
+    for (const [unitId, plate] of this.plates) {
+      const mark = unitId === selectedId ? 'selected' : targets.has(unitId) ? 'target' : null;
+      if (plate.look.mark !== mark) plate.update({ mark });
+    }
+  }
+
+  /** What the unit's plate shows. */
+  plateLook(unitId: string): PlateLook | undefined {
+    return this.plates.get(unitId)?.look;
+  }
+
+  /**
+   * Tells how big one CSS pixel is in the world at the current zoom, so the plates and the
+   * rising numbers keep their size on the screen.
+   */
+  setPixelSize(worldPerPixel: number): void {
+    this.worldPerPixel = worldPerPixel;
+    const hexPixels = HEX_WIDTH / worldPerPixel;
+    const share = Math.min(1, Math.max(SMALLEST_PLATE, hexPixels / PLATES_SHRINK_BELOW));
+    this.plateWorldPerPixel = worldPerPixel * share;
+    for (const plate of this.plates.values()) plate.setPixelSize(this.plateWorldPerPixel);
   }
 
   /** Whether the unit is drawn as spent for this turn. */
@@ -195,12 +214,20 @@ export class UnitLayer {
     ring.position.y = OWNER_RING_LIFT;
     ring.renderOrder = 1;
     object.add(ring);
-    const bar = new UnitBadge(type.hp, this.defs.rules.morale.max, PLAYER_COLORS[unit.owner]);
-    bar.object.position.y = HEALTH_BAR_LIFT;
-    object.add(bar.object);
-    const marker = new MoraleMarker();
-    marker.object.position.set(HEALTH_BAR_WIDTH / 2 + MARKER_GAP, HEALTH_BAR_LIFT, 0);
-    object.add(marker.object);
+    const plate = new UnitPlate({
+      owner: unit.owner,
+      icon: unitIcon(this.defs.unitTypes, type),
+      hp: unit.hp,
+      maxHp: type.hp,
+      morale: unit.morale,
+      maxMorale: this.defs.rules.morale.max,
+      moraleState: unit.moraleState,
+      spent: false,
+      mark: null,
+    });
+    plate.object.position.y = PLATE_LIFT;
+    plate.setPixelSize(this.plateWorldPerPixel);
+    object.add(plate.object);
 
     const view: UnitView = {
       unitId: unit.id,
@@ -211,14 +238,11 @@ export class UnitLayer {
       figures,
       hex: target,
     };
-    this.markers.set(unit.id, marker);
-    marker.set(unit.moraleState);
     this.views.set(unit.id, view);
-    this.bars.set(unit.id, bar);
+    this.plates.set(unit.id, plate);
     this.object.add(object);
     this.place(view, target);
-    bar.set(unit.hp);
-    bar.setMorale(unit.morale);
+    figures.setStrength?.(healthShare(plate.look));
     return view;
   }
 
@@ -227,11 +251,9 @@ export class UnitLayer {
     if (!view) return;
     this.object.remove(view.object);
     view.figures.dispose();
-    this.bars.get(unitId)?.dispose();
-    this.markers.get(unitId)?.dispose();
+    this.plates.get(unitId)?.dispose();
     this.views.delete(unitId);
-    this.bars.delete(unitId);
-    this.markers.delete(unitId);
+    this.plates.delete(unitId);
     this.pickables.delete(unitId);
     this.spent.delete(unitId);
   }
@@ -242,7 +264,15 @@ export class UnitLayer {
     for (const floater of [...this.floaters]) {
       floater.age += seconds;
       const progress = Math.min(1, floater.age / FLOAT_SECONDS);
-      floater.sprite.position.y = floater.startY + FLOAT_RISE * progress;
+      const aspect = floater.aspect;
+      floater.sprite.scale.set(
+        FLOAT_HEIGHT * aspect * this.worldPerPixel,
+        FLOAT_HEIGHT * this.worldPerPixel,
+        1
+      );
+      const above = PLATE_HEIGHT + FLOAT_GAP + FLOAT_RISE * progress;
+      floater.sprite.position.y =
+        floater.startY + PLATE_LIFT + (above * this.worldPerPixel) / UPRIGHT_SHRINK;
       floater.sprite.material.opacity = progress < 0.6 ? 1 : 1 - (progress - 0.6) / 0.4;
       if (progress >= 1) this.dropFloater(floater);
     }
@@ -259,12 +289,13 @@ export class UnitLayer {
     const material = new SpriteMaterial({ map: texture, depthTest: false, transparent: true });
     const sprite = new Sprite(material);
     const aspect = texture.image.width / texture.image.height;
-    sprite.scale.set(FLOAT_HEIGHT * aspect, FLOAT_HEIGHT, 1);
+    sprite.center.set(0.5, 0);
     sprite.renderOrder = 13;
-    const startY = view.object.position.y + FLOAT_LIFT;
+    const startY = view.object.position.y;
     sprite.position.set(view.object.position.x, startY, view.object.position.z);
     this.object.add(sprite);
-    this.floaters.push({ sprite, age: 0, startY });
+    this.floaters.push({ sprite, age: 0, startY, aspect });
+    this.update(0);
   }
 
   /** How many rising numbers are on the screen. */
@@ -291,8 +322,9 @@ export class UnitLayer {
 
   /** Shows the unit's morale state, and its morale when it is known. */
   setMorale(unitId: string, state: MoraleState, morale?: number): void {
-    this.markers.get(unitId)?.set(state);
-    if (morale !== undefined) this.bars.get(unitId)?.setMorale(morale);
+    this.plates
+      .get(unitId)
+      ?.update({ moraleState: state, ...(morale !== undefined && { morale }) });
   }
 
   /** Where a unit stands on the hex, in world coordinates. */
@@ -314,10 +346,10 @@ export class UnitLayer {
   }
 
   setHealth(unitId: string, hp: number): void {
-    const bar = this.bars.get(unitId);
-    if (!bar) return;
-    bar.set(hp);
-    this.views.get(unitId)?.figures.setStrength?.(bar.share(hp));
+    const plate = this.plates.get(unitId);
+    if (!plate) return;
+    plate.update({ hp });
+    this.views.get(unitId)?.figures.setStrength?.(healthShare(plate.look));
   }
 
   /** Multiplies the colours of the model's materials; 1 draws the unit as it was made. */
@@ -370,7 +402,10 @@ export class UnitLayer {
 interface Floater {
   readonly sprite: Sprite;
   age: number;
+  /** Height of the ground under the unit it rises from. */
   readonly startY: number;
+  /** Width of the text over its height. */
+  readonly aspect: number;
 }
 
 /** Bold text with a dark edge, drawn on a canvas; `null` where there is no canvas. */
@@ -397,147 +432,4 @@ function textTexture(text: string, color: string): CanvasTexture | null {
 
 function materialsOf(mesh: Mesh): Material[] {
   return Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-}
-
-/**
- * The bars above the unit that always face the screen: health, and morale in a thin strip
- * under it, both framed in the colour of the unit's side.
- */
-class UnitBadge {
-  readonly object = new Group();
-  private readonly fill: Sprite;
-  private readonly moraleFill: Sprite;
-  private readonly materials: SpriteMaterial[];
-
-  constructor(
-    private readonly maxHp: number,
-    private readonly maxMorale: number,
-    sideColor: number
-  ) {
-    const frameMaterial = new SpriteMaterial({ color: sideColor, depthTest: false });
-    const backMaterial = new SpriteMaterial({ color: HEALTH_BAR_BACK_COLOR, depthTest: false });
-    const fillMaterial = new SpriteMaterial({ color: HEALTH_COLORS.good, depthTest: false });
-    const moraleMaterial = new SpriteMaterial({ color: MORALE_COLOR, depthTest: false });
-    this.materials = [frameMaterial, backMaterial, fillMaterial, moraleMaterial];
-
-    // The health bar sits at the badge's origin, the morale strip under it.
-    const moraleY = -(HEALTH_BAR_HEIGHT + MORALE_BAR_HEIGHT) / 2 - MORALE_BAR_GAP;
-    const innerHeight = HEALTH_BAR_HEIGHT + MORALE_BAR_GAP + MORALE_BAR_HEIGHT;
-    const innerY = (HEALTH_BAR_HEIGHT / 2 + moraleY - MORALE_BAR_HEIGHT / 2) / 2;
-
-    const frame = new Sprite(frameMaterial);
-    frame.scale.set(HEALTH_BAR_WIDTH + 2 * BADGE_FRAME, innerHeight + 2 * BADGE_FRAME, 1);
-    frame.position.y = innerY;
-    frame.renderOrder = 9;
-    const back = new Sprite(backMaterial);
-    back.scale.set(HEALTH_BAR_WIDTH + 0.02, innerHeight + 0.02, 1);
-    back.position.y = innerY;
-    back.renderOrder = 10;
-    this.fill = new Sprite(fillMaterial);
-    this.fill.renderOrder = 11;
-    this.moraleFill = new Sprite(moraleMaterial);
-    this.moraleFill.position.y = moraleY;
-    this.moraleFill.renderOrder = 11;
-    this.object.add(frame, back, this.fill, this.moraleFill);
-  }
-
-  /** How much of the unit is left, 0 to 1. */
-  share(hp: number): number {
-    return Math.min(Math.max(hp / this.maxHp, 0), 1);
-  }
-
-  set(hp: number): void {
-    const share = this.share(hp);
-    stretch(this.fill, share, HEALTH_BAR_HEIGHT);
-    if (share === 0) return;
-    const color =
-      share < BAD_BELOW
-        ? HEALTH_COLORS.bad
-        : share < HURT_BELOW
-          ? HEALTH_COLORS.hurt
-          : HEALTH_COLORS.good;
-    this.fill.material.color.set(color);
-  }
-
-  setMorale(morale: number): void {
-    stretch(this.moraleFill, Math.min(Math.max(morale / this.maxMorale, 0), 1), MORALE_BAR_HEIGHT);
-  }
-
-  setOpacity(opacity: number): void {
-    for (const material of this.materials) {
-      material.opacity = opacity;
-      material.transparent = opacity < 1;
-    }
-  }
-
-  dispose(): void {
-    for (const material of this.materials) material.dispose();
-  }
-}
-
-/** Fills `share` of a bar, anchored to its left end whichever way the camera looks. */
-function stretch(bar: Sprite, share: number, height: number): void {
-  bar.visible = share > 0;
-  if (share === 0) return;
-  bar.scale.set(HEALTH_BAR_WIDTH * share, height, 1);
-  bar.center.set(1 / (2 * share), 0.5);
-}
-
-/** A round sign beside the health bar: yellow when the unit is shaken, red when it routs. */
-class MoraleMarker {
-  readonly object: Sprite;
-  private readonly textures = new Map<MoraleState, CanvasTexture>();
-
-  constructor() {
-    this.object = new Sprite(new SpriteMaterial({ depthTest: false }));
-    this.object.scale.set(MARKER_SIZE, MARKER_SIZE, 1);
-    this.object.renderOrder = 12;
-    this.object.visible = false;
-  }
-
-  setOpacity(opacity: number): void {
-    this.object.material.opacity = opacity;
-    this.object.material.transparent = true;
-  }
-
-  set(state: MoraleState): void {
-    this.object.visible = state !== 'steady';
-    if (state === 'steady') return;
-    this.object.material.map = this.texture(state);
-    this.object.material.needsUpdate = true;
-  }
-
-  private texture(state: Exclude<MoraleState, 'steady'>): CanvasTexture | null {
-    const cached = this.textures.get(state);
-    if (cached) return cached;
-    if (typeof document === 'undefined') return null;
-    const size = 64;
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const context = canvas.getContext('2d');
-    if (!context) return null;
-    const look = MARKER_LOOKS[state];
-    context.fillStyle = '#15171c';
-    context.beginPath();
-    context.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = look.color;
-    context.beginPath();
-    context.arc(size / 2, size / 2, size / 2 - 5, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = '#15171c';
-    context.font = 'bold 44px sans-serif';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(look.sign, size / 2, size / 2 + 2);
-    const texture = new CanvasTexture(canvas);
-    this.textures.set(state, texture);
-    return texture;
-  }
-
-  dispose(): void {
-    for (const texture of this.textures.values()) texture.dispose();
-    this.object.material.dispose();
-  }
 }

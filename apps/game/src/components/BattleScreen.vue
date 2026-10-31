@@ -8,6 +8,7 @@ import { plural, rejectionText, t, victoryReasonText } from '../i18n';
 import { downloadSave } from '../save/storage';
 import { useBattleStore } from '../stores/battle';
 import { useSettingsStore } from '../stores/settings';
+import ArmyBar from './ArmyBar.vue';
 import BattleHud from './BattleHud.vue';
 import DeploymentPanel from './DeploymentPanel.vue';
 import EventLog from './EventLog.vue';
@@ -18,6 +19,7 @@ import SettingsPanel from './SettingsPanel.vue';
 // The canvas brings Three.js and the renderer, so they load when the first battle starts.
 const BattleCanvas = defineAsyncComponent(() => import('./BattleCanvas.vue'));
 import RulesHelp from './RulesHelp.vue';
+import TurnSummary from './TurnSummary.vue';
 import TutorialCoach from './TutorialCoach.vue';
 import UnitPanel from './UnitPanel.vue';
 
@@ -128,9 +130,11 @@ const ACTIONS: Readonly<Record<ShortcutAction, () => void>> = {
   next: () => store.selectNext(1),
   previous: () => store.selectNext(-1),
   relief: () => store.toggleRelief(),
-  toggleLog: () => (settings.showLog = !settings.showLog),
+  toggleLog: () => (settings.logOpen = !settings.logOpen),
   escape,
   help: () => (overlay.value = 'help'),
+  show: () => store.showSelected(),
+  terrain: () => store.toggleTerrain(),
 };
 
 function onKeyDown(event: KeyboardEvent): void {
@@ -175,7 +179,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
     <BattleHud @end-turn="requestEndTurn" @menu="overlay = 'pause'" />
     <DeploymentPanel v-if="store.state?.phase === 'deployment'" />
     <UnitPanel />
-    <EventLog v-if="settings.showLog" />
+    <ArmyBar v-if="!handover" />
+    <EventLog v-if="settings.logOpen" />
+    <TurnSummary v-if="!overlay && !handover" />
     <TutorialCoach v-if="!overlay && !handover" @main-menu="emit('mainMenu')" />
     <HexTooltip v-if="!overlay && !handover" :x="pointer.x" :y="pointer.y" />
 

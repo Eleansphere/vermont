@@ -13,7 +13,8 @@ describe('settings store', () => {
     const settings = useSettingsStore();
 
     expect(settings.confirmEndTurn).toBe(true);
-    expect(settings.showLog).toBe(true);
+    expect(settings.logOpen).toBe(false);
+    expect(settings.followComputer).toBe(true);
     expect(settings.effectsVolume).toBe(80);
     expect(settings.musicVolume).toBe(50);
     expect(settings.ambientVolume).toBe(60);
@@ -21,16 +22,16 @@ describe('settings store', () => {
   });
 
   it('keeps a change for the next visit', async () => {
-    useSettingsStore().showLog = false;
+    useSettingsStore().logOpen = true;
     await nextTick();
 
     setActivePinia(createPinia());
 
-    expect(useSettingsStore().showLog).toBe(false);
+    expect(useSettingsStore().logOpen).toBe(true);
     expect(useSettingsStore().confirmEndTurn).toBe(true);
   });
 
-  it.each(['not json', '[]', 'null', '{"showLog":"no","confirmEndTurn":0}'])(
+  it.each(['not json', '[]', 'null', '{"logOpen":"no","confirmEndTurn":0}'])(
     'falls back to the defaults when storage holds %s',
     (saved) => {
       localStorage.setItem(SETTINGS_STORAGE_KEY, saved);
@@ -38,7 +39,8 @@ describe('settings store', () => {
       const settings = useSettingsStore();
 
       expect(settings.confirmEndTurn).toBe(true);
-      expect(settings.showLog).toBe(true);
+      expect(settings.logOpen).toBe(false);
+      expect(settings.followComputer).toBe(true);
     }
   );
 

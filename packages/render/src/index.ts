@@ -8,6 +8,7 @@ export type {
 } from './scene';
 export type { CueKind } from './eventSteps';
 export type { Highlights } from './highlights';
+export type { TerrainLabelText } from './terrainLabels';
 export type { MapPick } from './picking';
 export { PLAYER_COLORS } from './palette';
 export { placeholderUnitModel } from './unitModels';

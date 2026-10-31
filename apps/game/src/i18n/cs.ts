@@ -55,23 +55,23 @@ export const cs = {
     'tutorial.next': 'Další',
     'tutorial.skip': 'Skrýt výcvik',
     'tutorial.welcome':
-      'Vítej ve výcviku. Velíš Římu (červené kruhy) proti Kartágu (fialové). Vyhraješ, když vstoupíš do tábora soupeře nebo rozeženeš celou jeho armádu. Projdeme to krok po kroku.',
+      'Vítej ve výcviku. Velíš Římu (červené štítky) proti Kartágu (fialové). Vyhraješ, když vstoupíš do tábora soupeře (praporec nad ním, vzdálenost ukazuje horní lišta) nebo rozeženeš celou jeho armádu. Projdeme to krok po kroku.',
     'tutorial.select':
-      'Klikni na svou jednotku (nebo stiskni Tab). Vlevo dole se ukáže její panel: zdraví, morálka, pohyb a schopnosti.',
+      'Klikni na svou jednotku na mapě nebo v liště armády dole (nebo stiskni Tab). Vlevo dole se ukáže její panel: zdraví, morálka, pohyb a schopnosti. Štítek nad jednotkou ukazuje typ, životy a morálku.',
     'tutorial.move':
       'Bílá čára ohraničuje, kam se jednotka v tomto tahu dostane. Klikni na hex uvnitř a jednotka tam dojde. Kopec před tebou dává obranu a výhled navíc.',
     'tutorial.endTurn':
-      'Každá jednotka se může v tahu jednou pohnout a jednou zaútočit. Pohni i ostatními a pak ukonči tah tlačítkem vpravo nahoře nebo Enterem. Ztmavené jednotky už nemůžou nic.',
+      'Každá jednotka se může v tahu jednou pohnout a jednou zaútočit. Pohni i ostatními a pak ukonči tah tlačítkem vpravo nahoře nebo Enterem. Jednotky se šedým štítkem už nemůžou nic, v liště dole hned vidíš, kdo ještě může jednat.',
     'tutorial.contact':
-      'Soupeř se blíží. Oranžový kroužek značí zónu kontroly: hex vedle nepřítele, kde se jednotka musí zastavit. Postav se k nepříteli.',
+      'Soupeř se blíží. Oranžově podbarvený hex značí zónu kontroly: hex vedle nepřítele, kde se jednotka musí zastavit. Postav se k nepříteli.',
     'tutorial.attack':
-      'Červeně označení nepřátelé jsou na dosah. Najeď na cíl myší: karta ukáže ztráty obou stran a co útok zesiluje nebo oslabuje. Klikni a zaútoč.',
+      'Nepřátelé s červeným kroužkem a rámečkem štítku jsou na dosah. Najeď na cíl myší: karta ukáže ztráty obou stran a co útok zesiluje nebo oslabuje. Klikni a zaútoč.',
     'tutorial.morale':
-      'Zásah bere zdraví i morálku (modrá linka pod zdravím). Otřesená jednotka (žlutý vykřičník) útočí slabší, zlomená (červený znak) utíká a neposlouchá. Útoč víc jednotkami na jeden cíl: obklíčení přidává sílu a bere víc morálky.',
+      'Zásah bere životy (číslo na štítku) i morálku (modrá linka pod ním). Otřesená jednotka (žlutý vykřičník) útočí slabší, zlomená (červený znak ») utíká a neposlouchá. Útoč víc jednotkami na jeden cíl: obklíčení přidává sílu a bere víc morálky.',
     'tutorial.abilities':
       'Schopnosti najdeš v panelu jednotky. Hastáti mají pilum, silnější první útok. Principes umí střídání linie (R): vymění se s unavenou sousední jednotkou.',
     'tutorial.log':
-      'Vpravo dole je log: co se v každém tahu stalo, starší tahy se sbalí. Klávesa L ho schová, H otevře nápovědu s pravidly.',
+      'Po tahu soupeře ukáže karta vpravo nahoře, co se stalo; klik na řádek ukáže místo na mapě. Celý průběh bitvy otevře tlačítko Události nebo klávesa L, C vrátí kameru na vybranou jednotku a H otevře nápovědu s pravidly.',
     'tutorial.finish': 'Teď dobojuj sám. Hodně štěstí!',
     'tutorial.done': 'Výcvik je za tebou. Vyzkoušej skutečnou bitvu: Trebia je dobrý začátek.',
     'tutorial.toMenu': 'Hlavní menu',
@@ -87,6 +87,8 @@ export const cs = {
       'Vyhraješ, když tvoje bojující jednotka vstoupí do tábora soupeře, nebo když soupeři na bojišti nezůstane žádná jednotka (padly nebo utekly).',
     'help.basics.turns':
       'Strany se střídají v tazích. Ve svém tahu může každá jednotka jednou pohnout a jednou zaútočit, v libovolném pořadí. Tah ukončíš tlačítkem Ukončit tah nebo klávesou Enter.',
+    'help.basics.plate':
+      'Štítek nad jednotkou: ikona typu v barvě strany (tečky pod ní odliší typy se stejnou ikonou, například principes od hastátů), číslo životů a modrá linka morálky. Žlutý vykřičník znamená otřesenou jednotku, červený znak » jednotku na útěku. Šedý štítek má jednotka, která už v tahu nemůže nic. Stejné štítky jsou v liště armády dole; klik na ně jednotku vybere a ukáže.',
     'help.basics.deploy':
       'Před bitvou rozestavíš armádu ve své zóně. Na jednom hexu stojí vždy jen jedna jednotka.',
     'help.basics.limit':
@@ -96,7 +98,7 @@ export const cs = {
     'help.movement.points':
       'Každá jednotka má body pohybu. Vstup na hex stojí tolik, kolik ukazuje tabulka terénu. Řeka a moře jsou neprůchodné, přejít se dá jen po mostě nebo brodem.',
     'help.movement.zoc':
-      'Zóna kontroly: hexy hned vedle nepřítele. Jednotka, která do nich vstoupí, musí zastavit. Na mapě je značí oranžový kroužek.',
+      'Zóna kontroly: hexy hned vedle nepřítele. Jednotka, která do nich vstoupí, musí zastavit. Na mapě je značí oranžově podbarvené hexy.',
     'help.movement.hill':
       'Z kopce je vidět a střílí se o 1 hex dál. Les, kopec a hory zakrývají výhled.',
     'help.movement.ambush': 'Když jednotka při pohybu narazí na skrytého nepřítele, zastaví se.',
@@ -162,7 +164,8 @@ export const cs = {
 
     'settings.title': 'Nastavení',
     'settings.confirmEndTurn': 'Potvrzovat konec tahu, když jednotky ještě mohou jednat',
-    'settings.showLog': 'Zobrazovat log událostí',
+    'settings.logOpen': 'Zobrazovat log událostí (L)',
+    'settings.followComputer': 'Kamera sleduje tah počítače',
     'settings.sound': 'Zvuk',
     'settings.masterVolume': 'Celková hlasitost',
     'settings.effectsVolume': 'Efekty',
@@ -178,6 +181,13 @@ export const cs = {
     'hud.endTurn': 'Ukončit tah',
     'hud.undo': 'Vrátit',
     'hud.menu': 'Menu',
+    'hud.log': 'Události',
+    'hud.goal': 'K táboru soupeře: {distance} {hexes}',
+    'hud.goalHint':
+      'Vstup do tábora soupeře vyhrává bitvu, stejně jako zničení nebo rozprášení jeho armády.',
+    'hud.logHint': 'Otevřít nebo zavřít log událostí (L)',
+    'hud.terrain': 'Terén',
+    'hud.terrainHint': 'Napsat na hexy, jaký je na nich terén a kolik dává obrany (T)',
     'hud.ready': 'Může jednat: {count}',
     'hud.army.fighting': 'v boji {count} z {total}',
     'hud.army.routing': 'na útěku {count}',
@@ -185,6 +195,23 @@ export const cs = {
     'hud.confirmEndTurn': 'Některé jednotky ještě mohou jednat ({count}). Opravdu ukončit tah?',
     'hud.confirm': 'Ukončit tah',
     'hud.cancel': 'Zpět',
+
+    'summary.title': 'Tah: {side}, kolo {turn}',
+    'summary.close': 'Zavřít shrnutí tahu',
+    'summary.more': 'a {count} dalších v logu (L)',
+    'summary.damage': '−{damage} {lives}',
+    'summary.outcome.steady': 'morálka obnovena',
+    'summary.outcome.shaken': 'otřesena',
+    'summary.outcome.routing': 'na útěku',
+    'summary.outcome.died': 'zničena',
+    'summary.outcome.fled': 'opustila bojiště',
+    'summary.moves': 'Na pochodu: {count} {units}',
+    'summary.hint': 'Klik na řádek ukáže místo na mapě.',
+
+    'army.title': 'Tvoje armáda',
+    'army.ready': 'Může jednat {ready} z {total}',
+    'army.canAct': 'může jednat',
+    'army.spent': 'odehraná',
 
     'handover.title': 'Na řadě: {side}',
     'handover.deploy': 'Rozestavení armády',
@@ -283,7 +310,9 @@ export const cs = {
     'keys.undo': 'Backspace nebo Ctrl+Z: vrátit pohyb',
     'keys.next': 'Tab / Shift+Tab: další a předchozí jednotka, která může jednat',
     'keys.relief': 'R: střídání linie',
-    'keys.log': 'L: zobrazit nebo skrýt log',
+    'keys.log': 'L: zobrazit nebo skrýt události',
+    'keys.show': 'C: kamera na vybranou jednotku, bez výběru na celou armádu',
+    'keys.terrain': 'T: popisky terénu na hexech',
     'keys.escape': 'Esc: zrušit výběr, pak menu',
     'keys.help': 'H: nápověda s pravidly',
     'keys.mute': 'M: ztlumit nebo zapnout zvuk',
@@ -299,6 +328,7 @@ export const cs = {
     hexes: ['hex', 'hexy', 'hexů'],
     units: ['jednotka', 'jednotky', 'jednotek'],
     rounds: ['kolo', 'kola', 'kol'],
+    lives: ['život', 'životy', 'životů'],
   } satisfies Record<string, PluralForms>,
 
   /** By the id from the game data; an id missing here shows the name from the data. */

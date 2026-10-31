@@ -24,6 +24,8 @@ describe('shortcutFor', () => {
     ['KeyR', 'relief'],
     ['KeyL', 'toggleLog'],
     ['KeyH', 'help'],
+    ['KeyC', 'show'],
+    ['KeyT', 'terrain'],
     ['Escape', 'escape'],
   ])('reads %s as %s', (code, action) => {
     expect(shortcutFor(press(code))).toBe(action);

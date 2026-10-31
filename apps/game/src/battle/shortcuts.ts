@@ -1,6 +1,15 @@
 /** What a key press asks for during a battle. Camera keys belong to the renderer. */
 export type ShortcutAction =
-  'endTurn' | 'undo' | 'next' | 'previous' | 'relief' | 'toggleLog' | 'escape' | 'help';
+  | 'endTurn'
+  | 'undo'
+  | 'next'
+  | 'previous'
+  | 'relief'
+  | 'toggleLog'
+  | 'escape'
+  | 'help'
+  | 'show'
+  | 'terrain';
 
 /** The part of a keyboard event the shortcuts look at. */
 export interface KeyPress {
@@ -21,6 +30,8 @@ const PLAIN_KEYS: Readonly<Record<string, ShortcutAction>> = {
   KeyR: 'relief',
   KeyL: 'toggleLog',
   KeyH: 'help',
+  KeyC: 'show',
+  KeyT: 'terrain',
   Escape: 'escape',
 };
 

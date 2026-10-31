@@ -2,12 +2,14 @@
 import { computed, ref } from 'vue';
 import type { Archetype, TerrainDef, UnitTypeDef } from '@vermont/core';
 import { FACTIONS, RULES, TERRAINS, UNIT_TYPES } from '@vermont/core';
+import { unitIcon } from '@vermont/render/icons';
 import { formatNumber, formatSigned } from '../battle/format';
 import type { HelpTab } from '../battle/help';
 import { HELP_TABS } from '../battle/help';
 import type { UiKey } from '../i18n';
 import { abilityText, archetypeName, factionName, t, terrainName, unitTypeName } from '../i18n';
 import ShortcutList from './ShortcutList.vue';
+import UnitIcon from './UnitIcon.vue';
 
 /** The tab to open with; the tutorial sends the player straight to the one it talks about. */
 const props = withDefaults(defineProps<{ tab?: HelpTab }>(), { tab: 'basics' });
@@ -22,6 +24,7 @@ const TEXTS: Partial<Record<HelpTab, readonly [UiKey, Record<string, string | nu
   basics: [
     ['help.basics.goal'],
     ['help.basics.turns'],
+    ['help.basics.plate'],
     ['help.basics.deploy'],
     ['help.basics.limit', { limit: RULES.roundLimit }],
     ['help.basics.fog', { campSight: RULES.fog.campSight }],
@@ -85,6 +88,7 @@ function unitRow(type: UnitTypeDef) {
   return {
     id: type.id,
     name: unitTypeName(type),
+    icon: unitIcon(UNIT_TYPES, type),
     archetype: archetypeName(type.archetype),
     stats: [
       type.attack,
@@ -177,7 +181,12 @@ const terrains = Object.values(TERRAINS).map((terrain) => ({
             <tbody>
               <tr v-for="unit in faction.units" :key="unit.id" :data-test="`help-unit-${unit.id}`">
                 <td>
-                  <strong>{{ unit.name }}</strong>
+                  <strong class="help__unit-name">
+                    <span class="help__icon">
+                      <UnitIcon :archetype="unit.icon.archetype" :pips="unit.icon.pips" />
+                    </span>
+                    {{ unit.name }}
+                  </strong>
                   <span class="help__sub muted">{{ unit.archetype }}</span>
                   <span
                     v-for="ability in unit.abilities"
@@ -318,6 +327,26 @@ const terrains = Object.values(TERRAINS).map((terrain) => ({
 .help__sub {
   display: block;
   font-size: 12px;
+}
+
+.help__unit-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The same sign as on the unit's plate on the map. */
+.help__icon {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: #4a5160;
+  color: #fff;
+  font-size: 15px;
 }
 
 .help__ability {

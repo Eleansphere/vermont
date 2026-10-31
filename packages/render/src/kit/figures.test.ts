@@ -56,13 +56,13 @@ describe('unit figures', () => {
     expect(findClip(clips, ['Missing'])).toBeUndefined();
   });
 
-  it('draws a unit as its recipe says: four men on foot, two riders on horses', () => {
+  it('draws a unit as its recipe says: three men on foot, two riders on horses', () => {
     const models = figureUnitModels(fakeUnitKit());
 
     const hastati = models(UNIT_TYPES.hastati!, 0);
     const equites = models(UNIT_TYPES.equites!, 0);
 
-    expect(figuresIn(hastati.object)).toHaveLength(4);
+    expect(figuresIn(hastati.object)).toHaveLength(3);
     // a rider and a horse on each of the two places
     expect(figuresIn(equites.object)).toHaveLength(4);
   });
@@ -105,8 +105,10 @@ describe('unit figures', () => {
 
     model.setStrength?.(0.5);
     expect(figuresIn(model.object, true)).toHaveLength(2);
+    model.setStrength?.(0.3);
+    expect(figuresIn(model.object, true)).toHaveLength(1);
     model.setStrength?.(1);
-    expect(figuresIn(model.object, true)).toHaveLength(4);
+    expect(figuresIn(model.object, true)).toHaveLength(3);
   });
 
   it('plays the clip of a pose and moves it on', () => {

@@ -171,11 +171,20 @@ function pause(milliseconds: number): Promise<void> {
 const UNDOABLE_COMMANDS: readonly CommandType[] = ['MoveUnit', 'DeployUnit'];
 
 /**
+ * What the camera is asked to show: one hex in the middle of the screen, or a closer view of
+ * a group of hexes such as the player's army.
+ */
+export type FocusRequest =
+  | { readonly kind: 'hex'; readonly hex: Hex }
+  | { readonly kind: 'group'; readonly hexes: readonly Hex[]; readonly smooth: boolean };
+
+/**
  * A thin layer over the core: it holds the current battle, turns clicks into commands and asks
  * the core what is possible. It never works out the rules itself. Everything shown is the view
  * of one player, `viewer`: two players share the screen and take turns at it, or one plays
  * the computer and the screen stays theirs.
  */
+
 export const useBattleStore = defineStore('battle', () => {
   const scenario = shallowRef<ScenarioDef | null>(null);
   const defs = shallowRef<BattleDefs | null>(null);
@@ -185,12 +194,16 @@ export const useBattleStore = defineStore('battle', () => {
   const rejection = shallowRef<Rejection | null>(null);
   const logs = shallowRef<Logs>(NO_LOGS);
   const undoSteps = shallowRef<readonly UndoStep[]>([]);
+  /** The place the camera was last asked to show; a new object every time, even for one place. */
+  const focusRequest = shallowRef<FocusRequest | null>(null);
   const startOptions = shallowRef<StartOptions>({});
   const seed = ref(0);
   /** Every command carried out since the battle started; with the seed it replays the battle. */
   const history = shallowRef<readonly Command[]>([]);
   const selectedUnitId = ref<string | null>(null);
   const hoveredHex = shallowRef<Hex | null>(null);
+  /** The terrain is written on the hexes, for reading the map. */
+  const terrainShown = ref(false);
   const order = ref<OrderMode>('move');
   /** The player whose view of the battle is on the screen. */
   const viewer = ref<PlayerSlot>(0);
@@ -678,6 +691,8 @@ export const useBattleStore = defineStore('battle', () => {
   /** The player who was asked to the screen has sat down; the map is uncovered for them. */
   function takeSeat(): void {
     handover.value = null;
+    // The camera was where the other player left it; the player sitting down starts at home.
+    showArmy();
   }
 
   /** The player clicked a hex or a unit on the map, or beside the map (`null`). */
@@ -760,7 +775,48 @@ export const useBattleStore = defineStore('battle', () => {
     if (candidates.length === 0) return;
     const current = candidates.findIndex((unit) => unit.id === selectedUnitId.value);
     const start = current === -1 && step === -1 ? 0 : current;
-    select(candidates[(start + step + candidates.length) % candidates.length]!.id);
+    const next = candidates[(start + step + candidates.length) % candidates.length]!;
+    select(next.id);
+    if (isFielded(next)) focus(next.pos);
+  }
+
+  /** Asks the camera to bring the hex to the middle of the screen. */
+  function focus(target: Hex): void {
+    focusRequest.value = { kind: 'hex', hex: target };
+  }
+
+  /**
+   * Where the player at the screen has their army: the units in the field, or before the battle
+   * the hexes they set it up on.
+   */
+  const armyHexes = computed<readonly Hex[]>(() => {
+    const battle = known.value;
+    if (!battle || !defs.value) return [];
+    if (battle.phase === 'deployment') return defs.value.deploymentZones[viewer.value] ?? [];
+    return Object.values(battle.units)
+      .filter((unit): unit is FieldedUnit => unit.owner === viewer.value && isFielded(unit))
+      .map((unit) => unit.pos);
+  });
+
+  /** Takes the camera closer to the player's army. */
+  function showArmy(smooth = true): void {
+    if (armyHexes.value.length === 0) return;
+    focusRequest.value = { kind: 'group', hexes: armyHexes.value, smooth };
+  }
+
+  /** The camera goes to the selected unit, or to the whole army when none is selected. */
+  function showSelected(): void {
+    const unit = selectedUnit.value;
+    if (unit && isFielded(unit)) focus(unit.pos);
+    else showArmy();
+  }
+
+  /** Picks one of the player's units from a list and shows it on the map. */
+  function selectAndShow(unitId: string): void {
+    const unit = known.value?.units[unitId];
+    if (!unit || !isFielded(unit) || aiOnTurn.value || handover.value !== null) return;
+    select(unit.id);
+    focus(unit.pos);
   }
 
   function hover(target: Hex | null): void {
@@ -828,8 +884,16 @@ export const useBattleStore = defineStore('battle', () => {
     pick,
     select,
     selectNext,
+    selectAndShow,
+    focus,
+    focusRequest,
+    armyHexes,
+    showArmy,
+    showSelected,
     hover,
     toggleRelief,
+    terrainShown,
+    toggleTerrain: () => (terrainShown.value = !terrainShown.value),
     endTurn,
     autoDeploy,
     endDeployment,

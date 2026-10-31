@@ -350,16 +350,16 @@ describe('event animations', () => {
       expect(strengths.get(keyOf(unit.id))?.at(-1)).toBeCloseTo(0.5);
     });
 
-    it('shows a marker while the unit is shaken or routs', () => {
+    it('shows on the plate when the unit wavers, and its morale', () => {
       const { state, units } = recording();
       const unit = fieldedUnits(state)[0]!;
-      const marker = () => units.view(unit.id)!.object.children.at(-1)!;
+      const look = () => units.plateLook(unit.id)!;
 
-      expect(marker().visible).toBe(false);
-      units.setMorale(unit.id, 'shaken');
-      expect(marker().visible).toBe(true);
+      expect(look().moraleState).toBe('steady');
+      units.setMorale(unit.id, 'shaken', 3);
+      expect(look()).toMatchObject({ moraleState: 'shaken', morale: 3 });
       units.sync(state);
-      expect(marker().visible).toBe(false);
+      expect(look()).toMatchObject({ moraleState: 'steady', morale: unit.morale });
     });
   });
   describe('marks', () => {
@@ -389,6 +389,66 @@ describe('event animations', () => {
 
       expect(units.isSpent(spent!.id)).toBe(false);
       expect(modelColor(units, spent!.id).equals(before)).toBe(true);
+    });
+
+    it('puts a plate over each unit with its kind, health and morale', () => {
+      const { state, defs, units } = setUp();
+
+      for (const unit of fieldedUnits(state)) {
+        const type = defs.unitTypes[unit.typeId]!;
+        expect(units.plateLook(unit.id)).toMatchObject({
+          owner: unit.owner,
+          icon: { archetype: type.archetype },
+          hp: unit.hp,
+          maxHp: type.hp,
+          morale: unit.morale,
+          spent: false,
+          mark: null,
+        });
+      }
+    });
+
+    it('keeps the plate up to date with the health shown', () => {
+      const { state, units } = setUp();
+      const unit = fieldedUnits(state)[0]!;
+
+      units.setHealth(unit.id, 3);
+
+      expect(units.plateLook(unit.id)!.hp).toBe(3);
+    });
+
+    it('greys the plates of spent units and rings the selected unit and its targets', () => {
+      const { state, units } = setUp();
+      const [selected, target, other] = fieldedUnits(state);
+
+      units.setSpent([other!.id]);
+      units.setMarks(selected!.id, [target!.id]);
+
+      expect(units.plateLook(other!.id)).toMatchObject({ spent: true, mark: null });
+      expect(units.plateLook(selected!.id)!.mark).toBe('selected');
+      expect(units.plateLook(target!.id)!.mark).toBe('target');
+
+      units.setMarks(null, []);
+      expect(units.plateLook(selected!.id)!.mark).toBeNull();
+    });
+
+    it('keeps the plates the same size on the screen unless zoomed far out', () => {
+      const { state, units } = setUp();
+      const plate = () => {
+        const view = units.view(fieldedUnits(state)[0]!.id)!;
+        return view.object.children.find((child) => child.renderOrder === 12)!;
+      };
+
+      units.setPixelSize(0.01);
+      const near = plate().scale.x;
+      units.setPixelSize(0.02);
+
+      expect(plate().scale.x).toBeCloseTo(near * 2);
+
+      // So far out that a hex is narrower than a plate, the plates shrink with the map.
+      units.setPixelSize(0.08);
+      expect(plate().scale.x).toBeLessThan(near * 8);
+      expect(plate().scale.x).toBeGreaterThanOrEqual(near * 4 - 1e-9);
     });
 
     it('rings each unit in the colour of its side', () => {

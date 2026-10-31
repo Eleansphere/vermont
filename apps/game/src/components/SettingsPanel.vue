@@ -29,9 +29,19 @@ const label = (volume: VolumeSetting): UiKey => `settings.${volume}`;
       {{ t('settings.confirmEndTurn') }}
     </label>
     <label class="settings__option toggle">
-      <input v-model="settings.showLog" class="toggle__input" type="checkbox" name="showLog" />
+      <input v-model="settings.logOpen" class="toggle__input" type="checkbox" name="logOpen" />
       <span class="toggle__switch" aria-hidden="true" />
-      {{ t('settings.showLog') }}
+      {{ t('settings.logOpen') }}
+    </label>
+    <label class="settings__option toggle">
+      <input
+        v-model="settings.followComputer"
+        class="toggle__input"
+        type="checkbox"
+        name="followComputer"
+      />
+      <span class="toggle__switch" aria-hidden="true" />
+      {{ t('settings.followComputer') }}
     </label>
 
     <h3 class="settings__heading">{{ t('settings.sound') }}</h3>
