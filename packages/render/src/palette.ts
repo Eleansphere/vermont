@@ -38,4 +38,6 @@ export const HIGHLIGHT_COLORS = {
   zoc: 0xff9a3d,
   selected: 0xffd84a,
   hover: 0xffffff,
+  /** The general's command: a cool blue that no other mark uses. */
+  command: 0x7cc4ff,
 } as const;

@@ -15,10 +15,13 @@ import {
   dispatch,
   eventsSeenBy,
   fieldedUnits,
+  hasHex,
   hexEquals,
+  hexSpiral,
   hexKey,
   isFielded,
   isFighting,
+  isGeneral,
   isFogLifted,
   moveContextFor,
   opponentOf,
@@ -326,6 +329,17 @@ export const useBattleStore = defineStore('battle', () => {
     return pathFromReach(reach.value, hoveredHex.value)?.hexes.slice(1) ?? [];
   });
 
+  /** The hexes the selected general commands, and those next to him that he leads himself. */
+  const commandArea = computed<Pick<Highlights, 'command' | 'led'>>(() => {
+    const unit = selectedUnit.value;
+    const battleDefs = defs.value;
+    if (!unit?.pos || !battleDefs || !isGeneral(battleDefs, unit)) return {};
+    const { range, freeOrderRange } = battleDefs.rules.command;
+    const within = (radius: number) =>
+      hexSpiral(unit.pos!, radius).filter((target) => hasHex(battleDefs.map, target));
+    return { command: within(range), led: within(freeOrderRange) };
+  });
+
   const highlights = computed<Highlights>(() => {
     const battle = known.value;
     const selected = selectedUnit.value?.pos ?? null;
@@ -333,6 +347,7 @@ export const useBattleStore = defineStore('battle', () => {
       const hovered = hoveredHex.value;
       const free = deploymentTargets.value;
       return {
+        ...commandArea.value,
         selected,
         // With no unit picked the whole zone is marked, so the player sees where it is.
         reach: selectedUnit.value ? free : (defs.value?.deploymentZones[battle.activePlayer] ?? []),
@@ -353,6 +368,7 @@ export const useBattleStore = defineStore('battle', () => {
       .map((node) => node.hex);
     const zone = zoneOfCommanded.value;
     return {
+      ...commandArea.value,
       selected,
       reach: stops,
       path: hoveredPath.value,

@@ -27,7 +27,7 @@ describe('tutorial store', () => {
     expect(battle.scenario?.id).toBe(TRAINING.id);
     await vi.waitFor(() => expect(battle.aiOnTurn).toBe(false));
     expect(battle.state).toMatchObject({ phase: 'battle', turn: 1, activePlayer: 0 });
-    expect(fieldedUnits(battle.state!, 0)).toHaveLength(4);
+    expect(fieldedUnits(battle.state!, 0)).toHaveLength(5);
     expect(fieldedUnits(battle.state!, 1)).toHaveLength(4);
     expect(stepId(tutorial)).toBe('welcome');
     expect(tutorial.inTraining).toBe(true);
@@ -45,7 +45,17 @@ describe('tutorial store', () => {
 
     const goal = battle.highlights.reach!.at(-1)!;
     battle.pick({ hex: goal });
-    await vi.waitFor(() => expect(stepId(tutorial)).toBe('endTurn'));
+    await vi.waitFor(() => expect(stepId(tutorial)).toBe('general'));
+    expect(battle.state!.ordersLeft).toBe(2);
+
+    const consul = fieldedUnits(battle.state!, 0).find((own) => own.typeId === 'consul')!;
+    battle.select(consul.id);
+    await vi.waitFor(() => expect(stepId(tutorial)).toBe('orders'));
+    expect(tutorial.spot).toBe('orders');
+    expect(battle.highlights.command?.length).toBeGreaterThan(0);
+
+    tutorial.next();
+    expect(stepId(tutorial)).toBe('endTurn');
     expect(tutorial.spot).toBe('endTurn');
 
     battle.endTurn();

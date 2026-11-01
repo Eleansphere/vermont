@@ -5,9 +5,11 @@ import type { UiKey } from '../i18n';
 /** The side the player commands in the training, and the seed it always starts from. */
 export const TRAINING_PLAYER: PlayerSlot = 0;
 export const TRAINING_SEED = 218;
+/** The unit type of the player's general in the training. */
+export const TRAINING_GENERAL = 'consul';
 
 /** What a step points at on the screen, so the player knows where to look. */
-export type TutorialSpot = 'endTurn' | 'unitPanel' | 'armyBar' | 'log';
+export type TutorialSpot = 'endTurn' | 'unitPanel' | 'armyBar' | 'log' | 'orders';
 
 /** What the training knows when it checks whether a step is done. */
 export interface TutorialContext {
@@ -48,6 +50,16 @@ export const TUTORIAL_STEPS: readonly TutorialStep[] = [
     done: ({ state, events }) =>
       events.some((event) => event.type === 'UnitMoved' && ownUnit(state, event.unitId)),
   },
+  {
+    id: 'general',
+    text: 'tutorial.general',
+    spot: 'armyBar',
+    done: ({ state, selectedUnitId }) =>
+      selectedUnitId !== null &&
+      ownUnit(state, selectedUnitId) &&
+      state.units[selectedUnitId]?.typeId === TRAINING_GENERAL,
+  },
+  { id: 'orders', text: 'tutorial.orders', spot: 'orders', done: 'next' },
   {
     id: 'endTurn',
     text: 'tutorial.endTurn',

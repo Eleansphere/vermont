@@ -135,9 +135,14 @@ function percent(share: number): string {
           <span v-if="store.aiOnTurn" class="hud__thinking muted" data-test="ai-on-turn">
             {{ t('hud.aiOnTurn') }}
           </span>
-          <span v-if="orders" class="hud__orders" data-test="orders" :title="t('hud.ordersHint')">{{
-            orders
-          }}</span>
+          <span
+            v-if="orders"
+            class="hud__orders"
+            :class="{ spotlight: tutorial.spot === 'orders' }"
+            data-test="orders"
+            :title="t('hud.ordersHint')"
+            >{{ orders }}</span
+          >
         </template>
       </div>
       <span v-if="campAlarm" class="hud__alarm" data-test="camp-alarm">{{ campAlarm }}</span>

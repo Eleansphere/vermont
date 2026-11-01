@@ -16,7 +16,7 @@ describe('highlight layer', () => {
   it('shows nothing until told to', () => {
     const layer = new HighlightLayer(10, () => SURFACE);
 
-    expect(shownCounts(layer)).toEqual([0, 0, 0, 0, 0, 0, 0]);
+    expect(shownCounts(layer)).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
   });
 
   it('marks the reach, path, targets, selection and hovered hex', () => {
@@ -32,7 +32,7 @@ describe('highlight layer', () => {
     layer.setHover(hex(2, 0));
 
     // Reach, stops in enemy zones, path, targets (filled and ringed), selection, hover.
-    expect(shownCounts(layer)).toEqual([3, 1, 2, 1, 1, 1, 1]);
+    expect(shownCounts(layer)).toEqual([3, 1, 2, 1, 1, 1, 1, 0]);
   });
 
   it('puts a mark just above the top of its hex', () => {
@@ -52,10 +52,10 @@ describe('highlight layer', () => {
     const layer = new HighlightLayer(2, () => SURFACE);
 
     layer.set({ selected: hex(0, 0), reach: [hex(1, 0), hex(2, 0), hex(3, 0)] });
-    expect(shownCounts(layer)).toEqual([2, 0, 0, 0, 0, 1, 0]);
+    expect(shownCounts(layer)).toEqual([2, 0, 0, 0, 0, 1, 0, 0]);
 
     layer.set({});
-    expect(shownCounts(layer)).toEqual([0, 0, 0, 0, 0, 0, 0]);
+    expect(shownCounts(layer)).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
   });
 
   it('draws a line around the reach and the selected hex, not between them', () => {
@@ -67,5 +67,17 @@ describe('highlight layer', () => {
 
     layer.set({ selected: hex(0, 0) });
     expect(layer.outlineSides).toBe(0);
+  });
+
+  it('marks the command of a general with a line around it and his neighbours tinted', () => {
+    const layer = new HighlightLayer(10, () => SURFACE);
+
+    layer.set({ command: [hex(0, 0), hex(1, 0), hex(2, 0)], led: [hex(1, 0)] });
+    // A row of three hexes: eighteen sides, four of them shared.
+    expect(layer.commandSides).toBe(14);
+    expect(shownCounts(layer).at(-1)).toBe(1);
+
+    layer.set({});
+    expect(layer.commandSides).toBe(0);
   });
 });

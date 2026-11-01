@@ -194,9 +194,13 @@ const ZAMA: ScenarioDef = {
   ],
 };
 
+/** Orders of the player in the training: few enough to feel, enough not to get stuck. */
+const TRAINING_ORDERS = 3;
+
 /**
- * The training: four units a side on a small field, for learning the game. Each side lines up
- * on one row, in the order the army is listed, so the training always starts the same way.
+ * The training: four units a side and a consul for the player, on a small field, for learning
+ * the game. Each side lines up on one row, in the order the army is listed, so the training
+ * always starts the same way.
  * It is kept out of `SCENARIOS`: it is not a battle to pick from the list.
  */
 export const TRAINING: ScenarioDef = {
@@ -206,14 +210,17 @@ export const TRAINING: ScenarioDef = {
   sides: [
     {
       factionId: 'rome',
+      // The consul in the middle, so the two units beside him take their orders for free.
       army: [
         { typeId: 'equites', count: 1 },
         { typeId: 'hastati', count: 1 },
+        { typeId: 'consul', count: 1 },
         { typeId: 'principes', count: 1 },
         { typeId: 'velites', count: 1 },
       ],
+      orders: TRAINING_ORDERS,
       camp: rectangleHex(4, 0),
-      deploymentZone: rowHexes(1, 2, 5),
+      deploymentZone: rowHexes(1, 2, 6),
     },
     {
       factionId: 'carthage',

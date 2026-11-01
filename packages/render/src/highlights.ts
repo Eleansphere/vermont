@@ -24,6 +24,10 @@ export interface Highlights {
   readonly targets?: readonly Hex[];
   /** Hexes of the reach next to an enemy, where the unit would have to stop. */
   readonly zoc?: readonly Hex[];
+  /** Hexes within the command of the selected general: a line goes around them. */
+  readonly command?: readonly Hex[];
+  /** Hexes next to the selected general, where units take their orders for free. */
+  readonly led?: readonly Hex[];
 }
 
 const HEX_CORNERS = 6;
@@ -89,6 +93,7 @@ class HexMarks {
 export class HighlightLayer {
   readonly object = new Group();
   private readonly reach: HexMarks;
+  private readonly led: HexMarks;
   private readonly zoc: HexMarks;
   private readonly path: HexMarks;
   private readonly targetFill: HexMarks;
@@ -96,6 +101,7 @@ export class HighlightLayer {
   private readonly selected: HexMarks;
   private readonly hover: HexMarks;
   private readonly outline: HexOutline;
+  private readonly commandOutline: HexOutline;
 
   /** `capacity` is the number of hexes on the map: no mark can be on more of them. */
   constructor(capacity: number, surfaceHeight: (target: Hex) => number) {
@@ -113,6 +119,7 @@ export class HighlightLayer {
     this.targets = marks(ring(0.7, 0.92), HIGHLIGHT_COLORS.targets, 0.95);
     this.selected = marks(ring(0.74, 0.92), HIGHLIGHT_COLORS.selected, 0.95, 1);
     this.hover = marks(ring(0.84, 0.94), HIGHLIGHT_COLORS.hover, 0.7, 1);
+    this.led = marks(disc(0.9), HIGHLIGHT_COLORS.command, 0.22);
     this.outline = new HexOutline(
       HIGHLIGHT_COLORS.reach,
       0.9,
@@ -120,6 +127,13 @@ export class HighlightLayer {
       surfaceHeight
     );
     this.object.add(this.outline.mesh);
+    this.commandOutline = new HexOutline(
+      HIGHLIGHT_COLORS.command,
+      0.85,
+      this.object.children.length + 1,
+      surfaceHeight
+    );
+    this.object.add(this.commandOutline.mesh);
   }
 
   set(highlights: Highlights): void {
@@ -130,6 +144,8 @@ export class HighlightLayer {
       reach.length > 0 && highlights.selected ? [...reach, highlights.selected] : reach
     );
     this.zoc.show(highlights.zoc ?? []);
+    this.led.show(highlights.led ?? []);
+    this.commandOutline.show(highlights.command ?? []);
     this.path.show(highlights.path ?? []);
     this.targetFill.show(highlights.targets ?? []);
     this.targets.show(highlights.targets ?? []);
@@ -145,8 +161,14 @@ export class HighlightLayer {
     return this.outline.sides;
   }
 
+  /** How many sides of hexes the line around the general's command runs along. */
+  get commandSides(): number {
+    return this.commandOutline.sides;
+  }
+
   dispose(): void {
     for (const marks of [
+      this.led,
       this.reach,
       this.zoc,
       this.path,
@@ -158,5 +180,6 @@ export class HighlightLayer {
       marks.dispose();
     }
     this.outline.dispose();
+    this.commandOutline.dispose();
   }
 }

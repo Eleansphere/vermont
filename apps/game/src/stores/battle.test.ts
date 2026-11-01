@@ -283,6 +283,22 @@ describe('battle store', () => {
       );
     });
 
+    it('marks the command of the selected general and nothing of the kind for other units', () => {
+      const store = startedStore();
+      const own = fieldedUnits(store.state!, store.viewer);
+      const general = own.find((unit) => unit.typeId === 'consul')!;
+      const soldier = own.find((unit) => unit.typeId !== 'consul')!;
+
+      store.pick({ hex: general.pos, unitId: general.id });
+      const { command = [], led = [] } = store.highlights;
+      expect(command.length).toBeGreaterThan(led.length);
+      expect(command.every((target) => hexDistance(target, general.pos) <= 3)).toBe(true);
+      expect(led.every((target) => hexDistance(target, general.pos) <= 1)).toBe(true);
+
+      store.pick({ hex: soldier.pos, unitId: soldier.id });
+      expect(store.highlights.command).toBeUndefined();
+    });
+
     it('sends the camera to the selected unit, or to the whole army without one', () => {
       const store = startedStore();
       const own = fieldedUnits(store.state!, store.viewer);

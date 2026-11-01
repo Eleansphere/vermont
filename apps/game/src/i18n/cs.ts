@@ -60,8 +60,12 @@ export const cs = {
       'Klikni na svou jednotku na mapě nebo v liště armády dole (nebo stiskni Tab). Vlevo dole se ukáže její panel: zdraví, morálka, pohyb a schopnosti. Štítek nad jednotkou ukazuje typ, životy a morálku.',
     'tutorial.move':
       'Bílá čára ohraničuje, kam se jednotka v tomto tahu dostane. Klikni na hex uvnitř a jednotka tam dojde. Kopec před tebou dává obranu a výhled navíc.',
+    'tutorial.general':
+      'Uprostřed tvé linie stojí konzul, tvůj generál. Vyber ho. Modrá čára ohraničuje jeho velení (3 hexy): jednotky v něm ztrácejí méně morálky, rychleji se vzpamatují a zlomené se shromáždí, i když je nepřítel u nich. Když generál padne, celá armáda se otřese.',
+    'tutorial.orders':
+      'Nahoře vidíš rozkazy: kolik jednotek můžeš v tomto tahu ještě zapojit. První pohyb, útok nebo schopnost jednotky stojí jeden rozkaz, další akce té jednotky už nic. Generál a jednotky hned vedle něj (modře podbarvené hexy) jednají zdarma. Generál vepředu tedy zapojí víc jednotek, ale riskuje.',
     'tutorial.endTurn':
-      'Každá jednotka se může v tahu jednou pohnout a jednou zaútočit. Pohni i ostatními a pak ukonči tah tlačítkem vpravo nahoře nebo Enterem. Jednotky se šedým štítkem už nemůžou nic, v liště dole hned vidíš, kdo ještě může jednat.',
+      'Každá jednotka se může v tahu jednou pohnout a jednou zaútočit, pokud na ni zbude rozkaz. Pohni i ostatními a pak ukonči tah tlačítkem vpravo nahoře nebo Enterem. Jednotky se šedým štítkem už nemůžou nic, v liště dole hned vidíš, kdo ještě může jednat.',
     'tutorial.contact':
       'Soupeř se blíží. Oranžově podbarvený hex značí zónu kontroly: hex vedle nepřítele, kde se jednotka musí zastavit. Kdo z ní pak odejde, dostane volný úder (lehcí pěšáci a jízda ne). Postav se k nepříteli.',
     'tutorial.attack':
@@ -74,7 +78,7 @@ export const cs = {
       'Po tahu soupeře ukáže karta vpravo nahoře, co se stalo; klik na řádek ukáže místo na mapě. Celý průběh bitvy otevře tlačítko Události nebo klávesa L, C vrátí kameru na vybranou jednotku a H otevře nápovědu s pravidly.',
     'tutorial.finish': 'Teď dobojuj sám. Hodně štěstí!',
     'tutorial.done':
-      'Výcvik je za tebou. Ve skutečné bitvě máš navíc generála a jen několik rozkazů za tah: jednotky hned vedle generála jednají zdarma. Trebia je dobrý začátek.',
+      'Výcvik je za tebou. Ve skutečné bitvě má generála i soupeř a armády jsou větší, takže rozkazy budou vzácnější. Trebia je dobrý začátek.',
     'tutorial.toMenu': 'Hlavní menu',
     'help.title': 'Nápověda',
     'help.tab.basics': 'Základy',
