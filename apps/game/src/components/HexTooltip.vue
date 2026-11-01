@@ -102,6 +102,14 @@ const position = computed(() => {
   };
 });
 
+/** On a touch screen a shown move or attack waits for a second tap; the tip says so. */
+const tapAgain = computed(() => {
+  const armed = store.armedHex;
+  const info = store.hoverInfo;
+  if (!armed || !info || !hexEquals(armed, info.hex)) return null;
+  return t(info.preview ? 'tip.tapAgainAttack' : 'tip.tapAgainMove');
+});
+
 const percent = (value: number, max: number) => `${Math.round((value / max) * 100)}%`;
 </script>
 
@@ -174,6 +182,7 @@ const percent = (value: number, max: number) => `${Math.round((value / max) * 10
         </li>
       </ul>
     </div>
+    <div v-if="tapAgain" class="tip__confirm" data-test="tap-again">{{ tapAgain }}</div>
   </div>
 </template>
 
@@ -200,6 +209,33 @@ const percent = (value: number, max: number) => `${Math.round((value / max) * 10
 .tip__unit {
   padding-left: 7px;
   border-left: 3px solid;
+}
+
+.tip__confirm {
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: rgb(217 180 90 / 18%);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* On a phone the tip does not follow the finger, which would cover it; it waits at the side. */
+@media (max-width: 900px), (max-height: 560px) {
+  .tip {
+    top: calc(62px + env(safe-area-inset-top)) !important;
+    right: calc(56px + env(safe-area-inset-right));
+    left: auto !important;
+    max-width: min(260px, calc(100% - 120px));
+    max-height: calc(100% - 130px);
+    overflow: hidden;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .tip {
+    top: calc(136px + env(safe-area-inset-top)) !important;
+  }
 }
 
 .tip__meter {

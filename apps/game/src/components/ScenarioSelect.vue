@@ -189,7 +189,6 @@ function armyText(scenario: ScenarioDef, player: 0 | 1): string {
 <style scoped>
 .scenarios {
   display: grid;
-  place-items: center;
   height: 100%;
   overflow-y: auto;
   background: radial-gradient(circle at 50% 30%, #2c3140, var(--bg) 70%);
@@ -200,7 +199,25 @@ function armyText(scenario: ScenarioDef, player: 0 | 1): string {
   flex-direction: column;
   gap: 16px;
   width: min(940px, calc(100% - 32px));
+  margin: auto;
   padding: 20px 22px;
+}
+
+@media (max-height: 560px), (max-width: 600px) {
+  .scenarios__box {
+    gap: 10px;
+    margin: 8px auto;
+    padding: 12px 14px;
+  }
+
+  .scenarios__title {
+    font-size: 20px;
+  }
+
+  /* The big map would push the start button far below; the thumbnails show it already. */
+  .scenarios__map {
+    display: none;
+  }
 }
 
 .scenarios__title {

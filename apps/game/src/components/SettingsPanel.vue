@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { UiKey } from '../i18n';
 import { t } from '../i18n';
-import { useSettingsStore } from '../stores/settings';
+import { QUALITY_SETTINGS, useSettingsStore } from '../stores/settings';
 
 type VolumeSetting = 'masterVolume' | 'effectsVolume' | 'musicVolume' | 'ambientVolume';
 
@@ -14,6 +14,8 @@ const VOLUMES: readonly VolumeSetting[] = [
 
 const settings = useSettingsStore();
 const label = (volume: VolumeSetting): UiKey => `settings.${volume}`;
+const qualityLabel = (quality: (typeof QUALITY_SETTINGS)[number]): UiKey =>
+  `settings.quality.${quality}`;
 </script>
 
 <template>
@@ -63,6 +65,23 @@ const label = (volume: VolumeSetting): UiKey => `settings.${volume}`;
       />
       <span class="settings__value">{{ settings[volume] }} %</span>
     </label>
+
+    <h3 class="settings__heading">{{ t('settings.graphics') }}</h3>
+    <div class="settings__choice" role="radiogroup" :aria-label="t('settings.quality')">
+      <label v-for="quality in QUALITY_SETTINGS" :key="quality" class="settings__pick">
+        <input
+          v-model="settings.quality"
+          class="visually-hidden"
+          type="radio"
+          name="quality"
+          :value="quality"
+        />
+        <span class="button" :class="{ 'button--on': settings.quality === quality }">
+          {{ t(qualityLabel(quality)) }}
+        </span>
+      </label>
+    </div>
+    <p class="settings__hint muted">{{ t('settings.qualityHint') }}</p>
   </div>
 </template>
 
@@ -78,6 +97,36 @@ const label = (volume: VolumeSetting): UiKey => `settings.${volume}`;
   align-items: flex-start;
   gap: 8px;
   cursor: pointer;
+}
+
+.settings__choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.settings__pick .button {
+  display: inline-block;
+}
+
+.settings__pick input:focus-visible + .button {
+  outline: 2px solid var(--accent);
+}
+
+.settings__hint {
+  margin: 0;
+  font-size: 12px;
+}
+
+@media (max-width: 520px) {
+  .settings__volume {
+    grid-template-columns: 1fr 3rem;
+  }
+
+  .settings__volume input {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
 }
 
 .settings__heading {

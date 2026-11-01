@@ -32,7 +32,21 @@ defineProps<{ title: string; wide?: boolean }>();
   flex-direction: column;
   gap: 10px;
   width: min(420px, calc(100% - 32px));
+  max-height: calc(100% - 24px);
   padding: 18px 20px;
+  overflow-y: auto;
+}
+
+@media (max-width: 900px), (max-height: 560px) {
+  .dialog__box {
+    gap: 8px;
+    max-height: calc(100% - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    padding: 12px 14px;
+  }
+
+  .dialog__title {
+    font-size: 18px;
+  }
 }
 
 .dialog__box--wide {

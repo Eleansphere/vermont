@@ -5,6 +5,7 @@ import type { BattleScene, ModelKit, RenderStats } from '@vermont/render';
 import { playCue } from '../audio/gameAudio';
 import { eventFocus } from '../battle/focus';
 import { formatSigned } from '../battle/format';
+import { deviceTraits, resolveQuality } from '../battle/device';
 import { modelKit } from '../battle/modelKit';
 import { t, terrainName } from '../i18n';
 import { useBattleStore } from '../stores/battle';
@@ -34,7 +35,8 @@ function buildScene(): void {
   scene = createBattleScene(canvas.value, {
     defs: store.defs,
     kit: kit ?? undefined,
-    onPick: (pick) => store.pick(pick),
+    onPick: (pick, kind) => store.pick(pick, kind),
+    quality: resolveQuality(settings.quality),
     onHover: (pick) => store.hover(pick?.hex ?? null),
     onCue: playCue,
     // Plain ground goes without a label; the rest say what they are and how they cover.
@@ -76,6 +78,12 @@ onMounted(async () => {
 });
 
 watch(() => store.defs, buildScene);
+// Antialiasing is chosen when the renderer is made, so a new quality needs a new scene.
+watch(() => resolveQuality(settings.quality), buildScene);
+
+/** Without a mouse wheel or keys, the camera gets buttons to zoom and turn. */
+const touch = deviceTraits().touch;
+const ZOOM_STEP = 1.35;
 watch(
   () => store.played,
   (played) => {
@@ -120,6 +128,48 @@ onBeforeUnmount(() => {
 <template>
   <div class="battle-canvas">
     <canvas ref="canvas" class="battle-canvas__surface" />
+    <div v-if="touch && !loading" class="battle-canvas__camera" data-test="camera-buttons">
+      <button
+        class="battle-canvas__cam"
+        type="button"
+        :aria-label="t('camera.zoomIn')"
+        @click="scene?.zoom(ZOOM_STEP)"
+      >
+        +
+      </button>
+      <button
+        class="battle-canvas__cam"
+        type="button"
+        :aria-label="t('camera.zoomOut')"
+        @click="scene?.zoom(1 / ZOOM_STEP)"
+      >
+        −
+      </button>
+      <button
+        class="battle-canvas__cam"
+        type="button"
+        :aria-label="t('camera.rotateLeft')"
+        @click="scene?.rotate(-1)"
+      >
+        ⟲
+      </button>
+      <button
+        class="battle-canvas__cam"
+        type="button"
+        :aria-label="t('camera.rotateRight')"
+        @click="scene?.rotate(1)"
+      >
+        ⟳
+      </button>
+      <button
+        class="battle-canvas__cam"
+        type="button"
+        :aria-label="t('camera.showArmy')"
+        @click="store.showSelected()"
+      >
+        ◎
+      </button>
+    </div>
     <p v-if="loading" class="battle-canvas__loading">{{ t('perf.loading') }}</p>
     <dl v-if="showStats && stats" class="battle-canvas__stats">
       <dt>{{ t('perf.title') }}</dt>
@@ -145,6 +195,33 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   touch-action: none;
+}
+
+.battle-canvas__camera {
+  position: absolute;
+  right: calc(8px + env(safe-area-inset-right));
+  top: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transform: translateY(-50%);
+}
+
+.battle-canvas__cam {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 50%;
+  background: rgb(22 25 32 / 80%);
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  touch-action: manipulation;
+}
+
+.battle-canvas__cam:active {
+  border-color: var(--accent);
 }
 
 .battle-canvas__loading {

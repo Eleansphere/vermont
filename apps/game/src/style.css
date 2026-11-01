@@ -18,8 +18,17 @@ body,
   margin: 0;
 }
 
+/* On phones 100% can include the space under the browser's own bars; the dynamic height not. */
+#app {
+  height: 100dvh;
+}
+
 body {
   overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, sans-serif;
@@ -45,6 +54,7 @@ h3 {
 
 .button {
   padding: 6px 12px;
+  touch-action: manipulation;
   border: 1px solid var(--panel-border);
   border-radius: 4px;
   background: #2a2f3a;
@@ -171,4 +181,18 @@ kbd {
 .toggle__input:focus-visible + .toggle__switch {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+/* Fingers have no keys to press, so the key hints only take up room. */
+@media (pointer: coarse) {
+  kbd {
+    display: none;
+  }
+
+  /* A long press on the game should not start selecting text. */
+  body {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
 }

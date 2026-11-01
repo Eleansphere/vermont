@@ -18,6 +18,7 @@ import SettingsPanel from './SettingsPanel.vue';
 
 // The canvas brings Three.js and the renderer, so they load when the first battle starts.
 const BattleCanvas = defineAsyncComponent(() => import('./BattleCanvas.vue'));
+import RotateHint from './RotateHint.vue';
 import RulesHelp from './RulesHelp.vue';
 import TurnSummary from './TurnSummary.vue';
 import TutorialCoach from './TutorialCoach.vue';
@@ -173,7 +174,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
 </script>
 
 <template>
-  <main class="battle" @pointermove="onPointerMove" @click="onClick">
+  <main class="battle" @pointermove="onPointerMove" @pointerdown="onPointerMove" @click="onClick">
     <BattleCanvas />
 
     <BattleHud @end-turn="requestEndTurn" @menu="overlay = 'pause'" />
@@ -184,6 +185,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
     <TurnSummary v-if="!overlay && !handover" />
     <TutorialCoach v-if="!overlay && !handover" @main-menu="emit('mainMenu')" />
     <HexTooltip v-if="!overlay && !handover" :x="pointer.x" :y="pointer.y" />
+    <RotateHint v-if="!overlay && !handover" />
 
     <p v-if="store.rejection" class="battle__rejection panel" role="alert" data-test="rejection">
       {{ rejectionText(store.rejection.code) }}
@@ -237,6 +239,28 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
       >
         {{ t('menu.resume') }}
       </button>
+      <div class="battle__row">
+        <button
+          class="button button--wide"
+          :class="{ 'button--on': settings.logOpen }"
+          type="button"
+          data-test="menu-log"
+          :aria-pressed="settings.logOpen"
+          @click="settings.logOpen = !settings.logOpen"
+        >
+          {{ t('hud.log') }}
+        </button>
+        <button
+          class="button button--wide"
+          :class="{ 'button--on': store.terrainShown }"
+          type="button"
+          data-test="menu-terrain"
+          :aria-pressed="store.terrainShown"
+          @click="store.toggleTerrain()"
+        >
+          {{ t('hud.terrain') }}
+        </button>
+      </div>
       <button class="button button--wide" type="button" @click="overlay = 'settings'">
         {{ t('menu.settings') }}
       </button>
@@ -330,6 +354,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
 .battle__rejection {
   position: absolute;
   top: 84px;
+  z-index: 6;
   left: 50%;
   margin: 0;
   border-color: var(--danger);
@@ -384,6 +409,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
   width: 10px;
   height: 10px;
   border-radius: 50%;
+}
+
+@media (max-width: 900px), (max-height: 560px) {
+  .battle__rejection {
+    top: 64px;
+    max-width: calc(100% - 120px);
+  }
 }
 
 /* The last blows are still being played out when the battle is decided. */

@@ -130,8 +130,13 @@ function onFileChosen(): void {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  /* Taller than a phone held sideways: the top must stay reachable by scrolling. */
+  justify-content: safe center;
   gap: 24px;
   height: 100%;
+  padding: 12px 0 28px;
+  box-sizing: border-box;
+  overflow-y: auto;
   background: radial-gradient(circle at 50% 30%, #2c3140, var(--bg) 70%);
 }
 
@@ -184,5 +189,19 @@ function onFileChosen(): void {
   position: absolute;
   bottom: 10px;
   font-size: 12px;
+}
+
+@media (max-height: 560px) {
+  .menu {
+    gap: 12px;
+  }
+
+  .menu__title {
+    font-size: 40px;
+  }
+
+  .menu__version {
+    position: static;
+  }
 }
 </style>

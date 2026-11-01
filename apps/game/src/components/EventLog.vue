@@ -129,6 +129,24 @@ watch(
   max-height: 34%;
 }
 
+@media (max-width: 900px), (max-height: 560px) {
+  .log {
+    top: calc(62px + env(safe-area-inset-top));
+    right: calc(56px + env(safe-area-inset-right));
+    bottom: auto;
+    z-index: 4;
+    width: min(300px, calc(100% - 120px));
+    max-height: calc(100% - 120px);
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 600px) {
+  .log {
+    top: calc(136px + env(safe-area-inset-top));
+  }
+}
+
 .log__title {
   font-size: 16px;
   color: var(--accent);

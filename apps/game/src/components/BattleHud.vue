@@ -106,7 +106,7 @@ function percent(share: number): string {
       <div class="hud__turn-line" data-test="turn">
         <span class="hud__phase">{{ phaseText }}</span>
         <template v-if="activeSide">
-          <span class="muted">{{ t('hud.onTurn') }}</span>
+          <span class="muted hud__on-turn">{{ t('hud.onTurn') }}</span>
           <strong class="hud__side" :style="{ color: activeSide.color }">
             {{ activeSide.name }}
           </strong>
@@ -148,7 +148,7 @@ function percent(share: number): string {
         </span>
       </button>
       <button
-        class="button"
+        class="button hud__extra"
         :class="{ 'button--on': settings.logOpen, spotlight: tutorial.spot === 'log' }"
         type="button"
         data-test="toggle-log"
@@ -159,7 +159,7 @@ function percent(share: number): string {
         {{ t('hud.log') }}
       </button>
       <button
-        class="button"
+        class="button hud__extra"
         :class="{ 'button--on': store.terrainShown }"
         type="button"
         data-test="toggle-terrain"
@@ -301,6 +301,81 @@ function percent(share: number): string {
 .hud__actions {
   display: flex;
   gap: 8px;
+}
+
+/* On a phone the bar shrinks; the log and terrain buttons move into the menu. */
+@media (max-width: 900px), (max-height: 560px) {
+  .hud {
+    top: calc(6px + env(safe-area-inset-top));
+    right: calc(6px + env(safe-area-inset-right));
+    left: calc(6px + env(safe-area-inset-left));
+    gap: 6px;
+  }
+
+  .hud > .panel {
+    padding: 6px 8px;
+  }
+
+  .hud__armies {
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .army {
+    min-width: 92px;
+    gap: 1px;
+  }
+
+  .army__name {
+    font-size: 14px;
+  }
+
+  .army__strength,
+  .army__count,
+  .hud__goal {
+    font-size: 11px;
+  }
+
+  .hud__phase {
+    font-size: 15px;
+  }
+
+  .hud__side {
+    font-size: 13px;
+  }
+
+  .hud__on-turn,
+  .hud__extra {
+    display: none;
+  }
+
+  .hud__actions {
+    gap: 6px;
+  }
+
+  .hud__actions .button {
+    min-height: 40px;
+    padding: 6px 10px;
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 600px) {
+  .hud {
+    flex-wrap: wrap;
+  }
+
+  .hud__armies {
+    flex: 1 1 100%;
+  }
+
+  .army {
+    flex: 1;
+  }
+
+  .hud__turn {
+    flex: 1;
+  }
 }
 
 .hud__ready {

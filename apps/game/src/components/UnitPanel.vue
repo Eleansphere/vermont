@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { unitTypeOf } from '@vermont/core';
 import { formatNumber } from '../battle/format';
 import { sideColor, unitLabel } from '../battle/labels';
@@ -9,6 +9,8 @@ import { useTutorialStore } from '../stores/tutorial';
 
 const store = useBattleStore();
 const tutorial = useTutorialStore();
+/** On a phone the panel shows only the essentials until the player asks for the rest. */
+const expanded = ref(false);
 
 const view = computed(() => {
   const { state, defs, selectedUnit: unit } = store;
@@ -55,12 +57,21 @@ function share(value: number, max: number): string {
   <aside
     v-if="view"
     class="unit panel"
-    :class="{ spotlight: tutorial.spot === 'unitPanel' }"
+    :class="{ spotlight: tutorial.spot === 'unitPanel', 'unit--expanded': expanded }"
     data-test="unit-panel"
   >
     <header class="unit__header" :style="{ borderColor: view.color }">
       <h3 class="unit__name">{{ view.label }}</h3>
       <span class="muted">{{ archetypeName(view.type.archetype) }}</span>
+      <button
+        class="unit__more"
+        type="button"
+        data-test="unit-more"
+        :aria-expanded="expanded"
+        @click="expanded = !expanded"
+      >
+        {{ t(expanded ? 'unit.less' : 'unit.more') }}
+      </button>
     </header>
 
     <p v-if="view.inReserve" class="unit__state muted">{{ t('unit.inReserve') }}</p>
@@ -90,19 +101,23 @@ function share(value: number, max: number): string {
       </div>
     </dl>
 
-    <dl class="unit__stats">
+    <dl class="unit__stats unit__detail">
       <div v-for="stat in view.stats" :key="stat.key" class="stat">
         <dt class="muted">{{ stat.label }}</dt>
         <dd>{{ stat.value }}</dd>
       </div>
     </dl>
 
-    <p v-if="view.strongAgainst.length > 0" class="unit__strong" data-test="strong-against">
+    <p
+      v-if="view.strongAgainst.length > 0"
+      class="unit__strong unit__detail"
+      data-test="strong-against"
+    >
       <span class="muted">{{ t('unit.strongAgainst') }}</span>
       {{ view.strongAgainst.join(', ') }}
     </p>
 
-    <ul v-if="view.abilities.length > 0" class="unit__abilities">
+    <ul v-if="view.abilities.length > 0" class="unit__abilities unit__detail">
       <li
         v-for="ability in view.abilities"
         :key="ability.id"
@@ -141,6 +156,53 @@ function share(value: number, max: number): string {
   flex-direction: column;
   gap: 8px;
   width: 250px;
+}
+
+.unit__more {
+  display: none;
+}
+
+@media (max-width: 900px), (max-height: 560px) {
+  .unit {
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    left: calc(8px + env(safe-area-inset-left));
+    gap: 5px;
+    width: 196px;
+    max-height: calc(100% - 140px);
+    padding: 6px 8px;
+    overflow-y: auto;
+    font-size: 12px;
+  }
+
+  .unit__name {
+    font-size: 15px;
+  }
+
+  .unit__more {
+    display: block;
+    margin-left: auto;
+    padding: 2px 6px;
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 11px;
+  }
+
+  .unit:not(.unit--expanded) .unit__detail {
+    display: none;
+  }
+
+  .unit kbd {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .unit {
+    bottom: calc(64px + env(safe-area-inset-bottom));
+  }
 }
 
 .unit__header {

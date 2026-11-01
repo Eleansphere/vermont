@@ -336,6 +336,38 @@ describe('battle store', () => {
       expect(store.highlights.selected).toEqual(goal);
     });
 
+    it('on a touch screen shows a move first and makes it on a second tap', () => {
+      const store = startedStore();
+      const { unit, goal } = movableUnit(store);
+      store.pick({ hex: unit.pos, unitId: unit.id }, 'touch');
+
+      store.pick({ hex: goal }, 'touch');
+
+      expect(store.state!.units[unit.id]!.pos).toEqual(unit.pos);
+      expect(store.armedHex).toEqual(goal);
+      const path = pathFromReach(unitReach(store.state!, store.defs!, unit), goal)!;
+      expect(store.highlights.path).toEqual(path.hexes.slice(1));
+
+      store.pick({ hex: goal }, 'touch');
+
+      expect(store.state!.units[unit.id]!.pos).toEqual(goal);
+      expect(store.armedHex).toBeNull();
+    });
+
+    it('on a touch screen forgets a shown move when the player taps elsewhere', () => {
+      const store = startedStore();
+      const { unit, goal } = movableUnit(store);
+      store.pick({ hex: unit.pos, unitId: unit.id }, 'touch');
+      store.pick({ hex: goal }, 'touch');
+
+      store.pick({ hex: unit.pos, unitId: unit.id }, 'touch');
+      store.pick({ hex: unit.pos, unitId: unit.id }, 'touch');
+      store.pick({ hex: goal }, 'touch');
+
+      expect(store.state!.units[unit.id]!.pos).toEqual(unit.pos);
+      expect(store.armedHex).toEqual(goal);
+    });
+
     it('drops the selection on a click it cannot act on', () => {
       const store = startedStore();
       const { unit } = movableUnit(store);

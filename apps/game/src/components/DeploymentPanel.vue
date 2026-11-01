@@ -72,6 +72,33 @@ const waiting = computed(() => {
   max-height: calc(100% - 420px);
 }
 
+@media (max-width: 900px), (max-height: 560px) {
+  .deploy {
+    top: calc(62px + env(safe-area-inset-top));
+    left: calc(8px + env(safe-area-inset-left));
+    gap: 5px;
+    width: 196px;
+    max-height: calc(100% - 200px);
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .deploy__title {
+    font-size: 15px;
+  }
+
+  .deploy__text.muted {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .deploy {
+    top: calc(136px + env(safe-area-inset-top));
+    max-height: calc(100% - 330px);
+  }
+}
+
 .deploy__title {
   font-size: 18px;
   color: var(--accent);

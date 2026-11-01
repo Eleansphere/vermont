@@ -124,6 +124,23 @@ function gone(unit: UnitDigest): boolean {
   }
 }
 
+@media (max-width: 900px), (max-height: 560px) {
+  .summary {
+    top: calc(62px + env(safe-area-inset-top));
+    right: calc(56px + env(safe-area-inset-right));
+    width: min(300px, calc(100% - 120px));
+    max-height: calc(100% - 120px);
+    padding: 8px 10px;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .summary {
+    top: calc(136px + env(safe-area-inset-top));
+  }
+}
+
 .summary__header {
   display: flex;
   align-items: center;

@@ -67,6 +67,35 @@ const tutorial = useTutorialStore();
   }
 }
 
+@media (max-width: 900px), (max-height: 560px) {
+  .coach {
+    top: calc(62px + env(safe-area-inset-top));
+    left: calc(8px + env(safe-area-inset-left));
+    gap: 5px;
+    width: min(290px, calc(100% - 330px));
+    min-width: 220px;
+    max-height: calc(100% - 120px);
+    padding: 8px 10px;
+    overflow-y: auto;
+    font-size: 12.5px;
+  }
+
+  .coach__text {
+    line-height: 1.35;
+  }
+
+  .coach__title {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 600px) {
+  .coach {
+    top: calc(136px + env(safe-area-inset-top));
+    width: calc(100% - 72px);
+  }
+}
+
 .coach__header {
   display: flex;
   align-items: baseline;

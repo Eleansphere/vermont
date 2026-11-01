@@ -76,6 +76,10 @@ export function useGameAudio(scene: () => AudioScene): void {
     if (event.code === 'KeyM' && plain && !isTyping(event.target)) settings.muted = !settings.muted;
   }
 
+  function onVisibility(): void {
+    engine.setHidden(document.hidden);
+  }
+
   function onClick(event: MouseEvent): void {
     if (event.target instanceof Element && event.target.closest('button:not(:disabled)')) {
       playSound('click');
@@ -111,12 +115,17 @@ export function useGameAudio(scene: () => AudioScene): void {
 
   onMounted(() => {
     window.addEventListener('pointerdown', unlock, true);
+    // Safari on the iPhone lets sound start only at the end of a touch, not at its start.
+    window.addEventListener('touchend', unlock, true);
     window.addEventListener('keydown', onKey, true);
+    document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('click', onClick, true);
   });
   onBeforeUnmount(() => {
     window.removeEventListener('pointerdown', unlock, true);
+    window.removeEventListener('touchend', unlock, true);
     window.removeEventListener('keydown', onKey, true);
+    document.removeEventListener('visibilitychange', onVisibility);
     window.removeEventListener('click', onClick, true);
   });
 }

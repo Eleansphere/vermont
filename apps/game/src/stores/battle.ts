@@ -51,7 +51,7 @@ import type {
   TerrainDef,
   Unit,
 } from '@vermont/core';
-import type { Highlights, MapPick, VisibleHexes } from '@vermont/render';
+import type { Highlights, MapPick, PointerKind, VisibleHexes } from '@vermont/render';
 import type { AiBrain } from '../ai/brain';
 import { createBrain, createLocalBrain } from '../ai/brain';
 import type { LogEntry } from '../battle/log';
@@ -201,6 +201,11 @@ export const useBattleStore = defineStore('battle', () => {
   /** Every command carried out since the battle started; with the seed it replays the battle. */
   const history = shallowRef<readonly Command[]>([]);
   const selectedUnitId = ref<string | null>(null);
+  /**
+   * A finger cannot hover, so on a touch screen the first tap on a move or an attack only shows
+   * it (the route, the odds); a second tap on the same hex carries it out. This is what is shown.
+   */
+  const armed = shallowRef<{ readonly unitId: string; readonly hex: Hex } | null>(null);
   const hoveredHex = shallowRef<Hex | null>(null);
   /** The terrain is written on the hexes, for reading the map. */
   const terrainShown = ref(false);
@@ -695,12 +700,28 @@ export const useBattleStore = defineStore('battle', () => {
     showArmy();
   }
 
-  /** The player clicked a hex or a unit on the map, or beside the map (`null`). */
-  function pick(picked: MapPick | null): void {
+  /**
+   * The player clicked a hex or a unit on the map, or beside the map (`null`). A tap of a finger
+   * (`touch`) shows a move or an attack before a second tap carries it out.
+   */
+  function pick(picked: MapPick | null, kind: PointerKind = 'mouse'): void {
     const battle = known.value;
     if (handover.value !== null || aiOnTurn.value) return;
     if (battle?.phase === 'deployment') pickInDeployment(battle, picked);
-    else if (battle?.phase === 'battle') pickInBattle(battle, picked);
+    else if (battle?.phase === 'battle') pickInBattle(battle, picked, kind === 'touch');
+  }
+
+  /** Whether this tap is the second one on a shown move or attack, or shows it and waits. */
+  function confirmedByTap(unitId: string, target: Hex): boolean {
+    const shown = armed.value;
+    if (shown && shown.unitId === unitId && hexEquals(shown.hex, target)) {
+      armed.value = null;
+      hoveredHex.value = null;
+      return true;
+    }
+    armed.value = { unitId, hex: target };
+    hoveredHex.value = target;
+    return false;
   }
 
   function pickInDeployment(battle: BattleState, picked: MapPick | null): void {
@@ -723,9 +744,13 @@ export const useBattleStore = defineStore('battle', () => {
     }
   }
 
-  function pickInBattle(battle: BattleState, picked: MapPick | null): void {
+  function pickInBattle(battle: BattleState, picked: MapPick | null, touch: boolean): void {
     const selected = commandedUnit.value;
     const clickedUnit = picked?.unitId ? battle.units[picked.unitId] : undefined;
+    const shownBefore = armed.value;
+    armed.value = null;
+    // What a finger taps is what it would have hovered: its terrain and unit are described.
+    if (touch) hoveredHex.value = picked?.hex ?? null;
 
     if (order.value === 'relief') {
       order.value = 'move';
@@ -741,6 +766,11 @@ export const useBattleStore = defineStore('battle', () => {
         const selectable = isFighting(clickedUnit) && clickedUnit.id !== selected?.id;
         selectedUnitId.value = selectable ? clickedUnit.id : null;
       } else if (selected && targets.value.some((target) => target.id === clickedUnit.id)) {
+        armed.value = shownBefore;
+        if (touch && isFielded(clickedUnit) && !confirmedByTap(selected.id, clickedUnit.pos)) {
+          return;
+        }
+        armed.value = null;
         send({ type: 'Attack', unitId: selected.id, targetId: clickedUnit.id });
       } else {
         selectedUnitId.value = null;
@@ -749,7 +779,10 @@ export const useBattleStore = defineStore('battle', () => {
     }
 
     const path = picked && reach.value ? pathFromReach(reach.value, picked.hex) : null;
-    if (selected && path && path.hexes.length > 1) {
+    if (selected && path && path.hexes.length > 1 && picked) {
+      armed.value = shownBefore;
+      if (touch && !confirmedByTap(selected.id, picked.hex)) return;
+      armed.value = null;
       send({ type: 'MoveUnit', unitId: selected.id, path: path.hexes });
       return;
     }
@@ -763,6 +796,7 @@ export const useBattleStore = defineStore('battle', () => {
   /** Picks a unit from a list in the interface, or drops the selection with `null`. */
   function select(unitId: string | null): void {
     selectedUnitId.value = unitId;
+    armed.value = null;
     order.value = 'move';
   }
 
@@ -864,6 +898,8 @@ export const useBattleStore = defineStore('battle', () => {
     log,
     order,
     selectedUnitId,
+    /** The move or attack a first tap showed, waiting for a second tap on the same hex. */
+    armedHex: computed(() => armed.value?.hex ?? null),
     selectedUnit,
     commandedUnit,
     reliefPartners,

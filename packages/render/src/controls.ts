@@ -1,10 +1,13 @@
 import type { ScreenPoint } from './picking';
 import { screenPoint } from './picking';
 
-/** What the player's mouse and keyboard ask of the scene. */
+/** What kind of pointer pressed: a finger works without hovering, so it needs a preview first. */
+export type PointerKind = 'mouse' | 'touch';
+
+/** What the player's mouse, fingers and keyboard ask of the scene. */
 export interface ControlHandlers {
-  /** A click that was not a drag. */
-  click(point: ScreenPoint): void;
+  /** A click or a tap that was not a drag. */
+  click(point: ScreenPoint, kind: PointerKind): void;
   /** The pointer moved over the canvas, or left it (`null`). */
   hover(point: ScreenPoint | null): void;
   /** The pointer dragged the map by this many pixels. */
@@ -21,6 +24,56 @@ export interface ControlHandlers {
 const DRAG_THRESHOLD = 5;
 const WHEEL_ZOOM_SPEED = 0.0015;
 const PRIMARY_BUTTON = 0;
+/** How far two fingers must twist, in radians, to turn the camera one step. */
+const TWIST_STEP = Math.PI / 5;
+
+/** Where two fingers are: the point between them, how far apart and at what angle. */
+export interface Pinch {
+  readonly x: number;
+  readonly y: number;
+  readonly distance: number;
+  readonly angle: number;
+}
+
+/** What a move of two fingers asks for: a pan, a zoom factor and a twist in radians. */
+export interface PinchStep {
+  readonly deltaX: number;
+  readonly deltaY: number;
+  readonly zoom: number;
+  readonly twist: number;
+}
+
+export function pinchOf(a: { x: number; y: number }, b: { x: number; y: number }): Pinch {
+  return {
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+    distance: Math.hypot(b.x - a.x, b.y - a.y),
+    angle: Math.atan2(b.y - a.y, b.x - a.x),
+  };
+}
+
+/** How the two fingers moved from one pinch to the next. */
+export function pinchStep(from: Pinch, to: Pinch): PinchStep {
+  let twist = to.angle - from.angle;
+  // The angle wraps round at ±π; the twist is always the short way.
+  if (twist > Math.PI) twist -= 2 * Math.PI;
+  if (twist < -Math.PI) twist += 2 * Math.PI;
+  return {
+    deltaX: to.x - from.x,
+    deltaY: to.y - from.y,
+    zoom: from.distance > 0 && to.distance > 0 ? to.distance / from.distance : 1,
+    twist,
+  };
+}
+
+/**
+ * The camera turns in whole steps, so a twist is gathered until it is big enough for one.
+ * Returns the steps to turn and what is left over.
+ */
+export function twistSteps(gathered: number): { steps: number; rest: number } {
+  const steps = Math.trunc(gathered / TWIST_STEP);
+  return { steps, rest: gathered - steps * TWIST_STEP };
+}
 
 /** Keys by physical position, so they work the same on every keyboard layout. */
 const KEY_ACTIONS: Readonly<Record<string, (handlers: ControlHandlers) => void>> = {
@@ -39,16 +92,50 @@ const KEY_ACTIONS: Readonly<Record<string, (handlers: ControlHandlers) => void>>
 /** Listens to the canvas and the keyboard. Returns a function that stops listening. */
 export function attachControls(canvas: HTMLCanvasElement, handlers: ControlHandlers): () => void {
   let press: { x: number; y: number; button: number; dragging: boolean } | null = null;
+  /** Fingers and the mouse that are down on the canvas, by pointer id. */
+  const down = new Map<number, { x: number; y: number }>();
+  /** Set while two fingers are on the canvas; nothing they do counts as a tap. */
+  let pinch: Pinch | null = null;
+  let twist = 0;
   const pointOf = (event: PointerEvent) =>
     screenPoint(event.clientX, event.clientY, canvas.getBoundingClientRect());
+  const kindOf = (event: PointerEvent): PointerKind =>
+    event.pointerType === 'mouse' ? 'mouse' : 'touch';
+
+  const twoFingers = (): Pinch | null => {
+    const [a, b] = [...down.values()];
+    return a && b ? pinchOf(a, b) : null;
+  };
 
   const onPointerDown = (event: PointerEvent) => {
-    press = { x: event.clientX, y: event.clientY, button: event.button, dragging: false };
+    down.set(event.pointerId, { x: event.clientX, y: event.clientY });
     canvas.setPointerCapture(event.pointerId);
+    if (down.size >= 2) {
+      // A second finger turns the press into a pinch: no tap, no pan by the first finger.
+      press = null;
+      pinch = twoFingers();
+      twist = 0;
+      return;
+    }
+    press = { x: event.clientX, y: event.clientY, button: event.button, dragging: false };
   };
   const onPointerMove = (event: PointerEvent) => {
+    if (down.has(event.pointerId))
+      down.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pinch) {
+      const next = twoFingers();
+      if (!next) return;
+      const step = pinchStep(pinch, next);
+      pinch = next;
+      if (step.deltaX !== 0 || step.deltaY !== 0) handlers.drag(step.deltaX, step.deltaY);
+      if (step.zoom !== 1) handlers.zoom(step.zoom);
+      const turned = twistSteps(twist + step.twist);
+      twist = turned.rest;
+      if (turned.steps !== 0) handlers.rotate(-turned.steps);
+      return;
+    }
     if (!press) {
-      handlers.hover(pointOf(event));
+      if (event.pointerType === 'mouse') handlers.hover(pointOf(event));
       return;
     }
     const deltaX = event.clientX - press.x;
@@ -59,19 +146,26 @@ export function attachControls(canvas: HTMLCanvasElement, handlers: ControlHandl
     press.y = event.clientY;
     handlers.drag(deltaX, deltaY);
   };
+  const release = (event: PointerEvent) => {
+    down.delete(event.pointerId);
+    if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    if (pinch && down.size < 2) pinch = null;
+  };
   const onPointerUp = (event: PointerEvent) => {
     const released = press;
     press = null;
-    if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    release(event);
     if (released && !released.dragging && released.button === PRIMARY_BUTTON) {
-      handlers.click(pointOf(event));
+      handlers.click(pointOf(event), kindOf(event));
     }
   };
-  const onPointerCancel = () => {
+  const onPointerCancel = (event: PointerEvent) => {
     press = null;
+    release(event);
   };
-  const onPointerLeave = () => {
-    if (!press) handlers.hover(null);
+  const onPointerLeave = (event: PointerEvent) => {
+    // A finger leaves the canvas every time it is lifted; what it tapped stays shown.
+    if (!press && event.pointerType === 'mouse') handlers.hover(null);
   };
   const onWheel = (event: WheelEvent) => {
     event.preventDefault();

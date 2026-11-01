@@ -121,6 +121,39 @@ function title(unit: NonNullable<typeof army.value>['units'][number]): string {
   transform: translateX(-50%);
 }
 
+@media (max-width: 900px), (max-height: 560px) {
+  .army {
+    right: calc(56px + env(safe-area-inset-right));
+    bottom: calc(6px + env(safe-area-inset-bottom));
+    left: calc(212px + env(safe-area-inset-left));
+    max-width: none;
+    padding: 4px 6px;
+    transform: none;
+  }
+
+  .army__count {
+    display: none;
+  }
+
+  .army__list {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .army__unit {
+    flex: none;
+    height: 32px;
+  }
+}
+
+@media (max-width: 600px) {
+  .army {
+    left: calc(6px + env(safe-area-inset-left));
+    right: calc(6px + env(safe-area-inset-right));
+  }
+}
+
 .army__count {
   flex: none;
   max-width: 76px;

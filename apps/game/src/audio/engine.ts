@@ -22,6 +22,8 @@ export interface AudioEngine {
    */
   unlock(): void;
   setVolumes(volumes: Volumes): void;
+  /** Stops all sound while the game is out of sight, such as in a background tab. */
+  setHidden(hidden: boolean): void;
   /** Plays a sound once; a sound not loaded yet is skipped, and loaded for the next time. */
   play(sound: SoundId, options?: PlayOptions): void;
   /** Fades a loop to a share of its volume over `seconds`; at 0 it stops. */
@@ -125,6 +127,11 @@ export function createAudioEngine(baseUrl: string): AudioEngine {
       volumes = next;
       applyVolumes();
     },
+    setHidden(hidden) {
+      if (!context) return;
+      if (hidden) void context.suspend();
+      else void context.resume();
+    },
     play(sound, { pan = 0, rate = 1 } = {}) {
       const audio = ready();
       const def = SOUNDS[sound];
@@ -173,6 +180,7 @@ export function createAudioEngine(baseUrl: string): AudioEngine {
 function silentEngine(): AudioEngine {
   return {
     unlock: () => undefined,
+    setHidden: () => undefined,
     setVolumes: () => undefined,
     play: () => undefined,
     setLoop: () => undefined,

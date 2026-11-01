@@ -3,6 +3,7 @@ import {
   DirectionalLight,
   Group,
   HemisphereLight,
+  PCFShadowMap,
   PCFSoftShadowMap,
   Scene,
   Vector3,
@@ -33,6 +34,7 @@ import {
   zoomView,
 } from './camera';
 import { attachControls } from './controls';
+import type { PointerKind } from './controls';
 import type { CueKind } from './eventSteps';
 import { eventSteps } from './eventSteps';
 import type { Highlights } from './highlights';
@@ -53,7 +55,25 @@ import type { UnitModelFactory } from './unitModels';
 import type { UnitView } from './units';
 import { UnitLayer } from './units';
 
-const MAX_PIXEL_RATIO = 2;
+/** How finely the scene is drawn: phones get fewer pixels and cheaper shadows. */
+export type GraphicsQuality = 'high' | 'medium' | 'low';
+
+interface QualityProfile {
+  /** The most device pixels per CSS pixel the canvas is drawn with. */
+  readonly pixelRatio: number;
+  readonly antialias: boolean;
+  /** Size of the shadow map, or 0 for no shadows. */
+  readonly shadowMap: number;
+  readonly softShadows: boolean;
+  /** Frames per second while nothing but idling figures moves; 0 for no limit. */
+  readonly quietFps: number;
+}
+
+export const QUALITY_PROFILES: Readonly<Record<GraphicsQuality, QualityProfile>> = {
+  high: { pixelRatio: 2, antialias: true, shadowMap: 2048, softShadows: true, quietFps: 0 },
+  medium: { pixelRatio: 1.5, antialias: false, shadowMap: 1024, softShadows: false, quietFps: 30 },
+  low: { pixelRatio: 1, antialias: false, shadowMap: 0, softShadows: false, quietFps: 20 },
+};
 const SKY_COLOR = 0xd7e4ff;
 /** Light thrown back from the grass, a little green. */
 const GROUND_LIGHT_COLOR = 0x3c4a30;
@@ -62,7 +82,6 @@ const SUN_COLOR = 0xffffff;
 const SUN_INTENSITY = 2.3;
 /** Where the sun stands from the middle of the map, as a direction. */
 const SUN_DIRECTION = { x: -0.55, y: 1, z: 0.35 } as const;
-const SHADOW_MAP_SIZE = 2048;
 /** World units the view moves on one press of a movement key, at zoom 1. */
 const KEY_PAN_STEP = 2;
 /** How fast the camera catches up with a turn: the share of the rest covered per second. */
@@ -71,6 +90,8 @@ const TURN_SPEED = 10;
 const MAX_FRAME_SECONDS = 0.1;
 /** How long the frame rate is averaged over. */
 const STATS_WINDOW_MS = 1000;
+/** For this long after the player moves the view, frames are drawn at full speed. */
+const INPUT_BUSY_MS = 400;
 /** How fast the camera glides to a place it is sent to: the share of the rest covered per second. */
 const GLIDE_SPEED = 6;
 /** Close enough to the place the camera glides to, in world units. */
@@ -87,7 +108,7 @@ export interface BattleSceneOptions {
   /** The battle's definitions: the map to draw and what the units are. */
   readonly defs: BattleDefs;
   /** The player clicked a hex or a unit, or beside the map (`null`). */
-  onPick?(pick: MapPick | null): void;
+  onPick?(pick: MapPick | null, kind: PointerKind): void;
   /** The pointer moved to another hex, or off the map (`null`). */
   onHover?(pick: MapPick | null): void;
   /** Builds the units' models; figures from the kit, or placeholders without one. */
@@ -98,6 +119,8 @@ export interface BattleSceneOptions {
   onCue?(cue: AnimationCue): void;
   /** What the terrain labels say about each kind of terrain; without it there are none. */
   readonly terrainLabel?: TerrainLabelText;
+  /** How finely to draw; high when left out. */
+  readonly quality?: GraphicsQuality;
 }
 
 /** A moment of an animation, and where on the screen it happens. */
@@ -165,10 +188,15 @@ export function createBattleScene(
   options: BattleSceneOptions
 ): BattleScene {
   const { defs } = options;
-  const renderer = new WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFSoftShadowMap;
+  const profile = QUALITY_PROFILES[options.quality ?? 'high'];
+  const renderer = new WebGLRenderer({
+    canvas,
+    antialias: profile.antialias,
+    powerPreference: 'high-performance',
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, profile.pixelRatio));
+  renderer.shadowMap.enabled = profile.shadowMap > 0;
+  renderer.shadowMap.type = profile.softShadows ? PCFSoftShadowMap : PCFShadowMap;
   // Shadows are drawn again only while something moves across the map, and now and then for
   // the figures idling in place; that roughly halves the cost of a quiet frame.
   renderer.shadowMap.autoUpdate = false;
@@ -221,6 +249,9 @@ export function createBattleScene(
   let azimuth = azimuthOf(view.rotation);
   let framed = false;
   let hovered: Hex | null = null;
+  /** When the player last moved the view; for a while after, it is drawn at full speed. */
+  let lastInput = -Infinity;
+  const touched = () => (lastInput = performance.now());
   /** The place the camera is gliding to, if any; moving the view by hand stops it. */
   let glide: { readonly target: GroundPoint; readonly zoom: number | null } | null = null;
   /** A group to frame once the canvas has a size. */
@@ -256,8 +287,8 @@ export function createBattleScene(
       SUN_DIRECTION.y * radius * 2,
       center.z + SUN_DIRECTION.z * radius * 2
     );
-    light.castShadow = true;
-    light.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+    light.castShadow = profile.shadowMap > 0;
+    light.shadow.mapSize.set(profile.shadowMap || 1, profile.shadowMap || 1);
     light.shadow.camera.left = -radius;
     light.shadow.camera.right = radius;
     light.shadow.camera.top = radius;
@@ -307,6 +338,7 @@ export function createBattleScene(
   }
 
   function hover(point: ScreenPoint | null): void {
+    touched();
     const pick = point && picker.pick(point, camera);
     const target = pick?.hex ?? null;
     if (target === hovered || (target && hovered && hexEquals(target, hovered))) return;
@@ -316,25 +348,29 @@ export function createBattleScene(
   }
 
   const detachControls = attachControls(canvas, {
-    click(point) {
+    click(point, kind) {
       if (!timeline.idle) return;
-      options.onPick?.(picker.pick(point, camera));
+      options.onPick?.(picker.pick(point, camera), kind);
     },
     hover,
     drag(deltaX, deltaY) {
+      touched();
       glide = null;
       const scale = worldUnitsPerPixel(canvas.clientHeight || 1);
       view = panView(view, -deltaX * scale, deltaY * scale, bounds);
     },
     zoom(factor) {
+      touched();
       // Zooming by hand wins over a zoom the camera was gliding to.
       if (glide) glide = { ...glide, zoom: null };
       view = zoomView(view, factor);
     },
     rotate(steps) {
+      touched();
       view = rotateView(view, steps);
     },
     nudge(right, up) {
+      touched();
       glide = null;
       view = panView(view, right * KEY_PAN_STEP, up * KEY_PAN_STEP, bounds);
     },
@@ -351,7 +387,15 @@ export function createBattleScene(
   let frames = 0;
   let windowStart: number | null = null;
   let measured = { fps: 0, frameMs: 0, drawCalls: 0, triangles: 0 };
+  const quietGap = profile.quietFps > 0 ? 1000 / profile.quietFps : 0;
   function frame(time: number): void {
+    // While only the figures idle, a cheaper profile draws fewer frames to spare the battery.
+    const busy =
+      !timeline.idle ||
+      glide !== null ||
+      Math.abs(azimuthOf(view.rotation) - azimuth) > 0.001 ||
+      time - lastInput < INPUT_BUSY_MS;
+    if (!busy && quietGap > 0 && lastTime !== null && time - lastTime < quietGap - 2) return;
     const seconds = Math.min(lastTime === null ? 0 : (time - lastTime) / 1000, MAX_FRAME_SECONDS);
     lastTime = time;
     windowStart ??= time;
@@ -408,6 +452,7 @@ export function createBattleScene(
       );
     },
     setHighlights(marks) {
+      touched();
       highlights.set(marks);
       const unitOn = (target: Hex) => units.viewAt(target)?.unitId;
       units.setMarks(
@@ -429,9 +474,11 @@ export function createBattleScene(
       terrainLabels.show(on);
     },
     rotate(steps) {
+      touched();
       view = rotateView(view, steps);
     },
     zoom(factor) {
+      touched();
       // Zooming by hand wins over a zoom the camera was gliding to.
       if (glide) glide = { ...glide, zoom: null };
       view = zoomView(view, factor);

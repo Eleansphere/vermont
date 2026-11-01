@@ -1,5 +1,6 @@
 import { ref, watch } from 'vue';
 import { defineStore } from 'pinia';
+import type { GraphicsQuality } from '@vermont/render';
 
 /** What the player can set; kept in the browser between visits. */
 export interface Settings {
@@ -18,7 +19,12 @@ export interface Settings {
   muted: boolean;
   /** The player went through the training to its end; the menu stops offering it first. */
   trainingDone: boolean;
+  /** How finely the battle is drawn; `auto` picks by the device. */
+  quality: QualitySetting;
 }
+
+export type QualitySetting = 'auto' | GraphicsQuality;
+export const QUALITY_SETTINGS: readonly QualitySetting[] = ['auto', 'high', 'medium', 'low'];
 
 export const SETTINGS_STORAGE_KEY = 'vermont.settings';
 
@@ -32,6 +38,7 @@ const DEFAULTS: Readonly<Settings> = {
   ambientVolume: 60,
   muted: false,
   trainingDone: false,
+  quality: 'auto',
 };
 
 const MAX_VOLUME = 100;
@@ -45,6 +52,7 @@ function loadSettings(): Settings {
     for (const key of Object.keys(DEFAULTS) as (keyof Settings)[]) {
       const value = (saved as Record<string, unknown>)[key];
       if (typeof value !== typeof DEFAULTS[key]) continue;
+      if (key === 'quality' && !QUALITY_SETTINGS.includes(value as QualitySetting)) continue;
       settings[key] = typeof value === 'number' ? Math.min(MAX_VOLUME, Math.max(0, value)) : value;
     }
   } catch {
@@ -64,6 +72,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const ambientVolume = ref(loaded.ambientVolume);
   const muted = ref(loaded.muted);
   const trainingDone = ref(loaded.trainingDone);
+  const quality = ref<QualitySetting>(loaded.quality);
 
   const current = (): Settings => ({
     confirmEndTurn: confirmEndTurn.value,
@@ -75,6 +84,7 @@ export const useSettingsStore = defineStore('settings', () => {
     ambientVolume: ambientVolume.value,
     muted: muted.value,
     trainingDone: trainingDone.value,
+    quality: quality.value,
   });
 
   watch(current, (settings) => {
@@ -95,5 +105,6 @@ export const useSettingsStore = defineStore('settings', () => {
     ambientVolume,
     muted,
     trainingDone,
+    quality,
   };
 });
