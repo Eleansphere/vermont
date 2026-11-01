@@ -132,7 +132,7 @@ describe('decide', () => {
     expect(first.ai.rng).not.toEqual(createAi(difficulty, SEED).rng);
   });
 
-  it.each(THINKING)('%s: marches into the enemy camp when a unit can reach it', (difficulty) => {
+  it.each(THINKING)('%s: rides into the enemy camp when nobody can drive it out', (difficulty) => {
     const camp = hex(4, 0);
     const battle = battleWith(
       [place('rider', 'equites', 0, 0, 0), place('foe', 'hastati', 1, -4, 5)],
@@ -141,7 +141,25 @@ describe('decide', () => {
 
     const turn = playTurn(battle, difficulty);
 
-    expect(turn.state.winner).toEqual({ player: 0, reason: 'campCaptured' });
+    expect(positionOf(turn.state, 'rider')).toEqual(camp);
+    const held = dispatch(turn.state, { type: 'EndTurn' }, battle.defs);
+    expect(held.state.winner).toEqual({ player: 0, reason: 'campCaptured' });
+  });
+
+  it.each(THINKING)('%s: strikes the enemy that stands in its camp', (difficulty) => {
+    const camp = hex(0, 0);
+    const battle = battleWith(
+      [
+        place('own', 'hastati', 0, 1, 0),
+        place('intruder', 'hastati', 1, 0, 0),
+        place('weak', 'velites', 1, 2, -1),
+      ],
+      { camps: { 0: camp } }
+    );
+
+    const turn = playTurn(battle, difficulty);
+
+    expect(turn.commands).toContainEqual({ type: 'Attack', unitId: 'own', targetId: 'intruder' });
   });
 
   it.each(THINKING)('%s: strikes the enemy it can destroy', (difficulty) => {
@@ -152,7 +170,7 @@ describe('decide', () => {
         place('broken', 'hastati', 1, 0, 1),
       ]),
       'broken',
-      { hp: 2 }
+      { hp: 1 }
     );
 
     const turn = playTurn(battle, difficulty);

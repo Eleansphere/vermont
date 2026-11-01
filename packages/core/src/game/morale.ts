@@ -47,16 +47,43 @@ export function isWorn(defs: BattleDefs, unit: Unit): boolean {
   return unit.hp <= unitTypeOf(defs, unit).hp * defs.rules.morale.wornAt;
 }
 
-/** Morale a unit loses when `striker` hurts it; `victim` is the unit as the hit left it. */
+/** What kind of hit a unit took, beyond who dealt it. */
+export interface Hit {
+  /** Health the hit took. */
+  readonly damage: number;
+  /** The hit came into the unit's rear. */
+  readonly rear?: boolean;
+  /** The hit was a cavalry charge. */
+  readonly charge?: boolean;
+}
+
+/** Whether another unit of the unit's side that still fights stands next to it. */
+export function isSupported(state: BattleState, unit: FieldedUnit): boolean {
+  return adjacentUnits(state, unit.pos, unit.owner).some(
+    (friend) => friend.id !== unit.id && isFighting(friend)
+  );
+}
+
+/**
+ * Morale a unit loses when `striker` hurts it; `victim` is the unit as the hit left it. The
+ * harder the hit, the more it costs; a unit with its line beside it takes it better.
+ */
 export function moraleLossWhenHit(
   state: BattleState,
   defs: BattleDefs,
   victim: FieldedUnit,
-  striker: Unit
+  striker: Unit,
+  hit: Hit
 ): number {
   const rules = defs.rules.morale;
+  const byDamage = rules.lossWhenHit + Math.floor(hit.damage / rules.damagePerMoraleLoss);
+  const support = isSupported(state, victim) ? rules.lineSupport : 0;
   const encircled = isEncircled(state, defs, victim) ? rules.lossWhenEncircled : 0;
   const worn = isWorn(defs, victim) ? rules.lossWhenWorn : 0;
   const fear = abilityOf(defs, striker, 'fear')?.params.moraleLoss ?? 0;
-  return rules.lossWhenHit + encircled + worn + fear;
+  const rear = hit.rear ? rules.lossWhenHitInRear : 0;
+  const charge = hit.charge ? rules.lossWhenCharged : 0;
+  return (
+    Math.max(rules.minLossWhenHit, byDamage - support) + encircled + worn + fear + rear + charge
+  );
 }

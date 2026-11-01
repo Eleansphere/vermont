@@ -33,6 +33,18 @@ function factorText(factor: AttackFactor, defs: BattleDefs): string {
         units: plural('units', value),
         percent: Math.round(defs.rules.combat.flankBonus * value * 100),
       });
+    case 'rear':
+      return t('tip.factor.rear', {
+        percent: Math.round(defs.rules.combat.rearBonus * 100),
+        morale: defs.rules.morale.lossWhenHitInRear,
+      });
+    case 'charge':
+      return t('tip.factor.charge', {
+        value: formatSigned(value),
+        morale: defs.rules.morale.lossWhenCharged,
+      });
+    case 'support':
+      return t('tip.factor.support', { support: defs.rules.morale.lineSupport });
     case 'wounded':
     case 'shaken':
       return t(`tip.factor.${factor.id}`);
@@ -63,7 +75,17 @@ const view = computed(() => {
   return {
     terrain: terrainName(terrain.id),
     facts,
-    camp: info.campOf === null ? null : t('tip.camp', { side: sideName(scenario, info.campOf) }),
+    camp:
+      info.campOf === null
+        ? null
+        : t('tip.camp', { side: sideName(scenario, info.campOf) }) +
+          (unit && unit.owner !== info.campOf ? ` (${t('tip.campHeld')})` : ''),
+    disengage:
+      info.disengage &&
+      t('tip.disengage', {
+        unit: unitLabel(state, defs, state.units[info.disengage.strikerId]!),
+        damage: range(info.disengage.damage),
+      }),
     fogged: info.fogged,
     mustStop: !unit && (store.highlights.zoc ?? []).some((stop) => hexEquals(stop, info.hex)),
     unit: unit &&
@@ -122,6 +144,9 @@ const percent = (value: number, max: number) => `${Math.round((value / max) * 10
     <div v-if="view.camp" class="tip__camp">{{ view.camp }}</div>
     <div v-if="view.mustStop" class="tip__stop" data-test="tooltip-stop">
       {{ t('tip.mustStop') }}
+    </div>
+    <div v-if="view.disengage" class="tip__stop" data-test="tooltip-disengage">
+      {{ view.disengage }}
     </div>
     <div v-if="view.fogged" class="muted" data-test="tooltip-fog">{{ t('tip.fogged') }}</div>
 

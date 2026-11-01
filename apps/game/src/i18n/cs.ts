@@ -55,7 +55,7 @@ export const cs = {
     'tutorial.next': 'Další',
     'tutorial.skip': 'Skrýt výcvik',
     'tutorial.welcome':
-      'Vítej ve výcviku. Velíš Římu (červené štítky) proti Kartágu (fialové). Vyhraješ, když vstoupíš do tábora soupeře (praporec nad ním, vzdálenost ukazuje horní lišta) nebo rozeženeš celou jeho armádu. Projdeme to krok po kroku.',
+      'Vítej ve výcviku. Velíš Římu (červené štítky) proti Kartágu (fialové). Vyhraješ, když obsadíš tábor soupeře a vydržíš v něm jeho tah (praporec nad ním, vzdálenost ukazuje horní lišta), nebo když soupeř přijde o polovinu armády. Projdeme to krok po kroku.',
     'tutorial.select':
       'Klikni na svou jednotku na mapě nebo v liště armády dole (nebo stiskni Tab). Vlevo dole se ukáže její panel: zdraví, morálka, pohyb a schopnosti. Štítek nad jednotkou ukazuje typ, životy a morálku.',
     'tutorial.move':
@@ -63,11 +63,11 @@ export const cs = {
     'tutorial.endTurn':
       'Každá jednotka se může v tahu jednou pohnout a jednou zaútočit. Pohni i ostatními a pak ukonči tah tlačítkem vpravo nahoře nebo Enterem. Jednotky se šedým štítkem už nemůžou nic, v liště dole hned vidíš, kdo ještě může jednat.',
     'tutorial.contact':
-      'Soupeř se blíží. Oranžově podbarvený hex značí zónu kontroly: hex vedle nepřítele, kde se jednotka musí zastavit. Postav se k nepříteli.',
+      'Soupeř se blíží. Oranžově podbarvený hex značí zónu kontroly: hex vedle nepřítele, kde se jednotka musí zastavit. Kdo z ní pak odejde, dostane volný úder (lehcí pěšáci a jízda ne). Postav se k nepříteli.',
     'tutorial.attack':
       'Nepřátelé s červeným kroužkem a rámečkem štítku jsou na dosah. Najeď na cíl myší: karta ukáže ztráty obou stran a co útok zesiluje nebo oslabuje. Klikni a zaútoč.',
     'tutorial.morale':
-      'Zásah bere životy (číslo na štítku) i morálku (modrá linka pod ním). Otřesená jednotka (žlutý vykřičník) útočí slabší, zlomená (červený znak ») utíká a neposlouchá. Útoč víc jednotkami na jeden cíl: obklíčení přidává sílu a bere víc morálky.',
+      'Zásah bere životy (číslo na štítku) i morálku (modrá linka pod ním): čím silnější rána, tím víc. Otřesená jednotka (žlutý vykřičník) útočí slabší, zlomená (červený znak ») utíká a neposlouchá. Drž linii pohromadě, soused tlumí ztrátu morálky. Nejsilnější je útok do týlu: postav jednotku za nepřítele a udeř z druhé strany.',
     'tutorial.abilities':
       'Schopnosti najdeš v panelu jednotky. Hastáti mají pilum, silnější první útok. Principes umí střídání linie (R): vymění se s unavenou sousední jednotkou.',
     'tutorial.log':
@@ -84,7 +84,7 @@ export const cs = {
     'help.tab.terrain': 'Terén',
     'help.tab.controls': 'Ovládání',
     'help.basics.goal':
-      'Vyhraješ, když tvoje bojující jednotka vstoupí do tábora soupeře, nebo když soupeři na bojišti nezůstane žádná jednotka (padly nebo utekly).',
+      'Vyhraješ, když tvoje bojující jednotka vstoupí do tábora soupeře a vydrží v něm celý jeho tah, nebo když soupeř ztratí polovinu armády (zničené jednotky a ty, které utekly z bojiště). Jednotky, které zrovna prchají po mapě, se do ztrát počítají, až bojiště opustí.',
     'help.basics.turns':
       'Strany se střídají v tazích. Ve svém tahu může každá jednotka jednou pohnout a jednou zaútočit, v libovolném pořadí. Tah ukončíš tlačítkem Ukončit tah nebo klávesou Enter.',
     'help.basics.plate':
@@ -99,6 +99,8 @@ export const cs = {
       'Každá jednotka má body pohybu. Vstup na hex stojí tolik, kolik ukazuje tabulka terénu. Řeka a moře jsou neprůchodné, přejít se dá jen po mostě nebo brodem.',
     'help.movement.zoc':
       'Zóna kontroly: hexy hned vedle nepřítele. Jednotka, která do nich vstoupí, musí zastavit. Na mapě je značí oranžově podbarvené hexy.',
+    'help.movement.disengage':
+      'Odpoutání: kdo odejde od nepřítele, se kterým stál v boji, dostane od nejsilnějšího z nich volný úder poloviční silou, bez možnosti odpovědět. Krok podél linie, kdy jednotka u nepřítele zůstane, nic nestojí. Zdarma se odpoutají: {free}.',
     'help.movement.hill':
       'Z kopce je vidět a střílí se o 1 hex dál. Les, kopec a hory zakrývají výhled.',
     'help.movement.ambush': 'Když jednotka při pohybu narazí na skrytého nepřítele, zastaví se.',
@@ -112,6 +114,10 @@ export const cs = {
       'Typ proti typu: některé typy mají proti jiným výhodu ×{advantage}. Které to jsou, ukazuje sloupec Silná proti v záložce Jednotky.',
     'help.combat.flank':
       'Obklíčení: každý další tvůj bojující voják vedle cíle přidá útoku {flank} %. Natočení jednotek hra nezná.',
+    'help.combat.rear':
+      'Týl: když tvoje jednotka stojí na hexu přímo za cílem (naproti útočníkovi), útok jde do týlu: +{rear} % ztrát a o {morale} víc morálky.',
+    'help.combat.charge':
+      'Nájezd: jízda, která v tahu ujela aspoň {distance} hexy a pak útočí zblízka, má útok +{attack} a cíl ztratí o {morale} víc morálky. Kopíníci nájezd zastaví, stejně jako les, bažina, kopec, hory a tábor.',
     'help.combat.terrain':
       'Útok z kopce dolů má +{downhill}. Jízda a sloni v lese bojují s postihem {hindered}. Obranu cíle zvedá jeho terén.',
     'help.combat.preview':
@@ -119,11 +125,11 @@ export const cs = {
     'help.morale.states':
       'Morálka má {max} bodů. Na {shaken} a méně je jednotka otřesená a útočí o {penalty} % slabší. Na {routing} a méně se dá na útěk.',
     'help.morale.loss':
-      'Zásah stojí {hit} body morálky, o {encircled} víc při obklíčení ({encircledAt} a více nepřátel kolem), o {worn} víc, když jednotce zbude polovina zdraví nebo méně. Když vedle padne spojenec, ztrácí {allyDies}.',
+      'Zásah stojí {hit} bod morálky a k tomu 1 za každý ztracený život. O {support} méně (nejméně {min}), když vedle jednotky stojí její vlastní bojující jednotka: soudržná linie drží. O {encircled} víc při obklíčení ({encircledAt} a více nepřátel kolem), o {worn} víc, když jednotce zbude polovina zdraví nebo méně. Když vedle padne spojenec, ztrácí {allyDies}.',
     'help.morale.gain':
       'Za útok, ve kterém způsobí víc ztrát, než dostane, získá jednotka {won}. Každý tah bez nepřítele vedle sebe se vzpamatuje o {recovery}.',
     'help.morale.rout':
-      'Zlomená jednotka hned utíká co nejdál od nepřítele a neposlouchá rozkazy. Na začátku tvého tahu opustí bojiště, pokud stojí vedle nepřítele; jinak se vzpamatuje, ale ten tah stojí.',
+      'Zlomená jednotka hned utíká co nejdál od nepřítele a neposlouchá rozkazy. Na začátku tvého tahu opustí bojiště, pokud stojí vedle nepřítele; jinak se vzpamatuje (otřesená), ale ten tah stojí. Vzpamatovat se může jen jednou: když se zlomí podruhé, z bojiště odejde.',
     'help.morale.camp': 'Jednotka ve vlastním táboře morálku neztrácí.',
     'help.morale.elephants':
       'Sloni na útěku nejdřív zběsile zaútočí na náhodnou sousední jednotku, i vlastní.',
@@ -202,7 +208,7 @@ export const cs = {
     'hud.log': 'Události',
     'hud.goal': 'K táboru soupeře: {distance} {hexes}',
     'hud.goalHint':
-      'Vstup do tábora soupeře vyhrává bitvu, stejně jako zničení nebo rozprášení jeho armády.',
+      'Tábor soupeře padne, když v něm tvoje jednotka vydrží celý jeho tah. Bitvu vyhraješ i tím, že soupeř přijde o polovinu armády.',
     'hud.logHint': 'Otevřít nebo zavřít log událostí (L)',
     'hud.terrain': 'Terén',
     'hud.terrainHint': 'Napsat na hexy, jaký je na nich terén a kolik dává obrany (T)',
@@ -210,6 +216,12 @@ export const cs = {
     'hud.army.fighting': 'v boji {count} z {total}',
     'hud.army.routing': 'na útěku {count}',
     'hud.army.strength': 'Síla armády',
+    'hud.army.untilBreak': 'zlom za {count}',
+    'hud.army.untilBreakHint':
+      'Armáda se zlomí a prohraje, až ztratí polovinu jednotek (zničené a utečené z bojiště). Tolik jednotek jí ještě chybí.',
+    'hud.campThreat':
+      'Nepřítel je v tvém táboře! Vyžeň ho, jinak na konci jeho dalšího tahu tábor padne.',
+    'hud.campHeld': 'Držíš tábor soupeře. Pokud tam vydržíš jeho tah, vyhraješ.',
     'hud.confirmEndTurn': 'Některé jednotky ještě mohou jednat ({count}). Opravdu ukončit tah?',
     'hud.confirm': 'Ukončit tah',
     'hud.cancel': 'Zpět',
@@ -281,6 +293,8 @@ export const cs = {
     'tip.targetMorale': 'Morálka cíle {loss}',
     'tip.encircled': 'cíl je obklíčen',
     'tip.mustStop': 'vedle nepřítele: tady se zastavíš',
+    'tip.disengage': 'Odpoutání: {unit} zasadí volný úder za {damage}',
+    'tip.campHeld': 'obsazen nepřítelem',
     'tip.factor.terrainAttack': 'terén útočníka {value}',
     'tip.factor.downhill': 'útok z kopce {value}',
     'tip.factor.hindered': 'nevhodný terén {value}',
@@ -291,6 +305,9 @@ export const cs = {
     'tip.factor.shieldWall': 'štítová hradba: obrana {value}',
     'tip.factor.advantage': 'výhoda typu ×{value}',
     'tip.factor.flank': 'obklíčení: {count} {units} u cíle, +{percent} %',
+    'tip.factor.rear': 'útok do týlu +{percent} %, morálka −{morale}',
+    'tip.factor.charge': 'nájezd jízdy {value}, morálka −{morale}',
+    'tip.factor.support': 'cíl má oporu v linii: morálka −{support} méně',
     'tip.factor.wounded': 'útočník je oslabený',
     'tip.factor.shaken': 'útočník je otřesený',
 
@@ -302,9 +319,12 @@ export const cs = {
     'log.turnStarted': 'Kolo {turn}, na tahu {side}.',
     'log.moved': '{unit}: přesun o {count} {hexes}.',
     'log.ambushed': '{unit}: narazila na skrytého nepřítele a zastavila.',
+    'log.disengaged': '{unit}: odpoutává se, {striker} zasazuje volný úder za {damage}.',
     'log.attack.melee': '{unit}: útok na {target}, ztráty {damage}.',
     'log.attack.ranged': '{unit}: střelba na {target}, ztráty {damage}.',
     'log.counter': ' Protiútok {damage}.',
+    'log.charge': ' Nájezd!',
+    'log.rear': ' Do týlu!',
     'log.died': '{unit}: jednotka zničena.',
     'log.morale.steady': '{unit}: morálka obnovena.',
     'log.morale.shaken': '{unit}: jednotka otřesena.',
@@ -440,7 +460,7 @@ export const cs = {
   } satisfies Record<MoraleState, string>,
 
   victoryReasons: {
-    campCaptured: 'dobyl tábor soupeře',
+    campCaptured: 'udržel tábor soupeře',
     armyBroken: 'armáda soupeře je zlomena',
   } satisfies Record<VictoryReason, string>,
 

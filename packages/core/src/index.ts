@@ -81,7 +81,14 @@ export type {
   Winner,
 } from './game/battleState';
 export { createDefs } from './game/rules';
-export type { BattleDefs, BattleRules, CombatRules, FogRules, MoraleRules } from './game/rules';
+export type {
+  BattleDefs,
+  BattleRules,
+  CombatRules,
+  FogRules,
+  MoraleRules,
+  VictoryRules,
+} from './game/rules';
 export {
   MORALE_STATES,
   UNIT_STATUSES,
@@ -100,7 +107,16 @@ export { checkWalk, marchAlong, moveContextFor, unitReach } from './game/unitMov
 export type { March, Walk } from './game/unitMovement';
 export { eventsSeenBy, isFogLifted, playerSight, playerView, seesUnit } from './game/fog';
 export type { PlayerView } from './game/fog';
-export { attackFactors, attackKindFor, attackTargets, previewAttack } from './game/combat';
+export {
+  attackFactors,
+  attackKindFor,
+  attackTargets,
+  disengagementStriker,
+  isCharge,
+  isRearAttack,
+  previewAttack,
+  previewDisengagement,
+} from './game/combat';
 export type {
   AttackFactor,
   AttackFactorId,
@@ -108,13 +124,16 @@ export type {
   AttackPreview,
   DamageRange,
 } from './game/combat';
-export { holdsOwnCamp, isEncircled, isWorn, moraleLossWhenHit } from './game/morale';
-export { findWinner } from './game/victory';
+export { holdsOwnCamp, isEncircled, isSupported, isWorn, moraleLossWhenHit } from './game/morale';
+export type { Hit } from './game/morale';
+export { armyLosses, findWinner, holdsEnemyCamp } from './game/victory';
+export type { ArmyLosses } from './game/victory';
 export { autoDeployment, checkDeployment, deploymentHexes, reserveUnits } from './game/deployment';
 export type {
   AttackCommand,
   AttackKind,
   AttackResolvedEvent,
+  UnitDisengagedEvent,
   BattleDrawnEvent,
   BattleEndedEvent,
   Command,

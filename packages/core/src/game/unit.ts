@@ -27,10 +27,14 @@ export interface Unit {
   readonly morale: number;
   readonly moraleState: MoraleState;
   readonly movementLeft: number;
+  /** Hexes the unit has walked this turn; a long enough walk lets cavalry charge. */
+  readonly movedThisTurn: number;
   readonly hasAttacked: boolean;
   readonly status: UnitStatus;
   /** One-off abilities the unit has used up. */
   readonly spentAbilities: readonly AbilityId[];
+  /** The unit has broken and rallied once; if it breaks again, it leaves the field. */
+  readonly hasRallied: boolean;
 }
 
 /** A unit that is on the battlefield. */
@@ -70,9 +74,11 @@ export function createUnits(
       morale: type.morale,
       moraleState: moraleStateOf(type.morale, rules),
       movementLeft: type.movement,
+      movedThisTurn: 0,
       hasAttacked: false,
       status: placement.pos ? 'active' : 'reserve',
       spentAbilities: [],
+      hasRallied: false,
     };
   });
 }

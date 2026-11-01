@@ -143,14 +143,30 @@ export function describeEvents(events: readonly GameEvent[], context: LogContext
           aboutUnit('move', event.unitId, t('log.ambushed', { unit: label(event.unitId) }))
         );
         break;
+      case 'UnitDisengaged':
+        entries.push(
+          aboutUnit(
+            'combat',
+            event.unitId,
+            t('log.disengaged', {
+              unit: label(event.unitId),
+              striker: label(event.strikerId),
+              damage: event.damage,
+            }),
+            { at: place(event.unitId), hits: [hit(event.unitId, event.damage)] }
+          )
+        );
+        break;
       case 'AttackResolved': {
         const attack = t(event.kind === 'ranged' ? 'log.attack.ranged' : 'log.attack.melee', {
           unit: label(event.attackerId),
           target: label(event.targetId),
           damage: event.damage,
         });
+        const manner = (event.charge ? t('log.charge') : '') + (event.rear ? t('log.rear') : '');
         const counter =
-          event.counterDamage === null ? '' : t('log.counter', { damage: event.counterDamage });
+          manner +
+          (event.counterDamage === null ? '' : t('log.counter', { damage: event.counterDamage }));
         const hits = [hit(event.targetId, event.damage)];
         if (event.counterDamage !== null) hits.push(hit(event.attackerId, event.counterDamage));
         entries.push(

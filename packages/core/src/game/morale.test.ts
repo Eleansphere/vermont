@@ -70,8 +70,9 @@ describe('morale in combat', () => {
   it('drops for a unit that is hit and rises for an attacker that won the exchange', () => {
     const after = play(withUnit(duel(), 'attacker', { morale: 6 }), attack('attacker', 'target'));
 
-    // The attacker loses two for the counter-attack and gains one for doing more damage.
-    expect(unitOf(after, 'attacker').morale).toBe(5);
+    // The attacker loses one for the light counter-attack and gains one for doing more damage;
+    // the target loses one for the hit and one for its 3 points of damage.
+    expect(unitOf(after, 'attacker').morale).toBe(6);
     expect(unitOf(after, 'target').morale).toBe(6);
     expect(after.events).toContainEqual({
       type: 'MoraleChanged',
@@ -92,7 +93,7 @@ describe('morale in combat', () => {
   });
 
   it('drops faster for a unit that is encircled', () => {
-    const battle = duel(place('second', 'hastati', 0, 2, 0), place('third', 'hastati', 0, 1, 1));
+    const battle = duel(place('second', 'hastati', 0, 2, -1), place('third', 'hastati', 0, 1, 1));
     const target = unitOf(battle, 'target') as FieldedUnit;
 
     expect(isEncircled(battle.state, battle.defs, target)).toBe(true);
@@ -106,10 +107,10 @@ describe('morale in combat', () => {
       place('target', 'principes', 1, 1, 0),
     ]);
 
-    // 3 × 8 / 6 × 1.25 = 5 leaves the principes worn as well: 8 − 2 − 1 − 1.
+    // 3 × 8 / 6 × 1.25 = 5 leaves the principes worn as well: 8 − 2 for the hit − 1 − 2.
     expect(unitOf(play(battle, attack('elephants', 'target')), 'target')).toMatchObject({
       hp: 5,
-      morale: 4,
+      morale: 3,
     });
   });
 
@@ -118,7 +119,7 @@ describe('morale in combat', () => {
 
     expect(unitOf(play(worn, attack('attacker', 'target')), 'target')).toMatchObject({
       hp: 5,
-      morale: 5,
+      morale: 4,
     });
   });
 
@@ -272,17 +273,26 @@ describe('routing', () => {
 
     expect(unitOf(escaped, 'target')).toMatchObject({
       status: 'active',
-      morale: 2,
+      morale: 4,
       moraleState: 'shaken',
+      hasRallied: true,
       movementLeft: 0,
       hasAttacked: true,
     });
     expect(escaped.events).toContainEqual({ type: 'UnitRallied', unitId: 'target' });
     expect(unitOf(nextRound(escaped), 'target')).toMatchObject({
-      morale: 3,
+      morale: 5,
       movementLeft: 4,
       hasAttacked: false,
     });
+  });
+
+  it('rallies only once: a unit that breaks again leaves the field', () => {
+    const twice = withUnit(brittle(), 'target', { hasRallied: true });
+    const after = play(twice, attack('attacker', 'target'), END_TURN);
+
+    expect(unitOf(after, 'target')).toMatchObject({ status: 'fled', pos: null });
+    expect(after.events.some((event) => event.type === 'UnitRallied')).toBe(false);
   });
 
   it('leaves the battlefield if the enemy caught up with it', () => {

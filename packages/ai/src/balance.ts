@@ -20,6 +20,10 @@ export interface Tempo {
   readonly destroyed: number;
   /** Units of both sides that ran from the battlefield. */
   readonly fled: number;
+  /** Attacks into the rear, cavalry charges and free strikes at units leaving a fight. */
+  readonly rearAttacks: number;
+  readonly charges: number;
+  readonly disengagements: number;
   /**
    * Share of its army the loser had lost `OPENING_ROUNDS` rounds after the first clash; `null`
    * when nobody lost or the armies never met.
@@ -35,6 +39,9 @@ export interface SeriesTempo {
   readonly roundsOfFighting: number;
   readonly destroyed: number;
   readonly fled: number;
+  readonly rearAttacks: number;
+  readonly charges: number;
+  readonly disengagements: number;
   readonly loserOpeningLosses: number;
   readonly winnerLeft: number;
 }
@@ -62,9 +69,15 @@ export function battleTempo({ state, events }: SimulatedBattle): Tempo {
   let contactRound: number | null = null;
   let destroyed = 0;
   let fled = 0;
+  let rearAttacks = 0;
+  let charges = 0;
+  let disengagements = 0;
   for (const event of events) {
     if (event.type === 'TurnStarted') round = event.turn;
     if (event.type === 'AttackResolved' && event.kind === 'melee') contactRound ??= round;
+    if (event.type === 'AttackResolved' && event.rear) rearAttacks++;
+    if (event.type === 'AttackResolved' && event.charge) charges++;
+    if (event.type === 'UnitDisengaged') disengagements++;
     if (event.type === 'UnitDied' || event.type === 'UnitFled') {
       if (event.type === 'UnitDied') destroyed++;
       else fled++;
@@ -84,6 +97,9 @@ export function battleTempo({ state, events }: SimulatedBattle): Tempo {
     roundsOfFighting: contactRound === null ? 0 : state.turn - contactRound + 1,
     destroyed,
     fled,
+    rearAttacks,
+    charges,
+    disengagements,
     loserOpeningLosses:
       winner === undefined || contactRound === null
         ? null
@@ -138,6 +154,9 @@ export function playSeries(
       roundsOfFighting: mean(tempos.map((tempo) => tempo.roundsOfFighting)),
       destroyed: mean(tempos.map((tempo) => tempo.destroyed)),
       fled: mean(tempos.map((tempo) => tempo.fled)),
+      rearAttacks: mean(tempos.map((tempo) => tempo.rearAttacks)),
+      charges: mean(tempos.map((tempo) => tempo.charges)),
+      disengagements: mean(tempos.map((tempo) => tempo.disengagements)),
       loserOpeningLosses: mean(tempos.map((tempo) => tempo.loserOpeningLosses)),
       winnerLeft: mean(tempos.map((tempo) => tempo.winnerLeft)),
     },

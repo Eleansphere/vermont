@@ -2,6 +2,7 @@ import type { BattleState } from '../battleState';
 import { opponentOf } from '../battleState';
 import type { CommandHandler, EndTurnCommand, GameEvent } from '../command';
 import { moraleChanged, shiftMorale } from '../morale';
+import { holdsEnemyCamp } from '../victory';
 import type { UnitChange } from '../rout';
 import type { BattleDefs } from '../rules';
 import type { FieldedUnit } from '../unit';
@@ -16,6 +17,16 @@ export const endTurn: CommandHandler<EndTurnCommand> = {
   apply(state, _command, defs) {
     const nextPlayer = opponentOf(state.activePlayer);
     const nextTurn = nextPlayer === ROUND_OPENER ? state.turn + 1 : state.turn;
+    // A unit that stood in the enemy camp through the whole of the enemy's turn has taken it.
+    if (holdsEnemyCamp(state, defs, nextPlayer)) {
+      return {
+        state: { ...state, phase: 'ended', winner: { player: nextPlayer, reason: 'campCaptured' } },
+        events: [
+          { type: 'TurnEnded', player: state.activePlayer, turn: state.turn },
+          { type: 'BattleEnded', winner: nextPlayer, reason: 'campCaptured' },
+        ],
+      };
+    }
     if (nextTurn > defs.rules.roundLimit) {
       return {
         state: { ...state, phase: 'ended', draw: true },
@@ -42,7 +53,7 @@ export const endTurn: CommandHandler<EndTurnCommand> = {
 
 function startTurnOf(state: BattleState, defs: BattleDefs, unit: FieldedUnit): UnitChange {
   if (unit.moraleState !== 'routing') return recover(state, defs, unit);
-  return isPursued(state, unit) ? flee(unit) : rally(defs, unit);
+  return isPursued(state, unit) || unit.hasRallied ? flee(unit) : rally(defs, unit);
 }
 
 /** A unit that fights gets its movement and attack back, and some morale if left in peace. */
@@ -52,23 +63,32 @@ function recover(state: BattleState, defs: BattleDefs, unit: FieldedUnit): UnitC
     ? unit
     : shiftMorale(unit, defs.rules.morale.recoveryPerTurn, defs.rules.morale, type.morale);
   return {
-    unit: { ...rested, movementLeft: type.movement, hasAttacked: false },
+    unit: { ...rested, movementLeft: type.movement, movedThisTurn: 0, hasAttacked: false },
     events: rested === unit ? [] : [moraleChanged(rested)],
   };
 }
 
-/** A routing unit the enemy let go spends the turn steadying itself and fights on, shaken. */
+/**
+ * A routing unit the enemy let go spends the turn steadying itself and fights on, shaken. It
+ * does so only once: a unit that breaks again leaves the field.
+ */
 function rally(defs: BattleDefs, unit: FieldedUnit): UnitChange {
   const rules = defs.rules.morale;
-  const steadied = shiftMorale(unit, rules.routingAt + 1 - unit.morale, rules);
-  const rallied = { ...steadied, movementLeft: 0, hasAttacked: true };
+  const steadied = shiftMorale(unit, rules.shakenAt - unit.morale, rules);
+  const rallied = {
+    ...steadied,
+    movementLeft: 0,
+    movedThisTurn: 0,
+    hasAttacked: true,
+    hasRallied: true,
+  };
   return {
     unit: rallied,
     events: [{ type: 'UnitRallied', unitId: unit.id }, moraleChanged(rallied)],
   };
 }
 
-/** A routing unit the enemy caught up with leaves the battlefield for good. */
+/** A routing unit the enemy caught up with, or one broken twice, leaves the battlefield for good. */
 function flee(unit: FieldedUnit): UnitChange {
   return {
     unit: { ...unit, status: 'fled', pos: null, movementLeft: 0 },

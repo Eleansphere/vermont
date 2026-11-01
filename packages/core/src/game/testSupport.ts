@@ -14,15 +14,20 @@ import { createUnits, withUnits } from './unit';
 
 /** Damage of an even strike in the tests, whatever the balancing made of it in the game. */
 const TEST_BASE_DAMAGE = 3;
+/** Points of damage that cost a point of morale in the tests, to go with their base damage. */
+const TEST_DAMAGE_PER_MORALE_LOSS = 3;
 
 /**
  * The standard rules without the random spread and with a base damage of their own, so tests
  * can expect exact damage that balancing does not move, and without the fog, so they can order
- * units about wherever the enemy stands.
+ * units about wherever the enemy stands. A test army of two or three units breaks only when it
+ * has nothing left, unless the test is about the break.
  */
 export const EXACT_RULES: BattleRules = {
   ...RULES,
   combat: { ...RULES.combat, baseDamage: TEST_BASE_DAMAGE, damageSpread: 0 },
+  morale: { ...RULES.morale, damagePerMoraleLoss: TEST_DAMAGE_PER_MORALE_LOSS },
+  victory: { ...RULES.victory, armyBreaksAt: 1 },
   fog: { ...RULES.fog, enabled: false },
 };
 

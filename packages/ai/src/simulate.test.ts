@@ -3,8 +3,8 @@ import type { PlayerSlot, ScenarioDef } from '@vermont/core';
 import {
   SCENARIOS,
   TRAINING,
+  armyLosses,
   dispatchAll,
-  fieldedUnits,
   opponentOf,
   scenarioDefs,
   startScenario,
@@ -30,11 +30,12 @@ function battle(scenario: ScenarioDef, seed: number, first: Difficulty, second: 
   });
 }
 
-function expectDecided({ state, rejected }: SimulatedBattle): void {
+function expectDecided({ state, rejected }: SimulatedBattle, scenario: ScenarioDef): void {
   expect(rejected).toBe(0);
   expect(state.phase).toBe('ended');
   if (state.winner?.reason === 'armyBroken') {
-    expect(fieldedUnits(state, opponentOf(state.winner.player))).toEqual([]);
+    const defs = scenarioDefs(scenario);
+    expect(armyLosses(state, defs, opponentOf(state.winner.player)).untilBreak).toBe(0);
   }
 }
 
@@ -45,7 +46,7 @@ describe.each([...Object.values(SCENARIOS), TRAINING])(
       'is fought to the end by the hard AI on both sides, from twenty seeds',
       { timeout: TIMEOUT_MS },
       () => {
-        for (const seed of SEEDS) expectDecided(battle(scenario, seed, 'hard', 'hard'));
+        for (const seed of SEEDS) expectDecided(battle(scenario, seed, 'hard', 'hard'), scenario);
       }
     );
 
@@ -53,7 +54,8 @@ describe.each([...Object.values(SCENARIOS), TRAINING])(
       'is fought to the end by the %s AI on both sides',
       { timeout: TIMEOUT_MS },
       (difficulty) => {
-        for (const seed of FEW_SEEDS) expectDecided(battle(scenario, seed, difficulty, difficulty));
+        for (const seed of FEW_SEEDS)
+          expectDecided(battle(scenario, seed, difficulty, difficulty), scenario);
       }
     );
 
@@ -68,7 +70,7 @@ describe.each([...Object.values(SCENARIOS), TRAINING])(
               hardSide === 0
                 ? battle(scenario, seed, 'hard', weaker)
                 : battle(scenario, seed, weaker, 'hard');
-            expectDecided(fought);
+            expectDecided(fought, scenario);
             if (fought.state.winner?.player === hardSide) won++;
           }
         }

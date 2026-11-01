@@ -32,6 +32,14 @@ const TEXTS: Partial<Record<HelpTab, readonly [UiKey, Record<string, string | nu
   movement: [
     ['help.movement.points'],
     ['help.movement.zoc'],
+    [
+      'help.movement.disengage',
+      {
+        free: combat.freeDisengage
+          .map((archetype) => archetypeName(archetype).toLocaleLowerCase('cs'))
+          .join(', '),
+      },
+    ],
     ['help.movement.hill'],
     ['help.movement.ambush'],
   ],
@@ -41,6 +49,15 @@ const TEXTS: Partial<Record<HelpTab, readonly [UiKey, Record<string, string | nu
     ['help.combat.counter'],
     ['help.combat.types', { advantage: formatNumber(combat.advantageFactor) }],
     ['help.combat.flank', { flank: percent(combat.flankBonus) }],
+    ['help.combat.rear', { rear: percent(combat.rearBonus), morale: morale.lossWhenHitInRear }],
+    [
+      'help.combat.charge',
+      {
+        distance: combat.chargeDistance,
+        attack: combat.chargeAttack,
+        morale: morale.lossWhenCharged,
+      },
+    ],
     [
       'help.combat.terrain',
       {
@@ -64,6 +81,8 @@ const TEXTS: Partial<Record<HelpTab, readonly [UiKey, Record<string, string | nu
       'help.morale.loss',
       {
         hit: morale.lossWhenHit,
+        support: morale.lineSupport,
+        min: morale.minLossWhenHit,
         encircled: morale.lossWhenEncircled,
         encircledAt: morale.encircledAt,
         worn: morale.lossWhenWorn,

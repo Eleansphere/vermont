@@ -107,10 +107,12 @@ function readUnit(unit: unknown, id: string): Unit {
   if ((pos === null) === (unit.status === 'active')) {
     throw invalid(`${field}.pos`, 'a hex for a unit on the battlefield and null for any other');
   }
-  for (const stat of ['hp', 'morale', 'movementLeft'] as const) {
+  for (const stat of ['hp', 'morale', 'movementLeft', 'movedThisTurn'] as const) {
     if (!isAmount(unit[stat])) throw invalid(`${field}.${stat}`, 'a number that is not negative');
   }
-  if (typeof unit.hasAttacked !== 'boolean') throw invalid(`${field}.hasAttacked`, 'true or false');
+  for (const flag of ['hasAttacked', 'hasRallied'] as const) {
+    if (typeof unit[flag] !== 'boolean') throw invalid(`${field}.${flag}`, 'true or false');
+  }
   const { spentAbilities } = unit;
   if (!Array.isArray(spentAbilities) || spentAbilities.some((spent) => typeof spent !== 'string')) {
     throw invalid(`${field}.spentAbilities`, 'a list of ability ids');
@@ -124,9 +126,11 @@ function readUnit(unit: unknown, id: string): Unit {
     morale: unit.morale as number,
     moraleState: unit.moraleState as MoraleState,
     movementLeft: unit.movementLeft as number,
+    movedThisTurn: unit.movedThisTurn as number,
     hasAttacked: unit.hasAttacked as boolean,
     status: unit.status as UnitStatus,
     spentAbilities: [...(spentAbilities as AbilityId[])],
+    hasRallied: unit.hasRallied as boolean,
   };
 }
 

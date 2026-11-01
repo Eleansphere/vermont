@@ -1,6 +1,8 @@
 import type { CommandHandler, GameEvent, MoveUnitCommand } from '../command';
 import { playerView } from '../fog';
-import { withUnits } from '../unit';
+import { disengagementStriker, resolveDisengagement } from '../combat';
+import type { FieldedUnit } from '../unit';
+import { isFighting, withUnits } from '../unit';
 import { checkWalk, marchAlong } from '../unitMovement';
 import { isRejection, orderedUnit } from './orders';
 
@@ -24,19 +26,33 @@ export const moveUnit: CommandHandler<MoveUnitCommand> = {
     if (isRejection(unit)) throw new Error(unit.message);
 
     const march = marchAlong(state, defs, unit, command.path);
+    const events: GameEvent[] = [];
+    let before = state;
+    let walker: FieldedUnit = unit;
+    const striker = disengagementStriker(state, defs, unit, march.path);
+    if (striker) {
+      const struck = resolveDisengagement(state, defs, unit, striker);
+      events.push(...struck.events);
+      const after = struck.state.units[unit.id]!;
+      // A unit the strike destroyed or broke does not go where it was sent.
+      if (!isFighting(after)) return { state: struck.state, events };
+      before = struck.state;
+      walker = after;
+    }
+
     const stopped = march.path.at(-1)!;
     const moved = {
-      ...unit,
+      ...walker,
       pos: stopped,
       movementLeft:
-        march.ambushed || march.endsInZoneOfControl ? 0 : unit.movementLeft - march.cost,
+        march.ambushed || march.endsInZoneOfControl ? 0 : walker.movementLeft - march.cost,
+      movedThisTurn: walker.movedThisTurn + march.path.length - 1,
     };
-    const events: GameEvent[] = [];
     if (march.path.length > 1) {
       events.push({ type: 'UnitMoved', unitId: unit.id, path: march.path, cost: march.cost });
     }
     if (march.ambushed) events.push({ type: 'UnitAmbushed', unitId: unit.id, hex: stopped });
-    return { state: withUnits(state, [moved]), events };
+    return { state: withUnits(before, [moved]), events };
   },
 };
 

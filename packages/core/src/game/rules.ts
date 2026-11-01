@@ -30,6 +30,23 @@ export interface CombatRules {
   readonly downhillAttack: number;
   /** Attack change for a unit standing on terrain that hinders its archetype. */
   readonly hinderedAttack: number;
+  /**
+   * Added to the damage multiplier of a hand-to-hand attack into the target's rear: a unit of
+   * the attacker's side stands on the hex right behind the target, across from the attacker.
+   */
+  readonly rearBonus: number;
+  /** Archetypes that leave an enemy's zone of control without being struck. */
+  readonly freeDisengage: readonly Archetype[];
+  /** Archetypes that charge when they attack hand to hand after a long enough move. */
+  readonly chargers: readonly Archetype[];
+  /** Hexes a unit must have moved in its turn before its attack counts as a charge. */
+  readonly chargeDistance: number;
+  /** Attack bonus of a charge. */
+  readonly chargeAttack: number;
+  /** Archetypes a charge breaks on: it brings no bonus against them. */
+  readonly chargeStoppedBy: readonly Archetype[];
+  /** Terrains a charge cannot be made into. */
+  readonly chargeBlockedOn: readonly string[];
 }
 
 export interface MoraleRules {
@@ -40,7 +57,18 @@ export interface MoraleRules {
   readonly routingAt: number;
   /** Damage multiplier of a shaken unit. */
   readonly shakenAttackFactor: number;
+  /** Lost by a unit for any hit, on top of what the damage costs. */
   readonly lossWhenHit: number;
+  /** Every this many points of damage of a hit cost one more morale. */
+  readonly damagePerMoraleLoss: number;
+  /** A hit never costs less morale than this. */
+  readonly minLossWhenHit: number;
+  /** Taken off the loss of a unit hit with another unit of its side next to it. */
+  readonly lineSupport: number;
+  /** Lost on top of a hit into the unit's rear. */
+  readonly lossWhenHitInRear: number;
+  /** Lost on top of a hit by a charge. */
+  readonly lossWhenCharged: number;
   /** Lost on top of `lossWhenHit` by a unit the hit leaves worn. */
   readonly lossWhenWorn: number;
   /** At this share of its full health or less a unit is worn. */
@@ -57,6 +85,14 @@ export interface MoraleRules {
   readonly recoveryPerTurn: number;
 }
 
+export interface VictoryRules {
+  /**
+   * An army breaks and loses once this share of the units it brought is destroyed or has fled
+   * the field. Units still running across it do not count yet.
+   */
+  readonly armyBreaksAt: number;
+}
+
 export interface FogRules {
   /** With the fog on, a player sees only what their units and camp see. */
   readonly enabled: boolean;
@@ -69,6 +105,7 @@ export interface BattleRules {
   readonly roundLimit: number;
   readonly combat: CombatRules;
   readonly morale: MoraleRules;
+  readonly victory: VictoryRules;
   readonly fog: FogRules;
 }
 

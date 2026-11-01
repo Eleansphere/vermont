@@ -16,12 +16,15 @@ import {
   fieldedUnits,
   hexDistance,
   hexEquals,
+  isCharge,
   isFighting,
+  isRearAttack,
   moraleLossWhenHit,
   nextRandom,
   opponentOf,
   pathFromReach,
   previewAttack,
+  previewDisengagement,
   terrainAt,
   terrainMoveCost,
   unitReach,
@@ -77,8 +80,15 @@ interface Situation {
 
 const HOLD: Orders = { role: 'fight', objective: null };
 
-/** Worth of standing on the enemy camp: it wins the battle, so nothing compares. */
-const VICTORY = 1000;
+/**
+ * Worth of standing on the enemy camp. It wins the battle only if the unit holds it through the
+ * enemy's turn, so it is weighed against the danger there like any other place.
+ */
+const CAMP_HOLD = 12;
+/** Worth of striking an enemy that stands in the AI's own camp, on top of the attack. */
+const CAMP_DEFENCE = 20;
+/** How a point of damage from the free strike at a unit leaving a fight weighs. */
+const DISENGAGE_WEIGHT = 1;
 /** Worth of destroying the target, on top of the damage done. */
 const KILL_BONUS = 4;
 /** Worth of a hit that breaks the target's morale and sends it running. */
@@ -154,24 +164,11 @@ export function tacticalOrders(
   };
 
   // A unit strikes as soon as it can: whoever lands the first blows usually wins the fight.
-  for (const option of [winningMove, bestRelief, bestAttack, bestMove]) {
+  for (const option of [bestRelief, bestAttack, bestMove]) {
     const best = option(situation);
     if (best) return { value: best.command, rng: dice };
   }
   return { value: { type: 'EndTurn' }, rng: dice };
-}
-
-/** A march into the enemy camp, when some unit can make it this turn. */
-function winningMove(situation: Situation): Option | null {
-  const { state, defs, enemyCamp } = situation;
-  if (!enemyCamp) return null;
-  for (const unit of situation.own) {
-    const path = pathFromReach(unitReach(state, defs, unit), enemyCamp);
-    if (path && path.hexes.length > 1) {
-      return { command: { type: 'MoveUnit', unitId: unit.id, path: path.hexes }, value: VICTORY };
-    }
-  }
-  return null;
 }
 
 function bestAttack(situation: Situation): Option | null {
@@ -201,13 +198,19 @@ function bestMove(situation: Situation): Option | null {
     if (unit.movementLeft <= 0) continue;
     const reach = unitReach(state, defs, unit);
     const staying = positionValue(situation, unit, unit.pos);
+    const engaged = adjacentUnits(state, unit.pos, opponentOf(unit.owner)).some(isFighting);
     for (const node of reach.values()) {
       if (!node.canStop || node.cost === 0) continue;
-      const gain = positionValue(situation, unit, node.hex) - staying - STEP_COST * node.cost;
+      let gain = positionValue(situation, unit, node.hex) - staying - STEP_COST * node.cost;
       if (gain <= MIN_GAIN) continue;
+      const path = pathFromReach(reach, node.hex)!.hexes;
+      if (engaged) {
+        const strike = previewDisengagement(state, defs, unit, path);
+        if (strike) gain -= DISENGAGE_WEIGHT * strike.damage.expected;
+        if (gain <= MIN_GAIN) continue;
+      }
       const value = gain + situation.misjudge();
       if (!best || value > best.value) {
-        const path = pathFromReach(reach, node.hex)!.hexes;
         best = { command: { type: 'MoveUnit', unitId: unit.id, path }, value };
       }
     }
@@ -285,6 +288,8 @@ function attackValue(
   }
   if (!isFighting(target)) value *= ROUTING_TARGET_FACTOR;
   if (counter >= attacker.hp) value -= KILL_BONUS;
+  const ownCamp = defs.camps[situation.player];
+  if (ownCamp && hexEquals(target.pos, ownCamp)) value += CAMP_DEFENCE;
   return value;
 }
 
@@ -297,15 +302,26 @@ function breaksMorale(
   damage: number
 ): boolean {
   const hurt = { ...target, hp: target.hp - damage };
+  const hit = {
+    damage,
+    rear: isRearAttack(state, attacker, target),
+    charge: isCharge(defs, attacker, target),
+  };
   return (
-    target.morale - moraleLossWhenHit(state, defs, hurt, attacker) <= defs.rules.morale.routingAt
+    target.morale - moraleLossWhenHit(state, defs, hurt, attacker, hit) <=
+    defs.rules.morale.routingAt
   );
 }
 
 /** The best attack the unit would have from `at`, or 0 when it has none there. */
 function bestAttackFrom(situation: Situation, unit: FieldedUnit, at: Hex): number {
   if (unit.hasAttacked) return 0;
-  const moved: FieldedUnit = { ...unit, pos: at };
+  // The way there counts towards a charge.
+  const moved: FieldedUnit = {
+    ...unit,
+    pos: at,
+    movedThisTurn: unit.movedThisTurn + hexDistance(unit.pos, at),
+  };
   const state = hexEquals(at, unit.pos)
     ? situation.state
     : { ...situation.state, units: { ...situation.state.units, [unit.id]: moved } };
@@ -326,13 +342,16 @@ function bestAttackFrom(situation: Situation, unit: FieldedUnit, at: Hex): numbe
  */
 function positionValue(situation: Situation, unit: FieldedUnit, at: Hex): number {
   const { defs } = situation;
-  if (situation.enemyCamp && hexEquals(at, situation.enemyCamp)) return VICTORY;
-
   const type = unitTypeOf(defs, unit);
   const orders = situation.plan.get(unit.id) ?? HOLD;
   const shoots = type.range !== undefined && orders.role === 'fight';
 
   let value = situation.tactics.looksAhead ? bestAttackFrom(situation, unit, at) : 0;
+  if (situation.enemyCamp && hexEquals(at, situation.enemyCamp)) {
+    let danger = 0;
+    for (const enemy of situation.threats) danger += threat(defs, enemy, unit, at);
+    return value + CAMP_HOLD - danger;
+  }
   if (orders.objective) {
     const pull = shoots ? SHOOTER_PULL : PULL[orders.role];
     const way = travelCost(defs, type.archetype, orders.objective, at);

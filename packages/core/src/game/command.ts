@@ -109,6 +109,17 @@ export interface UnitAmbushedEvent {
   readonly hex: Hex;
 }
 
+/**
+ * A unit walked away from an enemy next to it and took a free strike for it; `damage` may be
+ * 0. Its morale and any damage follow as their own events.
+ */
+export interface UnitDisengagedEvent {
+  readonly type: 'UnitDisengaged';
+  readonly unitId: string;
+  readonly strikerId: string;
+  readonly damage: number;
+}
+
 export type AttackKind = 'melee' | 'ranged';
 
 export interface AttackResolvedEvent {
@@ -119,6 +130,10 @@ export interface AttackResolvedEvent {
   readonly damage: number;
   /** Damage the attacker took in return; `null` when the target did not strike back. */
   readonly counterDamage: number | null;
+  /** The attack went into the target's rear. */
+  readonly rear?: true;
+  /** The attack was a cavalry charge. */
+  readonly charge?: true;
 }
 
 export interface UnitDamagedEvent {
@@ -197,6 +212,7 @@ export type GameEvent =
   | TurnStartedEvent
   | UnitMovedEvent
   | UnitAmbushedEvent
+  | UnitDisengagedEvent
   | AttackResolvedEvent
   | UnitDamagedEvent
   | UnitDiedEvent

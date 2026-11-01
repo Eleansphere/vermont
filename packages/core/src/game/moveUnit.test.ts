@@ -228,15 +228,28 @@ describe('capturing the camp', () => {
       { camps }
     );
 
-  it('wins the battle for the side that enters the enemy camp', () => {
-    const after = play(nearCamp(), move('equites', ...row(1, 4)));
+  it('falls to the side whose unit holds it through the enemy turn', () => {
+    const entered = play(nearCamp(), move('equites', ...row(1, 4)));
+    const enemyTurn = play(entered, END_TURN);
+    const after = play(enemyTurn, END_TURN);
 
+    expect(entered.state.phase).toBe('battle');
+    expect(enemyTurn.state.phase).toBe('battle');
     expect(after.state).toMatchObject({
       phase: 'ended',
       winner: { player: 0, reason: 'campCaptured' },
     });
     expect(after.events.at(-1)).toEqual({ type: 'BattleEnded', winner: 0, reason: 'campCaptured' });
     expect(rejectionOf(after, END_TURN)).toBe('battleEnded');
+  });
+
+  it('holds when the unit in it is driven out or broken before its turn comes back', () => {
+    const enemyTurn = play(play(nearCamp(), move('equites', ...row(1, 4))), END_TURN);
+    const broken = withUnit(enemyTurn, 'equites', { morale: 1, moraleState: 'routing' });
+    const driven = withUnit(enemyTurn, 'equites', { pos: hex(3, 0) });
+
+    expect(play(broken, END_TURN).state.phase).toBe('battle');
+    expect(play(driven, END_TURN).state.phase).toBe('battle');
   });
 
   it('does not end the battle when a unit stands in its own camp', () => {

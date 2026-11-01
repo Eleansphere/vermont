@@ -122,7 +122,7 @@ describe('melee', () => {
     const flanking = duel(
       'hastati',
       'hastati',
-      place('second', 'hastati', 0, 2, 0),
+      place('second', 'hastati', 0, 2, -1),
       place('third', 'hastati', 0, 1, 1)
     );
 
@@ -340,7 +340,7 @@ describe('abilities', () => {
       targetId: 'libyans',
       damage: 5,
     });
-    expect(unitOf(after, 'libyans')).toMatchObject({ hp: 5, morale: 3 });
+    expect(unitOf(after, 'libyans')).toMatchObject({ hp: 5, morale: 2 });
     expect(unitOf(after, 'elephants')).toMatchObject({ hp: 12, moraleState: 'routing' });
     expect(unitOf(after, 'elephants').pos).not.toEqual(hex(1, 0));
   });
@@ -519,7 +519,7 @@ describe('attackFactors', () => {
       ['downhill', true],
       ['terrainDefense', false],
     ]);
-    expect(result.moraleLoss).toBe(2);
+    expect(result.moraleLoss).toBe(1); // a hit for less than 3
     expect(result.encircled).toBe(false);
   });
 
@@ -540,6 +540,6 @@ describe('attackFactors', () => {
     expect(result.factors).toContainEqual({ id: 'advantage', helps: true });
     expect(result.factors).toContainEqual({ id: 'flank', value: 2, helps: true });
     expect(result.encircled).toBe(true);
-    expect(result.moraleLoss).toBe(3);
+    expect(result.moraleLoss).toBe(6); // 1 + 6 / 3 for the hit, 1 encircled, 2 worn
   });
 });

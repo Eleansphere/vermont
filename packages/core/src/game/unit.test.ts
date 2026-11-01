@@ -51,9 +51,11 @@ describe('createUnits', () => {
       morale: 6,
       moraleState: 'steady',
       movementLeft: 5,
+      movedThisTurn: 0,
       hasAttacked: false,
       status: 'active',
       spentAbilities: [],
+      hasRallied: false,
     });
   });
 

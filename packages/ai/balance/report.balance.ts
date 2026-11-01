@@ -10,7 +10,8 @@ import { playSeries } from '../src/index';
  * the report to one scenario, `BALANCE_MATCHUP` (such as `hard-hard`) to one pair of levels.
  *
  * After who won and how many of the wins took the camp come the rounds the battles ended in, then the tempo: the round of the first
- * clash, the units destroyed and fled per battle, the share of its army the loser had lost two
+ * clash, the units destroyed and fled per battle, the attacks into the rear, cavalry charges and
+ * free strikes at units leaving a fight per battle, the share of its army the loser had lost two
  * rounds after the clash and the share the winner had left at the end.
  */
 const SEED_COUNT = Number(process.env.BALANCE_SEEDS ?? 50);
@@ -43,6 +44,9 @@ function line(series: Series): string {
     tempo.contactRound.toFixed(1).padStart(5),
     tempo.destroyed.toFixed(1).padStart(6),
     tempo.fled.toFixed(1).padStart(5),
+    tempo.rearAttacks.toFixed(1).padStart(4),
+    tempo.charges.toFixed(1).padStart(6),
+    tempo.disengagements.toFixed(1).padStart(6),
     percent(tempo.loserOpeningLosses).padStart(7),
     percent(tempo.winnerLeft).padStart(6),
   ].join(' | ');
@@ -56,7 +60,7 @@ it.each(scenarios)('balance of $id', { timeout: 0 }, (scenario) => {
   const lines = MATCHUPS.map((levels) => line(playSeries(scenario, levels, SEEDS)));
   console.log(
     [
-      `scenario | first v second  |    1:2 | first | draws | camps | rounds |  mean | clash | killed |  fled | opening | winner   (${SEED_COUNT} seeds)`,
+      `scenario | first v second  |    1:2 | first | draws | camps | rounds |  mean | clash | killed |  fled | rear | charge | diseng | opening | winner   (${SEED_COUNT} seeds)`,
       ...lines,
     ].join('\n')
   );

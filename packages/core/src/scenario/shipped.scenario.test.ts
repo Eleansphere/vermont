@@ -7,6 +7,7 @@ import { dispatchAll } from '../game/dispatch';
 import { fight } from '../game/testGenerals';
 import { play } from '../game/testSupport';
 import { fieldedUnits, unitTypeOf } from '../game/unit';
+import { armyLosses } from '../game/victory';
 import { hexKey } from '../hex/hex';
 import { terrainAt } from '../map/battleMap';
 import { terrainMoveCost } from '../map/terrain';
@@ -76,7 +77,7 @@ describe.each([...Object.values(SCENARIOS), TRAINING])(
       expect(battle.state.phase).toBe('ended');
       expect(winner).toBeDefined();
       if (winner?.reason === 'armyBroken') {
-        expect(fieldedUnits(battle.state, opponentOf(winner.player))).toEqual([]);
+        expect(armyLosses(battle.state, start.defs, opponentOf(winner.player)).untilBreak).toBe(0);
       }
     });
 

@@ -25,6 +25,7 @@ import {
   pathFromReach,
   playerView,
   previewAttack,
+  previewDisengagement,
   reserveUnits,
   startScenario,
   terrainAt,
@@ -34,6 +35,7 @@ import {
 import type {
   AttackFactors,
   AttackPreview,
+  DamageRange,
   BattleDefs,
   BattleState,
   Command,
@@ -123,6 +125,8 @@ export interface HoverInfo {
   readonly factors: AttackFactors | null;
   /** The hex lies in the fog: whatever stands there is not shown. */
   readonly fogged: boolean;
+  /** The free strike the selected unit would take for walking here away from a fight. */
+  readonly disengage: { readonly strikerId: string; readonly damage: DamageRange } | null;
 }
 
 type Logs = Readonly<Record<PlayerSlot, readonly LogEntry[]>>;
@@ -390,6 +394,10 @@ export const useBattleStore = defineStore('battle', () => {
       factors:
         shownPreview && attacker && unit ? attackFactors(battle, battleDefs, attacker, unit) : null,
       fogged: shown.value?.visible ? !shown.value.visible.has(hexKey(target)) : false,
+      disengage:
+        attacker && !unit && hoveredPath.value
+          ? previewDisengagement(battle, battleDefs, attacker, hoveredPath.value)
+          : null,
     };
   });
 

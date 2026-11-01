@@ -1,5 +1,6 @@
 import {
   FACTIONS,
+  armyLosses,
   fieldedUnits,
   hexDistance,
   isFielded,
@@ -45,6 +46,8 @@ export interface ArmyStatus {
   readonly routing: number;
   /** Health of the units on the field as a share of the health the whole army started with. */
   readonly strength: number;
+  /** Units the army can still lose before it breaks. */
+  readonly untilBreak: number;
 }
 
 export function armyStatus(state: BattleState, defs: BattleDefs, player: PlayerSlot): ArmyStatus {
@@ -57,6 +60,7 @@ export function armyStatus(state: BattleState, defs: BattleDefs, player: PlayerS
     fighting: present.filter((unit) => unit.status === 'reserve' || isFighting(unit)).length,
     routing: present.filter((unit) => unit.moraleState === 'routing').length,
     strength: fullHealth > 0 ? health / fullHealth : 0,
+    untilBreak: armyLosses(state, defs, player).untilBreak,
   };
 }
 

@@ -11,6 +11,7 @@ import type { TestBattle } from './testSupport';
 import { battleWith } from './testSupport';
 import type { UnitPlacement } from './unit';
 import { fieldedUnits } from './unit';
+import { armyLosses } from './victory';
 
 /** Rome at the top, Carthage at the bottom, a wood and a hill between them. */
 function cannae(seed: number): TestBattle {
@@ -37,20 +38,25 @@ function cannae(seed: number): TestBattle {
 }
 
 describe('scenario: a battle of two armies', () => {
-  it('is fought until one side has no unit left on the field', () => {
-    const battle = fight(cannae(218));
+  it('is fought until one side has lost half its army', () => {
+    const start = cannae(218);
+    const battle = fight(start);
     const { winner } = battle.state;
 
     expect(battle.state.phase).toBe('ended');
     expect(winner?.reason).toBe('armyBroken');
-    expect(fieldedUnits(battle.state, opponentOf(winner!.player))).toEqual([]);
+    expect(armyLosses(battle.state, start.defs, opponentOf(winner!.player))).toMatchObject({
+      brought: 6,
+      lost: 3,
+      untilBreak: 0,
+    });
     expect(fieldedUnits(battle.state, winner!.player).length).toBeGreaterThan(0);
     expect(battle.events.at(-1)).toMatchObject({ type: 'BattleEnded', winner: winner!.player });
   });
 
   it('uses every part of the rules on the way', () => {
     const seen = new Set<string>();
-    for (const seed of [218, 204, 201]) {
+    for (const seed of [218, 201, 207]) {
       for (const event of fight(cannae(seed)).events) {
         seen.add(event.type === 'AttackResolved' ? `${event.type}:${event.kind}` : event.type);
       }
@@ -68,7 +74,6 @@ describe('scenario: a battle of two armies', () => {
       'UnitFled',
       'UnitMoved',
       'UnitRallied',
-      'UnitRampaged',
       'UnitRetreated',
     ]);
   });

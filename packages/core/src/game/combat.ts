@@ -1,5 +1,6 @@
 import type { Archetype } from '../archetype';
-import { hexDistance } from '../hex/hex';
+import type { Hex } from '../hex/hex';
+import { hexDistance, hexEquals } from '../hex/hex';
 import { terrainAt } from '../map/battleMap';
 import type { TerrainDef } from '../map/terrain';
 import { hasLineOfSight, rangeFrom } from '../sight/sight';
@@ -7,7 +8,15 @@ import type { AbilityId } from '../units/unitType';
 import type { BattleState } from './battleState';
 import { opponentOf } from './battleState';
 import type { AttackKind, GameEvent, Outcome, Rejection } from './command';
-import { holdsOwnCamp, isEncircled, moraleChanged, moraleLossWhenHit, shiftMorale } from './morale';
+import type { Hit } from './morale';
+import {
+  holdsOwnCamp,
+  isEncircled,
+  isSupported,
+  moraleChanged,
+  moraleLossWhenHit,
+  shiftMorale,
+} from './morale';
 import { nextRandom, nextRandomInt } from './rng';
 import { retreat } from './rout';
 import type { BattleDefs } from './rules';
@@ -140,6 +149,9 @@ export type AttackFactorId =
   | 'shieldWall'
   | 'advantage'
   | 'flank'
+  | 'rear'
+  | 'charge'
+  | 'support'
   | 'wounded'
   | 'shaken';
 
@@ -154,7 +166,7 @@ export interface AttackFactor {
 /** Why an attack would do what `previewAttack` says, and what it would cost the target's morale. */
 export interface AttackFactors {
   readonly factors: readonly AttackFactor[];
-  /** Morale the target loses when hit. */
+  /** Morale the target loses when the attack does its expected damage. */
   readonly moraleLoss: number;
   /** Whether the target counts as encircled, which costs it more morale. */
   readonly encircled: boolean;
@@ -184,6 +196,7 @@ export function attackFactors(
   }
   const charge = abilityOf(defs, attacker, 'furiousCharge')?.params.attack;
   if (charge) add('furiousCharge', charge, true);
+  if (isCharge(defs, attacker, target)) add('charge', rules.chargeAttack, true);
   if (isFrightened(state, defs, attacker)) {
     add('fear', defs.abilities.fear.params.attack ?? 0, false);
   }
@@ -205,12 +218,22 @@ export function attackFactors(
     (unit) => unit.id !== attacker.id && isFighting(unit)
   ).length;
   if (flankers > 0) add('flank', flankers, true);
+  const rear = isRearAttack(state, attacker, target);
+  if (rear) add('rear', undefined, true);
   if (attacker.hp < type.hp) add('wounded', undefined, false);
   if (attacker.moraleState === 'shaken') add('shaken', undefined, false);
+  if (isSupported(state, target)) add('support', undefined, false);
 
+  const expected = expectedDamage(state, defs, attacker, target, 'attack');
+  const damage = damageRange(defs, expected, target.hp, 'attack').expected;
+  const hurt = { ...target, hp: target.hp - damage };
   return {
     factors,
-    moraleLoss: moraleLossWhenHit(state, defs, target, attacker),
+    moraleLoss: moraleLossWhenHit(state, defs, hurt, attacker, {
+      damage,
+      rear,
+      charge: isCharge(defs, attacker, target),
+    }),
     encircled: isEncircled(state, defs, target),
   };
 }
@@ -238,6 +261,8 @@ export function resolveAttack(
   }
   const hurtAttacker = afterAttacking(defs, attacker, counterDamage ?? 0);
 
+  const rear = isRearAttack(state, attacker, target);
+  const charge = isCharge(defs, attacker, target);
   const events: GameEvent[] = [
     {
       type: 'AttackResolved',
@@ -246,22 +271,24 @@ export function resolveAttack(
       kind,
       damage,
       counterDamage,
+      ...(rear && { rear: true as const }),
+      ...(charge && { charge: true as const }),
     },
   ];
   const blows: Blow[] = [
-    { hurt: hurtTarget, damage, striker: attacker },
-    { hurt: hurtAttacker, damage: counterDamage ?? 0, striker: target },
+    { hurt: hurtTarget, striker: attacker, hit: { damage, rear, charge } },
+    { hurt: hurtAttacker, striker: target, hit: { damage: counterDamage ?? 0 } },
   ];
   const wonAttack = damage > (counterDamage ?? 0) ? defs.rules.morale.gainForWonAttack : 0;
   const fought = settleBlows({ ...state, rng }, defs, blows, events, [[attacker.id, wonAttack]]);
   return { state: routBroken(state, fought, defs, events), events };
 }
 
-/** A strike that was dealt: the unit as it left it, how much it took and who struck. */
+/** A strike that was dealt: the unit as it left it, who struck and how. */
 interface Blow {
   readonly hurt: FieldedUnit;
-  readonly damage: number;
   readonly striker: Unit;
+  readonly hit: Hit;
 }
 
 /**
@@ -280,12 +307,13 @@ function settleBlows(
     morale.set(unitId, (morale.get(unitId) ?? 0) + delta);
 
   const changed = new Map<string, Unit>();
-  for (const { hurt, damage, striker } of blows) {
+  for (const { hurt, striker, hit } of blows) {
     changed.set(hurt.id, hurt);
+    const { damage } = hit;
     if (damage === 0) continue;
     events.push({ type: 'UnitDamaged', unitId: hurt.id, damage, hp: hurt.hp });
     if (hurt.hp > 0) {
-      addMorale(hurt.id, -moraleLossWhenHit(state, defs, hurt, striker));
+      addMorale(hurt.id, -moraleLossWhenHit(state, defs, hurt, striker, hit));
       continue;
     }
     events.push({ type: 'UnitDied', unitId: hurt.id, hex: hurt.pos });
@@ -356,7 +384,11 @@ function rampage(
   const damage = rollDamage(defs, expected, roll.value, victim.hp, 'attack');
 
   events.push({ type: 'UnitRampaged', unitId: unit.id, targetId: victim.id, damage });
-  const blow: Blow = { hurt: { ...victim, hp: victim.hp - damage }, damage, striker: unit };
+  const blow: Blow = {
+    hurt: { ...victim, hp: victim.hp - damage },
+    striker: unit,
+    hit: { damage },
+  };
   return settleBlows({ ...state, rng: roll.rng }, defs, [blow], events);
 }
 
@@ -417,6 +449,7 @@ function attackValue(
   if (role === 'attack') {
     if (hasUnspent(defs, striker, 'pilum')) attack += defs.abilities.pilum.params.attack ?? 0;
     attack += abilityOf(defs, striker, 'furiousCharge')?.params.attack ?? 0;
+    if (isCharge(defs, striker, target)) attack += rules.chargeAttack;
   }
   if (isFrightened(state, defs, striker)) attack += defs.abilities.fear.params.attack ?? 0;
   return Math.max(MIN_STAT, attack);
@@ -454,9 +487,108 @@ function damageFactor(
     factor *= rules.advantageFactor;
   }
   factor *= 1 + rules.flankBonus * flankers.length;
+  if (role === 'attack' && isRearAttack(state, striker, target)) factor *= 1 + rules.rearBonus;
   if (striker.moraleState === 'shaken') factor *= defs.rules.morale.shakenAttackFactor;
   if (role === 'counter') factor *= rules.counterFactor;
   return factor;
+}
+
+/** The hex right behind `target` as seen from `attacker` next to it. */
+function hexBehind(attacker: Hex, target: Hex): Hex {
+  return { q: 2 * target.q - attacker.q, r: 2 * target.r - attacker.r };
+}
+
+/**
+ * Whether a hand-to-hand attack goes into the target's rear: another unit of the attacker's
+ * side that still fights stands right behind the target, so it is caught between the two.
+ */
+export function isRearAttack(
+  state: BattleState,
+  attacker: FieldedUnit,
+  target: FieldedUnit
+): boolean {
+  if (hexDistance(attacker.pos, target.pos) !== 1) return false;
+  const behind = hexBehind(attacker.pos, target.pos);
+  return fieldedUnits(state, attacker.owner).some(
+    (unit) => unit.id !== attacker.id && isFighting(unit) && hexEquals(unit.pos, behind)
+  );
+}
+
+/**
+ * Whether a hand-to-hand attack is a charge: horsemen that rode far enough this turn, at a
+ * target on open ground that does not meet them with spears.
+ */
+export function isCharge(defs: BattleDefs, attacker: FieldedUnit, target: FieldedUnit): boolean {
+  const rules = defs.rules.combat;
+  if (hexDistance(attacker.pos, target.pos) !== 1) return false;
+  if (!rules.chargers.includes(unitTypeOf(defs, attacker).archetype)) return false;
+  if (attacker.movedThisTurn < rules.chargeDistance) return false;
+  if (rules.chargeStoppedBy.includes(unitTypeOf(defs, target).archetype)) return false;
+  const ground = terrainAt(defs.map, defs.terrains, target.pos);
+  return !ground || !rules.chargeBlockedOn.includes(ground.id);
+}
+
+/**
+ * The enemy that strikes `unit` as it walks away from it along `path`, if the unit leaves the
+ * zone of control of anybody: of those it stood next to and will not stand next to at the end,
+ * the one that would hit hardest. Light troops and horsemen slip away without it.
+ */
+export function disengagementStriker(
+  state: BattleState,
+  defs: BattleDefs,
+  unit: FieldedUnit,
+  path: readonly Hex[]
+): FieldedUnit | undefined {
+  const end = path.at(-1);
+  if (!end || hexEquals(end, unit.pos)) return undefined;
+  if (defs.rules.combat.freeDisengage.includes(unitTypeOf(defs, unit).archetype)) return undefined;
+  const leftBehind = adjacentUnits(state, unit.pos, opponentOf(unit.owner)).filter(
+    (enemy) => isFighting(enemy) && hexDistance(enemy.pos, end) > 1
+  );
+  let striker: FieldedUnit | undefined;
+  let hardest = -1;
+  for (const enemy of leftBehind) {
+    const damage = expectedDamage(state, defs, enemy, unit, 'counter');
+    if (damage > hardest) {
+      hardest = damage;
+      striker = enemy;
+    }
+  }
+  return striker;
+}
+
+/** What the strike at a unit leaving the zone of control would do, for the player to see. */
+export function previewDisengagement(
+  state: BattleState,
+  defs: BattleDefs,
+  unit: FieldedUnit,
+  path: readonly Hex[]
+): { readonly strikerId: string; readonly damage: DamageRange } | null {
+  const striker = disengagementStriker(state, defs, unit, path);
+  if (!striker) return null;
+  const expected = expectedDamage(state, defs, striker, unit, 'counter');
+  return { strikerId: striker.id, damage: damageRange(defs, expected, unit.hp, 'counter') };
+}
+
+/**
+ * The strike at a unit leaving the zone of control of `striker`: as strong as an answer to an
+ * attack, and nobody answers it. A unit it breaks runs instead of going where it was sent.
+ */
+export function resolveDisengagement(
+  state: BattleState,
+  defs: BattleDefs,
+  unit: FieldedUnit,
+  striker: FieldedUnit
+): Outcome {
+  const roll = nextRandom(state.rng);
+  const expected = expectedDamage(state, defs, striker, unit, 'counter');
+  const damage = rollDamage(defs, expected, roll.value, unit.hp, 'counter');
+  const events: GameEvent[] = [
+    { type: 'UnitDisengaged', unitId: unit.id, strikerId: striker.id, damage },
+  ];
+  const blow: Blow = { hurt: { ...unit, hp: unit.hp - damage }, striker, hit: { damage } };
+  const struck = settleBlows({ ...state, rng: roll.rng }, defs, [blow], events);
+  return { state: routBroken(state, struck, defs, events), events };
 }
 
 function isHindered(ground: TerrainDef | undefined, archetype: Archetype): boolean {

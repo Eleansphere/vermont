@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { PLAYER_SLOTS } from '@vermont/core';
+import { PLAYER_SLOTS, holdsEnemyCamp, opponentOf } from '@vermont/core';
 import { armyStatus, campDistance, sideColor, sideName } from '../battle/labels';
 import { plural, t } from '../i18n';
 import { useBattleStore } from '../stores/battle';
@@ -59,6 +59,15 @@ const goal = computed(() => {
   return t('hud.goal', { distance, hexes: plural('hexes', distance) });
 });
 
+/** A camp taken but not fallen yet: the side whose camp it is has one turn to win it back. */
+const campAlarm = computed(() => {
+  const { known, defs, viewer } = store;
+  if (!known || !defs || known.phase !== 'battle') return null;
+  if (holdsEnemyCamp(known, defs, opponentOf(viewer))) return t('hud.campThreat');
+  if (holdsEnemyCamp(known, defs, viewer)) return t('hud.campHeld');
+  return null;
+});
+
 function percent(share: number): string {
   return `${Math.round(share * 100)}%`;
 }
@@ -85,7 +94,10 @@ function percent(share: number): string {
           {{ t('hud.army.fighting', { count: army.status.fighting, total: army.status.total })
           }}<template v-if="army.status.routing > 0"
             >, {{ t('hud.army.routing', { count: army.status.routing }) }}</template
-          >
+          >,
+          <span :title="t('hud.army.untilBreakHint')" data-test="army-break">{{
+            t('hud.army.untilBreak', { count: army.status.untilBreak })
+          }}</span>
         </span>
         <span
           class="army__bar"
@@ -115,7 +127,8 @@ function percent(share: number): string {
           </span>
         </template>
       </div>
-      <span v-if="goal" class="hud__goal muted" data-test="goal" :title="t('hud.goalHint')">
+      <span v-if="campAlarm" class="hud__alarm" data-test="camp-alarm">{{ campAlarm }}</span>
+      <span v-else-if="goal" class="hud__goal muted" data-test="goal" :title="t('hud.goalHint')">
         {{ goal }}
       </span>
       <span v-if="roundShare !== null" class="hud__rounds" :title="t('hud.roundLimit')">
@@ -262,6 +275,12 @@ function percent(share: number): string {
 
 .hud__goal {
   font-size: 12px;
+}
+
+.hud__alarm {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--danger);
 }
 
 .hud__rounds {

@@ -51,6 +51,19 @@ describe('describeEvents', () => {
     ]);
   });
 
+  it('tells of the free strike at a unit leaving a fight', () => {
+    expect(
+      texts([
+        {
+          type: 'UnitDisengaged',
+          unitId: 'p0-hastati-2',
+          strikerId: 'p1-war-elephants-1',
+          damage: 2,
+        },
+      ])
+    ).toEqual(['Hastati 2: odpoutává se, Váleční sloni zasazuje volný úder za 2.']);
+  });
+
   it('tells of a unit stopped by an enemy in the fog', () => {
     expect(
       texts([
@@ -133,7 +146,7 @@ describe('describeEvents', () => {
       { tone: 'morale', player: 0, text: 'Velité 2: ustupuje před nepřítelem.' },
       { tone: 'morale', player: 0, text: 'Velité 2: znovu v boji.' },
       { tone: 'move', player: 0, text: 'Principes 1: střídání linie s Triarii 2.' },
-      { tone: 'result', player: 1, text: 'Kartágo vítězí: dobyl tábor soupeře.' },
+      { tone: 'result', player: 1, text: 'Kartágo vítězí: udržel tábor soupeře.' },
     ]);
   });
 
