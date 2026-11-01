@@ -60,7 +60,7 @@ describe('App', () => {
 
       expect(store.state).toEqual(left);
       await click('continue');
-      expect(text('turn')).toMatch(/^Kolo 1 z 20\s*na tahu\s*Kartágo$/);
+      expect(text('turn')).toMatch(/^Kolo 1 z 20\s*na tahu\s*Kartágo\s*Rozkazy 5 z 5$/);
     });
 
     it('forgets a battle that is over', async () => {
@@ -134,8 +134,8 @@ describe('App', () => {
       await click('new-battle');
 
       expect(wrapper.text()).toContain('Trebia (218 př. n. l.)');
-      expect(wrapper.text()).toContain('Řím (13 jednotek)');
-      expect(wrapper.text()).toContain('Kartágo (12 jednotek)');
+      expect(wrapper.text()).toContain('Řím (14 jednotek)');
+      expect(wrapper.text()).toContain('Kartágo (13 jednotek)');
 
       await click('back');
       expect(has('new-battle')).toBe(true);
@@ -234,7 +234,7 @@ describe('App', () => {
       const { store } = await startBattle(false);
 
       expect(text('turn')).toMatch(/^Rozestavení\s*na tahu\s*Řím$/);
-      expect(text('deployment')).toContain('Čeká na rozestavení: 13');
+      expect(text('deployment')).toContain('Čeká na rozestavení: 14');
       expect(wrapper.find('[data-test="end-deployment"]').attributes('disabled')).toBeDefined();
       expect(has('end-turn')).toBe(false);
       expect(text('unit-panel')).toContain('V záloze');
@@ -268,7 +268,7 @@ describe('App', () => {
       expect(has('handover')).toBe(false);
       expect(store.state?.phase).toBe('battle');
       expect(has('deployment')).toBe(false);
-      expect(text('turn')).toMatch(/^Kolo 1 z 20\s*na tahu\s*Řím$/);
+      expect(text('turn')).toMatch(/^Kolo 1 z 20\s*na tahu\s*Řím\s*Rozkazy 4 z 4$/);
       await press('KeyL');
       expect(text('log')).toContain('Bitva začíná.');
     });
@@ -279,7 +279,7 @@ describe('App', () => {
 
       await click('undo');
 
-      expect(store.reserve).toHaveLength(13);
+      expect(store.reserve).toHaveLength(14);
     });
   });
 
@@ -287,9 +287,9 @@ describe('App', () => {
     it('shows whose turn it is and how the armies stand', async () => {
       await startBattle(true);
 
-      expect(text('turn')).toMatch(/^Kolo 1 z 20\s*na tahu\s*Řím$/);
+      expect(text('turn')).toMatch(/^Kolo 1 z 20\s*na tahu\s*Řím\s*Rozkazy 4 z 4$/);
       expect(text('army-0')).toContain('Řím');
-      expect(text('army-0')).toContain('v boji 13 z 13');
+      expect(text('army-0')).toContain('v boji 14 z 14');
       expect(text('army-1')).toContain('Kartágo');
       expect(wrapper.find('battle-canvas-stub').exists()).toBe(true);
     });
@@ -298,7 +298,7 @@ describe('App', () => {
       const { store } = await startBattle(true);
 
       await click('end-turn');
-      expect(wrapper.text()).toContain('Některé jednotky ještě mohou jednat (13)');
+      expect(wrapper.text()).toContain('Některé jednotky ještě mohou jednat (14)');
       expect(store.state?.activePlayer).toBe(0);
 
       await click('cancel');
@@ -307,7 +307,7 @@ describe('App', () => {
       await press('Enter');
       await press('Enter');
       expect(store.state?.activePlayer).toBe(1);
-      expect(text('turn')).toMatch(/^Kolo 1 z 20\s*na tahu\s*Kartágo$/);
+      expect(text('turn')).toMatch(/^Kolo 1 z 20\s*na tahu\s*Kartágo\s*Rozkazy 5 z 5$/);
     });
 
     it('ends the turn at once when the player does not want to be asked', async () => {

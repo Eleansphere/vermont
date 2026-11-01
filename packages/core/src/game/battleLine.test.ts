@@ -131,15 +131,15 @@ describe('leaving the zone of control', () => {
 
 describe('cavalry charge', () => {
   const field = (targetType: string) =>
-    battleWith([place('equites', 'equites', 0, -3, 0), place('target', targetType, 1, 1, 0)]);
+    battleWith([place('equites', 'equites', 0, -4, 0), place('target', targetType, 1, 1, 0)]);
   const ride = (battle: TestBattle, ...path: Hex[]) => play(battle, move('equites', ...path));
-  const longRide = [hex(-3, 0), hex(-2, 0), hex(-1, 0), hex(0, 0)];
+  const longRide = [hex(-4, 0), hex(-3, 0), hex(-2, 0), hex(-1, 0), hex(0, 0)];
 
-  it('strikes harder after a ride of three hexes', () => {
+  it('strikes harder after a ride of four hexes', () => {
     const charged = ride(field('hastati'), ...longRide);
     const standing = withUnit(field('hastati'), 'equites', { pos: hex(0, 0) });
 
-    expect(unitOf(charged, 'equites').movedThisTurn).toBe(3);
+    expect(unitOf(charged, 'equites').movedThisTurn).toBe(4);
     expect(isCharge(charged.defs, fielded(charged, 'equites'), fielded(charged, 'target'))).toBe(
       true
     );

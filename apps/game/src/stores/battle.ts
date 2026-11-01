@@ -26,6 +26,7 @@ import {
   playerView,
   previewAttack,
   previewDisengagement,
+  orderCost,
   reserveUnits,
   startScenario,
   terrainAt,
@@ -1017,6 +1018,7 @@ function shownTo(state: BattleState, defs: BattleDefs, player: PlayerSlot): Show
 
 /** Whether the unit still has somewhere to go or somebody to attack this turn. */
 function canAct(state: BattleState, defs: BattleDefs, unit: FieldedUnit): boolean {
+  if (typeof orderCost(state, defs, unit) !== 'number') return false;
   if (!unit.hasAttacked && attackTargets(state, defs, unit).length > 0) return true;
   for (const node of unitReach(state, defs, unit).values()) {
     if (node.canStop && node.cost > 0) return true;

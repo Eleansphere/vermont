@@ -4,13 +4,13 @@ import { disengagementStriker, resolveDisengagement } from '../combat';
 import type { FieldedUnit } from '../unit';
 import { isFighting, withUnits } from '../unit';
 import { checkWalk, marchAlong } from '../unitMovement';
-import { isRejection, orderedUnit } from './orders';
+import { commandedUnit, isRejection, withOrderGiven } from './orders';
 
 export const moveUnit: CommandHandler<MoveUnitCommand> = {
   phases: ['battle'],
 
   validate(state, command, defs) {
-    const unit = orderedUnit(state, command.unitId);
+    const unit = commandedUnit(state, defs, command.unitId);
     if (isRejection(unit)) return unit;
     if (!isPath(command.path)) {
       return { code: 'invalidPath', message: 'A path must be a list of hexes' };
@@ -21,9 +21,10 @@ export const moveUnit: CommandHandler<MoveUnitCommand> = {
     return isRejection(walk) ? walk : null;
   },
 
-  apply(state, command, defs) {
-    const unit = orderedUnit(state, command.unitId);
-    if (isRejection(unit)) throw new Error(unit.message);
+  apply(given, command, defs) {
+    const commanded = commandedUnit(given, defs, command.unitId);
+    if (isRejection(commanded)) throw new Error(commanded.message);
+    const { state, unit } = withOrderGiven(given, defs, commanded);
 
     const march = marchAlong(state, defs, unit, command.path);
     const events: GameEvent[] = [];

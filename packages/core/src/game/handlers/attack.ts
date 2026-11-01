@@ -5,7 +5,7 @@ import { seesUnit } from '../fog';
 import type { BattleDefs } from '../rules';
 import type { FieldedUnit } from '../unit';
 import { isFielded } from '../unit';
-import { findUnit, isRejection, orderedUnit } from './orders';
+import { commandedUnit, findUnit, isRejection, withOrderGiven } from './orders';
 
 interface OrderedAttack {
   readonly attacker: FieldedUnit;
@@ -24,7 +24,8 @@ export const attack: CommandHandler<AttackCommand> = {
   apply(state, command, defs) {
     const ordered = checkAttack(state, command, defs);
     if (isRejection(ordered)) throw new Error(ordered.message);
-    return resolveAttack(state, defs, ordered.attacker, ordered.target, ordered.kind);
+    const given = withOrderGiven(state, defs, ordered.attacker);
+    return resolveAttack(given.state, defs, given.unit, ordered.target, ordered.kind);
   },
 };
 
@@ -33,7 +34,7 @@ function checkAttack(
   command: AttackCommand,
   defs: BattleDefs
 ): OrderedAttack | Rejection {
-  const attacker = orderedUnit(state, command.unitId);
+  const attacker = commandedUnit(state, defs, command.unitId);
   if (isRejection(attacker)) return attacker;
   if (attacker.hasAttacked) {
     return {

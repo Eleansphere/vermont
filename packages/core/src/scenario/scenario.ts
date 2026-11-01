@@ -22,6 +22,8 @@ export interface ScenarioSide {
   readonly camp: Hex;
   /** Hexes the side may deploy on, the ones to fill first at the front of the list. */
   readonly deploymentZone: readonly Hex[];
+  /** Orders the side may give in a turn; left out, every unit takes orders every turn. */
+  readonly orders?: number;
 }
 
 /** One battle to play: where it is fought, by whom and with what. */

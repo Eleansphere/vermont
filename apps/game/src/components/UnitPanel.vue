@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { unitTypeOf } from '@vermont/core';
+import type { FieldedUnit } from '@vermont/core';
+import { orderCost, ordersLeft, unitTypeOf } from '@vermont/core';
 import { formatNumber } from '../battle/format';
 import { sideColor, unitLabel } from '../battle/labels';
 import { abilityText, archetypeName, moraleStateName, t } from '../i18n';
@@ -45,7 +46,22 @@ const view = computed(() => {
       archetypeName(archetype).toLocaleLowerCase('cs')
     ),
     moved: unit.movementLeft < type.movement,
+    order: orderStatus(),
   };
+
+  /** What ordering the unit costs now, on its side's turn; `null` when orders are not limited. */
+  function orderStatus(): { text: string; tone: string } | null {
+    if (!state || !defs || !unit || unit.status !== 'active' || !unit.pos) return null;
+    if (state.phase !== 'battle' || unit.owner !== state.activePlayer) return null;
+    if (ordersLeft(state, defs) === null) return null;
+    const fielded = unit as FieldedUnit;
+    if (fielded.ordered) return { text: t('unit.order.given'), tone: 'done' };
+    const cost = orderCost(state, defs, fielded);
+    if (typeof cost !== 'number') return { text: t('unit.order.none'), tone: 'routing' };
+    return cost === 0
+      ? { text: t('unit.order.free'), tone: 'steady' }
+      : { text: t('unit.order.costs'), tone: 'shaken' };
+  }
 });
 
 function share(value: number, max: number): string {
@@ -83,6 +99,13 @@ function share(value: number, max: number): string {
         {{ t(view.unit.hasAttacked ? 'unit.hasAttacked' : 'unit.canAttack') }}
       </span>
       <span v-if="view.moved" class="pill pill--done">{{ t('unit.hasMoved') }}</span>
+      <span
+        v-if="view.order"
+        class="pill"
+        :class="`pill--${view.order.tone}`"
+        data-test="unit-order"
+        >{{ view.order.text }}</span
+      >
     </p>
 
     <dl class="unit__bars">

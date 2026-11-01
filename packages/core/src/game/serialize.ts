@@ -60,6 +60,10 @@ function readState(state: unknown): BattleState {
   if (state.draw !== undefined && state.draw !== true) {
     throw invalid('state.draw', 'true or left out');
   }
+  const { ordersLeft } = state;
+  if (ordersLeft !== undefined && !(Number.isInteger(ordersLeft) && (ordersLeft as number) >= 0)) {
+    throw invalid('state.ordersLeft', 'a whole number that is not negative, or left out');
+  }
   return {
     scenarioId,
     phase: phase as Phase,
@@ -68,6 +72,7 @@ function readState(state: unknown): BattleState {
     units: readUnits(state.units),
     ...(winner && { winner }),
     ...(state.draw && { draw: true as const }),
+    ...(ordersLeft !== undefined && { ordersLeft: ordersLeft as number }),
     rng: readRng(state.rng),
   };
 }
@@ -110,7 +115,7 @@ function readUnit(unit: unknown, id: string): Unit {
   for (const stat of ['hp', 'morale', 'movementLeft', 'movedThisTurn'] as const) {
     if (!isAmount(unit[stat])) throw invalid(`${field}.${stat}`, 'a number that is not negative');
   }
-  for (const flag of ['hasAttacked', 'hasRallied'] as const) {
+  for (const flag of ['hasAttacked', 'hasRallied', 'ordered'] as const) {
     if (typeof unit[flag] !== 'boolean') throw invalid(`${field}.${flag}`, 'true or false');
   }
   const { spentAbilities } = unit;
@@ -131,6 +136,7 @@ function readUnit(unit: unknown, id: string): Unit {
     status: unit.status as UnitStatus,
     spentAbilities: [...(spentAbilities as AbilityId[])],
     hasRallied: unit.hasRallied as boolean,
+    ordered: unit.ordered as boolean,
   };
 }
 

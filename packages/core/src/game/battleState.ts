@@ -27,6 +27,11 @@ export interface BattleState {
   readonly winner?: Winner;
   /** Set when the battle ended with no winner: the round limit ran out. */
   readonly draw?: true;
+  /**
+   * Orders the player on the move has left this turn, once they have given one; until then
+   * they have all their side gets. Not used when the battle does not limit orders.
+   */
+  readonly ordersLeft?: number;
   readonly rng: RngState;
 }
 

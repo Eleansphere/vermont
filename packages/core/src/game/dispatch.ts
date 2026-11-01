@@ -14,6 +14,7 @@ import { endTurn } from './handlers/endTurn';
 import { moveUnit } from './handlers/moveUnit';
 import { useAbility } from './handlers/useAbility';
 import type { BattleDefs } from './rules';
+import { afterGeneralsFell } from './generals';
 import { concludeBattle } from './victory';
 
 /** Every command the core understands; a new command is added by registering its handler. */
@@ -64,7 +65,8 @@ export function dispatch(state: BattleState, command: Command, defs: BattleDefs)
   if (rejection) {
     return { ok: false, state, rejection };
   }
-  return { ok: true, ...concludeBattle(handler.apply(state, command, defs), defs) };
+  const outcome = afterGeneralsFell(state, handler.apply(state, command, defs), defs);
+  return { ok: true, ...concludeBattle(outcome, defs) };
 }
 
 /**

@@ -25,7 +25,7 @@ export const RULES: BattleRules = {
     rearBonus: 0.5,
     freeDisengage: ['cavalry', 'lightCavalry', 'lightInfantry', 'ranged'],
     chargers: ['cavalry', 'lightCavalry'],
-    chargeDistance: 3,
+    chargeDistance: 4,
     chargeAttack: 2,
     chargeStoppedBy: ['spear'],
     chargeBlockedOn: ['forest', 'marsh', 'hill', 'mountain', 'camp'],
@@ -51,6 +51,14 @@ export const RULES: BattleRules = {
   },
   victory: {
     armyBreaksAt: 0.5,
+  },
+  command: {
+    range: 3,
+    freeOrderRange: 1,
+    moraleLossReduction: 1,
+    recoveryBonus: 1,
+    moraleLostWithGeneral: 2,
+    ordersLostWithGeneral: 2,
   },
   fog: {
     enabled: true,

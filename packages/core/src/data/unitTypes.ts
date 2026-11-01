@@ -150,6 +150,32 @@ const UNIT_TYPE_LIST: readonly UnitTypeDef[] = [
     morale: 6,
     abilities: ['fear', 'rampage'],
   },
+  {
+    id: 'consul',
+    factionId: ROME,
+    name: 'Consul',
+    archetype: 'cavalry',
+    attack: 4,
+    defense: 5,
+    hp: 8,
+    movement: 5,
+    sight: 4,
+    morale: 10,
+    abilities: ['command'],
+  },
+  {
+    id: 'hannibal',
+    factionId: CARTHAGE,
+    name: 'Hannibal',
+    archetype: 'cavalry',
+    attack: 4,
+    defense: 5,
+    hp: 8,
+    movement: 5,
+    sight: 4,
+    morale: 10,
+    abilities: ['command'],
+  },
 ];
 
 /** Starting values from the design notes; expected to change during balancing. */

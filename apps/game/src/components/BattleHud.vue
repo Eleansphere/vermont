@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { PLAYER_SLOTS, holdsEnemyCamp, opponentOf } from '@vermont/core';
+import { PLAYER_SLOTS, holdsEnemyCamp, opponentOf, ordersLeft, ordersPerTurn } from '@vermont/core';
 import { armyStatus, campDistance, sideColor, sideName } from '../battle/labels';
 import { plural, t } from '../i18n';
 import { useBattleStore } from '../stores/battle';
@@ -57,6 +57,16 @@ const goal = computed(() => {
   const distance = campDistance(known, defs, viewer);
   if (distance === null) return null;
   return t('hud.goal', { distance, hexes: plural('hexes', distance) });
+});
+
+/** Orders the side on the move has left this turn; `null` when the battle does not limit them. */
+const orders = computed(() => {
+  const { state, defs } = store;
+  if (!state || !defs || state.phase !== 'battle') return null;
+  const left = ordersLeft(state, defs);
+  const total = ordersPerTurn(state, defs, state.activePlayer);
+  if (left === null || total === null) return null;
+  return t('hud.orders', { left, total });
 });
 
 /** A camp taken but not fallen yet: the side whose camp it is has one turn to win it back. */
@@ -125,6 +135,9 @@ function percent(share: number): string {
           <span v-if="store.aiOnTurn" class="hud__thinking muted" data-test="ai-on-turn">
             {{ t('hud.aiOnTurn') }}
           </span>
+          <span v-if="orders" class="hud__orders" data-test="orders" :title="t('hud.ordersHint')">{{
+            orders
+          }}</span>
         </template>
       </div>
       <span v-if="campAlarm" class="hud__alarm" data-test="camp-alarm">{{ campAlarm }}</span>
@@ -275,6 +288,14 @@ function percent(share: number): string {
 
 .hud__goal {
   font-size: 12px;
+}
+
+.hud__orders {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--panel-border);
 }
 
 .hud__alarm {

@@ -207,6 +207,28 @@ export const FIGURE_RECIPES: Readonly<Record<string, FigureRecipe>> = {
     filter: adventurerFilter,
     gear: () => [{ bone: RIGHT_HAND, geometry: mounted(spear(0.45), spearInHand), color: WOOD }],
   },
+  consul: {
+    body: 'king',
+    count: 1,
+    mount: 'horse',
+    filter: kingFilter,
+    gear: (side) => [
+      ...romanHelmet(CREST_RED, 0.14),
+      { bone: LEFT_HAND, geometry: mounted(roundShield(0.13), shieldOnArm), color: side },
+      { bone: RIGHT_HAND, geometry: mounted(spear(0.6), spearInHand), color: BRONZE },
+    ],
+  },
+  hannibal: {
+    body: 'king',
+    count: 1,
+    mount: 'horse',
+    filter: kingFilter,
+    gear: (side) => [
+      punicHelmet(),
+      { bone: LEFT_HAND, geometry: mounted(roundShield(0.13), shieldOnArm), color: side },
+      { bone: RIGHT_HAND, geometry: mounted(spear(0.6), spearInHand), color: BRONZE },
+    ],
+  },
   'iberian-cavalry': {
     body: 'king',
     count: 2,

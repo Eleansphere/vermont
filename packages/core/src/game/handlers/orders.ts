@@ -1,5 +1,7 @@
 import type { BattleState } from '../battleState';
 import type { Rejection } from '../command';
+import { giveOrder, orderCost } from '../generals';
+import type { BattleDefs } from '../rules';
 import type { FieldedUnit, Unit } from '../unit';
 import { isFielded } from '../unit';
 
@@ -24,6 +26,31 @@ export function orderedUnit(state: BattleState, unitId: string): FieldedUnit | R
     return { code: 'unitRouting', message: `Unit "${unit.id}" is routing and takes no orders` };
   }
   return unit;
+}
+
+/**
+ * The unit the active player wants to give an order to, with the order it needs counted out:
+ * the unit's first order in a turn costs one, unless the general leads it himself.
+ */
+export function commandedUnit(
+  state: BattleState,
+  defs: BattleDefs,
+  unitId: string
+): FieldedUnit | Rejection {
+  const unit = orderedUnit(state, unitId);
+  if (isRejection(unit)) return unit;
+  const cost = orderCost(state, defs, unit);
+  return typeof cost === 'number' ? unit : cost;
+}
+
+/** The state with the unit's order given, and the unit as it stands in it. */
+export function withOrderGiven(
+  state: BattleState,
+  defs: BattleDefs,
+  unit: FieldedUnit
+): { readonly state: BattleState; readonly unit: FieldedUnit } {
+  const ordered = giveOrder(state, defs, unit);
+  return { state: ordered, unit: ordered.units[unit.id] as FieldedUnit };
 }
 
 /** Tells a rejection apart from the value a check returns when it passes. */

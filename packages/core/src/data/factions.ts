@@ -4,7 +4,7 @@ export const FACTIONS: FactionTable = {
   rome: {
     id: 'rome',
     name: 'Rome',
-    unitTypes: ['velites', 'hastati', 'principes', 'triarii', 'equites'],
+    unitTypes: ['velites', 'hastati', 'principes', 'triarii', 'equites', 'consul'],
   },
   carthage: {
     id: 'carthage',
@@ -16,6 +16,7 @@ export const FACTIONS: FactionTable = {
       'numidian-cavalry',
       'iberian-cavalry',
       'war-elephants',
+      'hannibal',
     ],
   },
 };

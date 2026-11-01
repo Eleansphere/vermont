@@ -51,6 +51,10 @@ export function scenarioDefs(scenario: ScenarioDef, data: GameData = GAME_DATA):
     rules: data.rules,
     camps: { 0: first.camp, 1: second.camp },
     deploymentZones: { 0: first.deploymentZone, 1: second.deploymentZone },
+    orders: {
+      ...(first.orders !== undefined && { 0: first.orders }),
+      ...(second.orders !== undefined && { 1: second.orders }),
+    },
   };
 }
 

@@ -18,10 +18,12 @@ import {
   hexEquals,
   isCharge,
   isFighting,
+  isGeneral,
   isRearAttack,
   moraleLossWhenHit,
   nextRandom,
   opponentOf,
+  orderCost,
   pathFromReach,
   previewAttack,
   previewDisengagement,
@@ -123,9 +125,23 @@ const PULL: Readonly<Record<Role, number>> = {
   guard: GUARD_PULL,
   raid: 1.5,
   rest: 0.3,
+  lead: 0,
 };
 /** How much of the damage it may take on a hex each role minds. */
-const CAUTION: Readonly<Record<Role, number>> = { fight: 0.15, guard: 0, raid: 0.3, rest: 1 };
+const CAUTION: Readonly<Record<Role, number>> = {
+  fight: 0.15,
+  guard: 0,
+  raid: 0.3,
+  rest: 1,
+  lead: 1.5,
+};
+/** Worth to the general of each unit he would lead himself from a hex, up to `MAX_LED`. */
+const LEAD_VALUE = 0.8;
+const MAX_LED = 6;
+/** The general minds blows in return far more than anybody: his fall shakes the whole army. */
+const GENERAL_COUNTER_WEIGHT = 4;
+/** What spending one of the turn's orders costs a command, against one that is free. */
+const ORDER_PRICE = 0.4;
 /** Shooters hang back: they need the enemy in range, not in reach. */
 const SHOOTER_PULL = 0.5;
 const SHOOTER_CAUTION = 0.5;
@@ -164,11 +180,30 @@ export function tacticalOrders(
   };
 
   // A unit strikes as soon as it can: whoever lands the first blows usually wins the fight.
-  for (const option of [bestRelief, bestAttack, bestMove]) {
+  for (const option of [leadMove, bestRelief, bestAttack, bestMove]) {
     const best = option(situation);
     if (best) return { value: best.command, rng: dice };
   }
   return { value: { type: 'EndTurn' }, rng: dice };
+}
+
+/**
+ * What giving the unit an order costs in value: nothing when it already has one or the general
+ * leads it, `ORDER_PRICE` when it takes one of the turn's orders, `null` when none are left.
+ */
+function orderPrice(situation: Situation, unit: FieldedUnit): number | null {
+  const cost = orderCost(situation.state, situation.defs, unit);
+  if (typeof cost !== 'number') return null;
+  return cost * ORDER_PRICE;
+}
+
+/** The general rides first, so that the units he leads himself act after him for free. */
+function leadMove(situation: Situation): Option | null {
+  const general = situation.own.find((unit) => situation.plan.get(unit.id)?.role === 'lead');
+  if (!general || general.movedThisTurn > 0 || general.hasAttacked || general.ordered) {
+    return null;
+  }
+  return bestMove({ ...situation, own: [general] });
 }
 
 function bestAttack(situation: Situation): Option | null {
@@ -176,13 +211,15 @@ function bestAttack(situation: Situation): Option | null {
   let best: Option | null = null;
   for (const unit of situation.own) {
     if (unit.hasAttacked) continue;
+    const price = orderPrice(situation, unit);
+    if (price === null) continue;
     const resting = situation.plan.get(unit.id)?.role === 'rest';
     for (const target of attackTargets(state, defs, unit)) {
       // A resting unit strikes only where nothing strikes back.
       if (resting && strikesBack(state, defs, unit, target)) continue;
       const worth = attackValue(situation, state, unit, target);
-      if (worth === null || worth <= 0) continue;
-      const value = worth + situation.misjudge();
+      if (worth === null || worth - price <= 0) continue;
+      const value = worth - price + situation.misjudge();
       if (!best || value > best.value) {
         best = { command: { type: 'Attack', unitId: unit.id, targetId: target.id }, value };
       }
@@ -196,12 +233,14 @@ function bestMove(situation: Situation): Option | null {
   let best: Option | null = null;
   for (const unit of situation.own) {
     if (unit.movementLeft <= 0) continue;
+    const price = orderPrice(situation, unit);
+    if (price === null) continue;
     const reach = unitReach(state, defs, unit);
     const staying = positionValue(situation, unit, unit.pos);
     const engaged = adjacentUnits(state, unit.pos, opponentOf(unit.owner)).some(isFighting);
     for (const node of reach.values()) {
       if (!node.canStop || node.cost === 0) continue;
-      let gain = positionValue(situation, unit, node.hex) - staying - STEP_COST * node.cost;
+      let gain = positionValue(situation, unit, node.hex) - staying - STEP_COST * node.cost - price;
       if (gain <= MIN_GAIN) continue;
       const path = pathFromReach(reach, node.hex)!.hexes;
       if (engaged) {
@@ -240,6 +279,7 @@ function bestRelief(situation: Situation): Option | null {
       continue;
     }
     if (isWeakened(defs, unit) || inContact(unit)) continue;
+    if (orderPrice(situation, unit) === null) continue;
     for (const partner of adjacentUnits(state, unit.pos, player)) {
       const worthIt = isFighting(partner) && isWeakened(defs, partner) && inContact(partner);
       if (worthIt && canStandOn(defs, unit, partner.pos) && canStandOn(defs, partner, unit.pos)) {
@@ -279,7 +319,11 @@ function attackValue(
 
   const damage = preview.damage.expected;
   const counter = preview.counterDamage?.expected ?? 0;
-  const care = isWeakened(defs, attacker) ? WEAK_COUNTER_WEIGHT : COUNTER_WEIGHT;
+  const care = isGeneral(defs, attacker)
+    ? GENERAL_COUNTER_WEIGHT
+    : isWeakened(defs, attacker)
+      ? WEAK_COUNTER_WEIGHT
+      : COUNTER_WEIGHT;
 
   let value = damage - care * counter;
   if (damage >= target.hp) value += KILL_BONUS;
@@ -362,6 +406,13 @@ function positionValue(situation: Situation, unit: FieldedUnit, at: Hex): number
     let danger = 0;
     for (const enemy of situation.threats) danger += threat(defs, enemy, unit, at);
     value -= caution * danger;
+  }
+  if (orders.role === 'lead') {
+    const reach = defs.rules.command.freeOrderRange;
+    const led = situation.own.filter(
+      (friend) => friend.id !== unit.id && hexDistance(friend.pos, at) <= reach
+    ).length;
+    value += LEAD_VALUE * Math.min(MAX_LED, led);
   }
   if (orders.role === 'fight') {
     const company = situation.own.filter(

@@ -2,6 +2,7 @@ import { hexEquals } from '../hex/hex';
 import type { BattleState } from './battleState';
 import { opponentOf } from './battleState';
 import type { MoraleChangedEvent } from './command';
+import { inCommand } from './generals';
 import type { BattleDefs, MoraleRules } from './rules';
 import type { FieldedUnit, Unit } from './unit';
 import { abilityOf, adjacentUnits, isFighting, moraleStateOf, unitTypeOf } from './unit';
@@ -77,7 +78,9 @@ export function moraleLossWhenHit(
 ): number {
   const rules = defs.rules.morale;
   const byDamage = rules.lossWhenHit + Math.floor(hit.damage / rules.damagePerMoraleLoss);
-  const support = isSupported(state, victim) ? rules.lineSupport : 0;
+  const support =
+    (isSupported(state, victim) ? rules.lineSupport : 0) +
+    (inCommand(state, defs, victim) ? defs.rules.command.moraleLossReduction : 0);
   const encircled = isEncircled(state, defs, victim) ? rules.lossWhenEncircled : 0;
   const worn = isWorn(defs, victim) ? rules.lossWhenWorn : 0;
   const fear = abilityOf(defs, striker, 'fear')?.params.moraleLoss ?? 0;

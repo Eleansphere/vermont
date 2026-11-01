@@ -88,6 +88,7 @@ export type {
   FogRules,
   MoraleRules,
   VictoryRules,
+  CommandRules,
 } from './game/rules';
 export {
   MORALE_STATES,
@@ -127,6 +128,16 @@ export type {
 export { holdsOwnCamp, isEncircled, isSupported, isWorn, moraleLossWhenHit } from './game/morale';
 export type { Hit } from './game/morale';
 export { armyLosses, findWinner, holdsEnemyCamp } from './game/victory';
+export {
+  fightingGeneral,
+  hasLostGeneral,
+  inCommand,
+  isGeneral,
+  isOrderFree,
+  orderCost,
+  ordersLeft,
+  ordersPerTurn,
+} from './game/generals';
 export type { ArmyLosses } from './game/victory';
 export { autoDeployment, checkDeployment, deploymentHexes, reserveUnits } from './game/deployment';
 export type {
@@ -134,6 +145,7 @@ export type {
   AttackKind,
   AttackResolvedEvent,
   UnitDisengagedEvent,
+  GeneralFellEvent,
   BattleDrawnEvent,
   BattleEndedEvent,
   Command,

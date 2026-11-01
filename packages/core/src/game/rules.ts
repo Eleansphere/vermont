@@ -93,6 +93,21 @@ export interface VictoryRules {
   readonly armyBreaksAt: number;
 }
 
+export interface CommandRules {
+  /** Hexes around the general within which units are in his command. */
+  readonly range: number;
+  /** Hexes around the general within which he leads units himself: their orders cost nothing. */
+  readonly freeOrderRange: number;
+  /** Taken off the morale a unit in command loses for a hit. */
+  readonly moraleLossReduction: number;
+  /** Added to the morale a unit in command regains at the start of its turn. */
+  readonly recoveryBonus: number;
+  /** Lost by every unit of an army whose general is destroyed or flees. */
+  readonly moraleLostWithGeneral: number;
+  /** Orders per turn an army loses with its general. */
+  readonly ordersLostWithGeneral: number;
+}
+
 export interface FogRules {
   /** With the fog on, a player sees only what their units and camp see. */
   readonly enabled: boolean;
@@ -106,6 +121,7 @@ export interface BattleRules {
   readonly combat: CombatRules;
   readonly morale: MoraleRules;
   readonly victory: VictoryRules;
+  readonly command: CommandRules;
   readonly fog: FogRules;
 }
 
@@ -123,6 +139,8 @@ export interface BattleDefs {
   readonly camps: Readonly<Partial<Record<PlayerSlot, Hex>>>;
   /** Hexes each side may deploy its units on before the battle. */
   readonly deploymentZones: Readonly<Partial<Record<PlayerSlot, readonly Hex[]>>>;
+  /** Orders each side may give in a turn; a side left out commands every unit every turn. */
+  readonly orders: Readonly<Partial<Record<PlayerSlot, number>>>;
 }
 
 /** Definitions for a battle on `map` with the standard terrains, unit types and rules. */
@@ -138,6 +156,7 @@ export function createDefs(
     rules: RULES,
     camps: {},
     deploymentZones: {},
+    orders: {},
     ...overrides,
   };
 }

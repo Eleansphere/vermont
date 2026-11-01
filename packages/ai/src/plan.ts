@@ -1,12 +1,19 @@
 import type { BattleDefs, BattleState, FieldedUnit, Hex, PlayerSlot } from '@vermont/core';
-import { fieldedUnits, hexDistance, isFighting, opponentOf, unitTypeOf } from '@vermont/core';
+import {
+  fieldedUnits,
+  hexDistance,
+  isFighting,
+  isGeneral,
+  opponentOf,
+  unitTypeOf,
+} from '@vermont/core';
 import { travelCost } from './routes';
 
 /**
  * What a unit is in the battle for: `fight` goes for the enemy, `guard` holds its side's camp,
  * `raid` rides for the enemy's and `rest` keeps out of the fight until it has its nerve back.
  */
-export type Role = 'fight' | 'guard' | 'raid' | 'rest';
+export type Role = 'fight' | 'guard' | 'raid' | 'rest' | 'lead';
 
 export interface Orders {
   readonly role: Role;
@@ -71,10 +78,12 @@ export function battlePlan(
   const enemyCamp = defs.camps[opponentOf(player)] ?? null;
   const allOut = state.turn > defs.rules.roundLimit - ALL_OUT_ROUNDS;
 
-  const fit = own.filter((unit) => !isWeakened(defs, unit));
+  const general = own.find((unit) => isGeneral(defs, unit));
+  const troops = own.filter((unit) => unit.id !== general?.id);
+  const fit = troops.filter((unit) => !isWeakened(defs, unit));
   const guard =
-    options.guard && !allOut && ownCamp && own.length >= ARMY_TO_GUARD
-      ? campGuard(defs, own, ownCamp)
+    options.guard && !allOut && ownCamp && troops.length >= ARMY_TO_GUARD
+      ? campGuard(defs, troops, ownCamp)
       : undefined;
   const raider =
     options.raid && enemyCamp && state.turn >= RAID_FROM_TURN
@@ -83,7 +92,10 @@ export function battlePlan(
 
   const plan = new Map<string, Orders>();
   for (const unit of own) {
-    if (unit.id === guard?.id) {
+    if (unit.id === general?.id) {
+      // The general goes where most of the army can be led from, not at the enemy.
+      plan.set(unit.id, { role: 'lead', objective: null });
+    } else if (unit.id === guard?.id) {
       plan.set(unit.id, { role: 'guard', objective: ownCamp });
     } else if (unit.id === raider?.id) {
       plan.set(unit.id, { role: 'raid', objective: enemyCamp });

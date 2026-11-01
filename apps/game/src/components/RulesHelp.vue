@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { Archetype, TerrainDef, UnitTypeDef } from '@vermont/core';
-import { FACTIONS, RULES, TERRAINS, UNIT_TYPES } from '@vermont/core';
+import { FACTIONS, RULES, SCENARIOS, TERRAINS, UNIT_TYPES } from '@vermont/core';
 import { unitIcon } from '@vermont/render/icons';
 import { formatNumber, formatSigned } from '../battle/format';
 import type { HelpTab } from '../battle/help';
@@ -24,6 +24,24 @@ const TEXTS: Partial<Record<HelpTab, readonly [UiKey, Record<string, string | nu
   basics: [
     ['help.basics.goal'],
     ['help.basics.turns'],
+    [
+      'help.basics.orders',
+      {
+        rome: SCENARIOS.trebia?.sides[0].orders ?? '–',
+        carthage: SCENARIOS.trebia?.sides[1].orders ?? '–',
+        free: RULES.command.freeOrderRange,
+      },
+    ],
+    [
+      'help.basics.general',
+      {
+        range: RULES.command.range,
+        loss: RULES.command.moraleLossReduction,
+        recovery: RULES.command.recoveryBonus,
+        morale: RULES.command.moraleLostWithGeneral,
+        orders: RULES.command.ordersLostWithGeneral,
+      },
+    ],
     ['help.basics.plate'],
     ['help.basics.deploy'],
     ['help.basics.limit', { limit: RULES.roundLimit }],

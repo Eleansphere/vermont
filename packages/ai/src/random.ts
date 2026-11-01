@@ -3,6 +3,7 @@ import type {
   BattleState,
   Command,
   Draw,
+  FieldedUnit,
   Hex,
   PlayerSlot,
   RngState,
@@ -10,6 +11,7 @@ import type {
 import {
   attackTargets,
   deploymentHexes,
+  orderCost,
   fieldedUnits,
   isFighting,
   nextRandomInt,
@@ -56,7 +58,9 @@ export function randomOrders(
   const enemies = fieldedUnits(state, opponentOf(player));
   const camp = defs.camps[opponentOf(player)];
 
-  for (const unit of fieldedUnits(state, player).filter(isFighting)) {
+  const orderable = (unit: FieldedUnit) =>
+    isFighting(unit) && typeof orderCost(state, defs, unit) === 'number';
+  for (const unit of fieldedUnits(state, player).filter(orderable)) {
     const targets = unit.hasAttacked ? [] : attackTargets(state, defs, unit);
     if (targets.length > 0) {
       const target = pick(rng, targets);

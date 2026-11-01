@@ -192,6 +192,13 @@ export interface UnitFledEvent {
   readonly hex: Hex;
 }
 
+/** The general of `player` was destroyed or fled; his whole army loses heart. */
+export interface GeneralFellEvent {
+  readonly type: 'GeneralFell';
+  readonly player: PlayerSlot;
+  readonly unitId: string;
+}
+
 export interface BattleEndedEvent {
   readonly type: 'BattleEnded';
   readonly winner: PlayerSlot;
@@ -222,6 +229,7 @@ export type GameEvent =
   | UnitRetreatedEvent
   | UnitRalliedEvent
   | UnitFledEvent
+  | GeneralFellEvent
   | BattleEndedEvent
   | BattleDrawnEvent;
 
@@ -246,7 +254,8 @@ export type RejectionCode =
   | 'abilityUnavailable'
   | 'invalidHex'
   | 'outsideDeploymentZone'
-  | 'unitsNotDeployed';
+  | 'unitsNotDeployed'
+  | 'noOrders';
 
 /** Why a command was not carried out. The UI translates `code`; `message` is for logs. */
 export interface Rejection {

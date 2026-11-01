@@ -73,7 +73,8 @@ export const cs = {
     'tutorial.log':
       'Po tahu soupeře ukáže karta vpravo nahoře, co se stalo; klik na řádek ukáže místo na mapě. Celý průběh bitvy otevře tlačítko Události nebo klávesa L, C vrátí kameru na vybranou jednotku a H otevře nápovědu s pravidly.',
     'tutorial.finish': 'Teď dobojuj sám. Hodně štěstí!',
-    'tutorial.done': 'Výcvik je za tebou. Vyzkoušej skutečnou bitvu: Trebia je dobrý začátek.',
+    'tutorial.done':
+      'Výcvik je za tebou. Ve skutečné bitvě máš navíc generála a jen několik rozkazů za tah: jednotky hned vedle generála jednají zdarma. Trebia je dobrý začátek.',
     'tutorial.toMenu': 'Hlavní menu',
     'help.title': 'Nápověda',
     'help.tab.basics': 'Základy',
@@ -86,9 +87,13 @@ export const cs = {
     'help.basics.goal':
       'Vyhraješ, když tvoje bojující jednotka vstoupí do tábora soupeře a vydrží v něm celý jeho tah, nebo když soupeř ztratí polovinu armády (zničené jednotky a ty, které utekly z bojiště). Jednotky, které zrovna prchají po mapě, se do ztrát počítají, až bojiště opustí.',
     'help.basics.turns':
-      'Strany se střídají v tazích. Ve svém tahu může každá jednotka jednou pohnout a jednou zaútočit, v libovolném pořadí. Tah ukončíš tlačítkem Ukončit tah nebo klávesou Enter.',
+      'Strany se střídají v tazích. Ve svém tahu se jednotka s rozkazem může jednou pohnout a jednou zaútočit, v libovolném pořadí. Tah ukončíš tlačítkem Ukončit tah nebo klávesou Enter.',
     'help.basics.plate':
       'Štítek nad jednotkou: ikona typu v barvě strany (tečky pod ní odliší typy se stejnou ikonou, například principes od hastátů), číslo životů a modrá linka morálky. Žlutý vykřičník znamená otřesenou jednotku, červený znak » jednotku na útěku. Šedý štítek má jednotka, která už v tahu nemůže nic. Stejné štítky jsou v liště armády dole; klik na ně jednotku vybere a ukáže.',
+    'help.basics.orders':
+      'Rozkazy: v bitvě máš jen {rome} (Řím) nebo {carthage} (Kartágo) rozkazů za tah. První pohyb, útok nebo schopnost jednotky v tahu stojí jeden rozkaz, další akce té jednotky už nic. Generál a jednotky do {free} hexu od něj jednají zdarma. Jednotky bez rozkazu stojí, ale brání se a vracejí protiútok.',
+    'help.basics.general':
+      'Generál (konzul, Hannibal) je jízdní jednotka s velením. Jednotky do {range} hexů od něj ztrácejí o {loss} méně morálky, každý tah se vzpamatují o {recovery} víc a zlomené se shromáždí, i když je nepřítel u nich. Když generál padne nebo uteče, každá jeho jednotka ztratí {morale} morálky a armáda má o {orders} rozkazy méně. Do zlomu armády se generál nepočítá.',
     'help.basics.deploy':
       'Před bitvou rozestavíš armádu ve své zóně. Na jednom hexu stojí vždy jen jedna jednotka.',
     'help.basics.limit':
@@ -201,6 +206,9 @@ export const cs = {
     'hud.deployment': 'Rozestavení',
     'hud.roundLimit': 'Po posledním kole končí bitva remízou.',
     'hud.onTurn': 'na tahu',
+    'hud.orders': 'Rozkazy {left} z {total}',
+    'hud.ordersHint':
+      'Kolik jednotek ještě můžeš v tomto tahu zapojit. První pohyb nebo útok jednotky stojí rozkaz, jednotky hned vedle generála a generál sám ho dostanou zdarma.',
     'hud.aiOnTurn': 'počítač táhne…',
     'hud.endTurn': 'Ukončit tah',
     'hud.undo': 'Vrátit',
@@ -267,6 +275,10 @@ export const cs = {
     'unit.hasAttacked': 'Už útočila',
     'unit.canAttack': 'Může útočit',
     'unit.hasMoved': 'Pohnula se',
+    'unit.order.given': 'Má rozkaz',
+    'unit.order.free': 'Rozkaz zdarma: vede ji generál',
+    'unit.order.costs': 'Stojí 1 rozkaz',
+    'unit.order.none': 'Došly rozkazy',
     'unit.strongAgainst': 'Silná proti:',
     'unit.inReserve': 'V záloze',
     'unit.spent': 'použito',
@@ -318,6 +330,7 @@ export const cs = {
     'log.deploymentEnded': '{side}: rozestavení dokončeno.',
     'log.turnStarted': 'Kolo {turn}, na tahu {side}.',
     'log.moved': '{unit}: přesun o {count} {hexes}.',
+    'log.generalFell': '{unit} padl! Celá armáda {side} ztrácí odvahu a má méně rozkazů.',
     'log.ambushed': '{unit}: narazila na skrytého nepřítele a zastavila.',
     'log.disengaged': '{unit}: odpoutává se, {striker} zasazuje volný úder za {damage}.',
     'log.attack.melee': '{unit}: útok na {target}, ztráty {damage}.',
@@ -396,6 +409,8 @@ export const cs = {
     'numidian-cavalry': 'Numidská jízda',
     'iberian-cavalry': 'Iberská jízda',
     'war-elephants': 'Váleční sloni',
+    consul: 'Konzul',
+    hannibal: 'Hannibal',
   } as Readonly<Record<string, string>>,
 
   archetypes: {
@@ -451,6 +466,11 @@ export const cs = {
       name: 'Běsnění',
       description: 'Když se dá na útěk, zaútočí na náhodnou sousední jednotku, i vlastní.',
     },
+    command: {
+      name: 'Velení',
+      description:
+        'Generál. Jednotky hned vedle něj dostávají rozkaz zdarma, jednotky do 3 hexů ztrácejí méně morálky, rychleji se vzpamatují a shromáždí se i s nepřítelem v patách. Když padne nebo uteče, celá armáda ztratí morálku a rozkazy.',
+    },
   } satisfies Record<AbilityId, AbilityText>,
 
   moraleStates: {
@@ -492,6 +512,7 @@ export const cs = {
     invalidHex: 'Takový hex na mapě není.',
     outsideDeploymentZone: 'Hex je mimo tvoji zónu rozestavení.',
     unitsNotDeployed: 'Nejdřív rozestav všechny jednotky.',
+    noOrders: 'Došly rozkazy. Teď můžeš zapojit jen jednotky hned vedle generála.',
   } satisfies Record<RejectionCode, string>,
 } as const;
 

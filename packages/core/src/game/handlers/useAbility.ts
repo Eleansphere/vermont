@@ -6,7 +6,7 @@ import type { CommandHandler, Rejection, UseAbilityCommand } from '../command';
 import type { BattleDefs } from '../rules';
 import type { FieldedUnit } from '../unit';
 import { abilityOf, isFighting, unitTypeOf, withUnits } from '../unit';
-import { findUnit, isRejection, orderedUnit } from './orders';
+import { commandedUnit, findUnit, isRejection, withOrderGiven } from './orders';
 
 interface OrderedSwap {
   readonly unit: FieldedUnit;
@@ -25,13 +25,14 @@ export const useAbility: CommandHandler<UseAbilityCommand> = {
   apply(state, command, defs) {
     const swap = checkLineRelief(state, command, defs);
     if (isRejection(swap)) throw new Error(swap.message);
-    const { unit, partner } = swap;
+    const { partner } = swap;
+    const { state: ordered, unit } = withOrderGiven(state, defs, swap.unit);
 
     // Stepping into the line takes the rest of the unit's movement; it may still attack.
     const relieving = { ...unit, pos: partner.pos, movementLeft: 0 };
     const relieved = { ...partner, pos: unit.pos };
     return {
-      state: withUnits(state, [relieving, relieved]),
+      state: withUnits(ordered, [relieving, relieved]),
       events: [{ type: 'UnitsSwapped', unitId: unit.id, targetId: partner.id }],
     };
   },
@@ -42,7 +43,7 @@ function checkLineRelief(
   command: UseAbilityCommand,
   defs: BattleDefs
 ): OrderedSwap | Rejection {
-  const unit = orderedUnit(state, command.unitId);
+  const unit = commandedUnit(state, defs, command.unitId);
   if (isRejection(unit)) return unit;
   if (command.abilityId !== 'lineRelief' || !abilityOf(defs, unit, 'lineRelief')) {
     return unavailable(

@@ -6,6 +6,7 @@ import { opponentOf } from './battleState';
 import { attackTargets } from './combat';
 import type { Command, GameEvent } from './command';
 import { dispatch } from './dispatch';
+import { orderCost } from './generals';
 import type { TestBattle } from './testSupport';
 import type { FieldedUnit } from './unit';
 import { fieldedUnits, isFighting, unitTypeOf } from './unit';
@@ -23,6 +24,7 @@ function distanceToEnemy(state: BattleState, unit: FieldedUnit, from: Hex): numb
 export function ordersFor(battle: TestBattle, unitId: string): Command | null {
   const unit = battle.state.units[unitId];
   if (!unit || !isFighting(unit)) return null;
+  if (typeof orderCost(battle.state, battle.defs, unit) !== 'number') return null;
 
   if (!unit.hasAttacked) {
     const [weakest] = attackTargets(battle.state, battle.defs, unit).sort((a, b) => a.hp - b.hp);

@@ -35,6 +35,8 @@ export interface Unit {
   readonly spentAbilities: readonly AbilityId[];
   /** The unit has broken and rallied once; if it breaks again, it leaves the field. */
   readonly hasRallied: boolean;
+  /** The unit has been given its order this turn; whatever else it does this turn is free. */
+  readonly ordered: boolean;
 }
 
 /** A unit that is on the battlefield. */
@@ -79,6 +81,7 @@ export function createUnits(
       status: placement.pos ? 'active' : 'reserve',
       spentAbilities: [],
       hasRallied: false,
+      ordered: false,
     };
   });
 }

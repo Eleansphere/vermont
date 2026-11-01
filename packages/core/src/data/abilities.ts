@@ -25,4 +25,6 @@ export const ABILITIES: AbilityTable = {
   },
   /** When its morale breaks, the unit strikes one unit next to it, friend or foe, then runs. */
   rampage: { id: 'rampage', kind: 'triggered', params: {} },
+  /** The general: leads the units around him; how, the command rules say. */
+  command: { id: 'command', kind: 'passive', params: {} },
 };

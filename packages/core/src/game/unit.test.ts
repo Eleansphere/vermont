@@ -13,7 +13,7 @@ describe('unit type data', () => {
     for (const [id, unitType] of Object.entries(UNIT_TYPES)) {
       expect(unitType.id).toBe(id);
     }
-    expect(Object.keys(UNIT_TYPES)).toHaveLength(11);
+    expect(Object.keys(UNIT_TYPES)).toHaveLength(13);
   });
 
   it('gives every unit type sensible numbers and known abilities', () => {
@@ -56,6 +56,7 @@ describe('createUnits', () => {
       status: 'active',
       spentAbilities: [],
       hasRallied: false,
+      ordered: false,
     });
   });
 

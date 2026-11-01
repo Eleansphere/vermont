@@ -4,6 +4,13 @@ import { rectangleHex } from '../map/shapes';
 import type { ScenarioDef, ScenarioTable } from '../scenario/scenario';
 import { CANNAE_SIZE, TRAINING_SIZE, TREBIA_SIZE, ZAMA_SIZE } from './maps';
 
+/**
+ * Orders each side may give in a turn in the battles. Hannibal's army takes one more: it was
+ * the better led of the two.
+ */
+const ROME_ORDERS = 4;
+const CARTHAGE_ORDERS = 5;
+
 /** Columns left free on either edge of a deployment zone. */
 const ZONE_MARGIN = 1;
 /** How many rows deep a deployment zone is. */
@@ -53,8 +60,10 @@ const TREBIA: ScenarioDef = {
         { typeId: 'velites', count: 1 },
         { typeId: 'equites', count: 1 },
         { typeId: 'velites', count: 1 },
+        { typeId: 'consul', count: 1 },
       ],
       camp: rectangleHex(7, 0),
+      orders: ROME_ORDERS,
       deploymentZone: rowsZone(TREBIA_SIZE, northRows()),
     },
     {
@@ -68,8 +77,10 @@ const TREBIA: ScenarioDef = {
         { typeId: 'libyan-spearmen', count: 1 },
         { typeId: 'iberian-cavalry', count: 2 },
         { typeId: 'numidian-cavalry', count: 1 },
+        { typeId: 'hannibal', count: 1 },
       ],
       camp: rectangleHex(6, TREBIA_SIZE.height - 1),
+      orders: CARTHAGE_ORDERS,
       deploymentZone: rowsZone(TREBIA_SIZE, southRows(TREBIA_SIZE)),
     },
   ],
@@ -103,8 +114,10 @@ const CANNAE: ScenarioDef = {
         { typeId: 'velites', count: 1 },
         { typeId: 'triarii', count: 3 },
         { typeId: 'velites', count: 1 },
+        { typeId: 'consul', count: 1 },
       ],
       camp: rectangleHex(9, 0),
+      orders: ROME_ORDERS,
       deploymentZone: [
         ...rowHexes(2, ...CANNAE_ROME_COLUMNS),
         ...rowHexes(1, ...CANNAE_ROME_RESERVE_COLUMNS),
@@ -122,8 +135,10 @@ const CANNAE: ScenarioDef = {
         { typeId: 'libyan-spearmen', count: 2 },
         { typeId: 'numidian-cavalry', count: 2 },
         { typeId: 'balearic-slingers', count: 2 },
+        { typeId: 'hannibal', count: 1 },
       ],
       camp: rectangleHex(8, CANNAE_SIZE.height - 1),
+      orders: CARTHAGE_ORDERS,
       deploymentZone: southRows(CANNAE_SIZE).flatMap((row) =>
         rowHexes(row, ...CANNAE_CARTHAGE_COLUMNS)
       ),
@@ -151,8 +166,10 @@ const ZAMA: ScenarioDef = {
         { typeId: 'triarii', count: 2 },
         { typeId: 'velites', count: 1 },
         { typeId: 'equites', count: 2 },
+        { typeId: 'consul', count: 1 },
       ],
       camp: rectangleHex(8, 0),
+      orders: ROME_ORDERS,
       deploymentZone: rowsZone(ZAMA_SIZE, northRows()),
     },
     {
@@ -168,8 +185,10 @@ const ZAMA: ScenarioDef = {
         { typeId: 'gallic-mercenaries', count: 1 },
         { typeId: 'balearic-slingers', count: 1 },
         { typeId: 'iberian-cavalry', count: 1 },
+        { typeId: 'hannibal', count: 1 },
       ],
       camp: rectangleHex(7, ZAMA_SIZE.height - 1),
+      orders: CARTHAGE_ORDERS,
       deploymentZone: rowsZone(ZAMA_SIZE, southRows(ZAMA_SIZE)),
     },
   ],

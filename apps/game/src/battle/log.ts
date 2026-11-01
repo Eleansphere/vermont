@@ -240,6 +240,18 @@ export function describeEvents(events: readonly GameEvent[], context: LogContext
           })
         );
         break;
+      case 'GeneralFell':
+        entries.push(
+          aboutUnit(
+            'loss',
+            event.unitId,
+            t('log.generalFell', {
+              unit: label(event.unitId),
+              side: sideName(scenario, event.player),
+            })
+          )
+        );
+        break;
       case 'BattleEnded':
         entries.push({
           tone: 'result',

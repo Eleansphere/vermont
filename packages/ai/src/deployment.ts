@@ -1,5 +1,5 @@
 import type { BattleDefs, BattleState, Command, Hex, PlayerSlot, Unit } from '@vermont/core';
-import { deploymentHexes, opponentOf, reserveUnits, unitTypeOf } from '@vermont/core';
+import { deploymentHexes, isGeneral, opponentOf, reserveUnits, unitTypeOf } from '@vermont/core';
 
 /** Where a unit belongs in the battle line. */
 type Post = 'wing' | 'line' | 'rear';
@@ -15,7 +15,8 @@ const ROW_WEIGHT = 100;
 
 function postOf(defs: BattleDefs, unit: Unit): Post {
   const type = unitTypeOf(defs, unit);
-  if (type.range !== undefined) return 'rear';
+  // The general leads from just behind the middle of the line.
+  if (type.range !== undefined || isGeneral(defs, unit)) return 'rear';
   return type.movement >= FAST_MOVEMENT ? 'wing' : 'line';
 }
 

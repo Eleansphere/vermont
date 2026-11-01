@@ -212,17 +212,25 @@ describe('the scenarios in the data', () => {
     expect(validateScenario(shipped, GAME_DATA)).toEqual([]);
   });
 
-  it.each(Object.values(SCENARIOS))('$id gives both sides an army of 10 to 14 units', (shipped) => {
-    for (const side of shipped.sides) {
-      expect(armySize(side)).toBeGreaterThanOrEqual(MIN_ARMY);
-      expect(armySize(side)).toBeLessThanOrEqual(MAX_ARMY);
+  it.each(Object.values(SCENARIOS))(
+    '$id gives both sides a general, orders and 10 to 14 more units',
+    (shipped) => {
+      for (const side of shipped.sides) {
+        const generals = side.army.filter(({ typeId }) =>
+          GAME_DATA.unitTypes[typeId]!.abilities.includes('command')
+        );
+        expect(generals).toEqual([{ typeId: expect.any(String), count: 1 }]);
+        expect(armySize(side) - 1).toBeGreaterThanOrEqual(MIN_ARMY);
+        expect(armySize(side) - 1).toBeLessThanOrEqual(MAX_ARMY);
+        expect(side.orders).toBeGreaterThan(0);
+      }
     }
-  });
+  );
 
   it('pit Rome against Carthage on the Trebia', () => {
     const { trebia } = SCENARIOS;
 
     expect(trebia?.sides.map((side) => side.factionId)).toEqual(['rome', 'carthage']);
-    expect(trebia?.sides.map(armySize)).toEqual([13, 12]);
+    expect(trebia?.sides.map(armySize)).toEqual([14, 13]);
   });
 });

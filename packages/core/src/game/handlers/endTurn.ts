@@ -1,6 +1,7 @@
 import type { BattleState } from '../battleState';
 import { opponentOf } from '../battleState';
 import type { CommandHandler, EndTurnCommand, GameEvent } from '../command';
+import { inCommand } from '../generals';
 import { moraleChanged, shiftMorale } from '../morale';
 import { holdsEnemyCamp } from '../victory';
 import type { UnitChange } from '../rout';
@@ -37,7 +38,9 @@ export const endTurn: CommandHandler<EndTurnCommand> = {
       };
     }
 
-    let next: BattleState = { ...state, activePlayer: nextPlayer, turn: nextTurn };
+    // The orders left over are lost; the next player starts with all of theirs.
+    const { ordersLeft: _spent, ...rest } = state;
+    let next: BattleState = { ...rest, activePlayer: nextPlayer, turn: nextTurn };
     const events: GameEvent[] = [
       { type: 'TurnEnded', player: state.activePlayer, turn: state.turn },
     ];
@@ -53,17 +56,26 @@ export const endTurn: CommandHandler<EndTurnCommand> = {
 
 function startTurnOf(state: BattleState, defs: BattleDefs, unit: FieldedUnit): UnitChange {
   if (unit.moraleState !== 'routing') return recover(state, defs, unit);
-  return isPursued(state, unit) || unit.hasRallied ? flee(unit) : rally(defs, unit);
+  // The general's presence steadies a unit even with the enemy at its heels, but only once.
+  const canRally = !unit.hasRallied && (!isPursued(state, unit) || inCommand(state, defs, unit));
+  return canRally ? rally(defs, unit) : flee(unit);
 }
 
 /** A unit that fights gets its movement and attack back, and some morale if left in peace. */
 function recover(state: BattleState, defs: BattleDefs, unit: FieldedUnit): UnitChange {
   const type = unitTypeOf(defs, unit);
-  const rested = isPursued(state, unit)
-    ? unit
-    : shiftMorale(unit, defs.rules.morale.recoveryPerTurn, defs.rules.morale, type.morale);
+  const recovery =
+    (isPursued(state, unit) ? 0 : defs.rules.morale.recoveryPerTurn) +
+    (inCommand(state, defs, unit) ? defs.rules.command.recoveryBonus : 0);
+  const rested = shiftMorale(unit, recovery, defs.rules.morale, type.morale);
   return {
-    unit: { ...rested, movementLeft: type.movement, movedThisTurn: 0, hasAttacked: false },
+    unit: {
+      ...rested,
+      movementLeft: type.movement,
+      movedThisTurn: 0,
+      hasAttacked: false,
+      ordered: false,
+    },
     events: rested === unit ? [] : [moraleChanged(rested)],
   };
 }

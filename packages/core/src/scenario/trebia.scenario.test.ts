@@ -32,8 +32,8 @@ describe('scenario: Trebia', () => {
 
     expect(start.state.phase).toBe('deployment');
     expect(battle.state).toMatchObject({ phase: 'battle', turn: 1, activePlayer: 0 });
-    expect(fieldedUnits(battle.state, 0)).toHaveLength(13);
-    expect(fieldedUnits(battle.state, 1)).toHaveLength(12);
+    expect(fieldedUnits(battle.state, 0)).toHaveLength(14);
+    expect(fieldedUnits(battle.state, 1)).toHaveLength(13);
   });
 
   it('lines both armies up in their front rows, cavalry on the wings', () => {
@@ -44,12 +44,18 @@ describe('scenario: Trebia', () => {
         .filter((unit) => unit.pos.r === FRONT_ROWS[player])
         .sort((a, b) => a.pos.q - b.pos.q)
         .map((unit) => unitTypeOf(defs, unit).archetype);
-    const behind = fieldedUnits(state, 0).filter((unit) => unit.pos.r !== FRONT_ROWS[0]);
+    const behind = (player: 0 | 1) =>
+      fieldedUnits(state, player)
+        .filter((unit) => unit.pos.r !== FRONT_ROWS[player])
+        .map((unit) => [unit.typeId, unit.pos.r]);
 
-    // Rome's thirteenth unit does not fit into the front row: its last velites stand behind.
+    // What does not fit into the front row stands behind: Rome's last velites and the generals.
     expect(line(0)).toHaveLength(12);
-    expect(behind.map((unit) => [unit.typeId, unit.pos.r])).toEqual([['velites', 1]]);
-    expect(new Set(fieldedUnits(state, 1).map((unit) => unit.pos.r))).toEqual(new Set([9]));
+    expect(behind(0)).toEqual([
+      ['velites', 1],
+      ['consul', 1],
+    ]);
+    expect(behind(1)).toEqual([['hannibal', 10]]);
     expect([line(0)[0], line(0).at(-1)]).toEqual(['cavalry', 'cavalry']);
     expect([line(1)[0], line(1).at(-1)]).toEqual(['lightCavalry', 'lightCavalry']);
   });

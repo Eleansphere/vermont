@@ -1,6 +1,7 @@
 import type { BattleState, PlayerSlot, Winner } from './battleState';
 import { opponentOf } from './battleState';
 import type { Outcome } from './command';
+import { isGeneral } from './generals';
 import type { BattleDefs } from './rules';
 import { fieldedUnits, isFighting, unitAt } from './unit';
 
@@ -47,7 +48,10 @@ export interface ArmyLosses {
 }
 
 export function armyLosses(state: BattleState, defs: BattleDefs, player: PlayerSlot): ArmyLosses {
-  const army = Object.values(state.units).filter((unit) => unit.owner === player);
+  // The general is not counted: his fall costs the army its heart, not a unit of its line.
+  const army = Object.values(state.units).filter(
+    (unit) => unit.owner === player && !isGeneral(defs, unit)
+  );
   const lost = army.filter((unit) => unit.status === 'dead' || unit.status === 'fled').length;
   const breaksAt = Math.max(1, Math.ceil(army.length * defs.rules.victory.armyBreaksAt));
   return { brought: army.length, lost, untilBreak: Math.max(0, breaksAt - lost) };
